@@ -1,0 +1,19 @@
+{
+  "name": "fogopulse",
+  "version": "0.0.0",
+  "private": true,
+  "description": "FOGO Pulse - Prediction market on FOGO chain",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "dev": "pnpm --filter web dev",
+    "lint": "pnpm -r run lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "anchor": "pnpm --filter anchor anchor",
+    "anchor-build": "pnpm --filter anchor anchor build",
+    "anchor-test": "pnpm --filter anchor anchor test"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  }
+}

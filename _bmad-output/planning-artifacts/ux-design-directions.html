@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FOGO Pulse - Design Direction Mockups</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'bg-primary': '#0a0a0b',
+                        'bg-secondary': '#141415',
+                        'bg-tertiary': '#1f1f21',
+                        'fg-primary': '#fafafa',
+                        'fg-muted': '#a1a1aa',
+                        'border-default': '#27272a',
+                        'border-focus': '#3f3f46',
+                        'accent': '#f7931a',
+                        'accent-hover': '#f9a63a',
+                        'up': '#22c55e',
+                        'up-hover': '#16a34a',
+                        'down': '#ef4444',
+                        'down-hover': '#dc2626',
+                        'warning': '#f59e0b',
+                    },
+                    fontFamily: {
+                        'sans': ['Inter', 'system-ui', 'sans-serif'],
+                        'mono': ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .mockup-container {
+            scroll-snap-type: x mandatory;
+        }
+        .mockup-section {
+            scroll-snap-align: start;
+        }
+        .chart-line {
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            animation: drawLine 2s ease-out forwards;
+        }
+        @keyframes drawLine {
+            to { stroke-dashoffset: 0; }
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .pulse-dot {
+            animation: pulse 2s infinite;
+        }
+        .tab-active {
+            border-bottom: 2px solid #f7931a;
+            color: #fafafa;
+        }
+    </style>
+</head>
+<body class="bg-bg-primary text-fg-primary font-sans">
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 bg-bg-secondary border-b border-border-default z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <h1 class="text-xl font-bold text-accent">FOGO Pulse - Design Directions</h1>
+            <div class="flex gap-2">
+                <button onclick="showMockup(1)" id="nav-1" class="px-4 py-2 rounded bg-accent text-bg-primary font-medium text-sm">Direction 1</button>
+                <button onclick="showMockup(2)" id="nav-2" class="px-4 py-2 rounded bg-bg-tertiary text-fg-muted font-medium text-sm hover:bg-border-focus">Direction 2</button>
+                <button onclick="showMockup(3)" id="nav-3" class="px-4 py-2 rounded bg-bg-tertiary text-fg-muted font-medium text-sm hover:bg-border-focus">Direction 3</button>
+                <button onclick="showMockup(4)" id="nav-4" class="px-4 py-2 rounded bg-bg-tertiary text-fg-muted font-medium text-sm hover:bg-border-focus">Direction 4</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Mockup Container -->
+    <div class="pt-16">
+
+        <!-- Direction 1: Reference-Based (Chart Left, Ticket Right) -->
+        <section id="mockup-1" class="mockup-section min-h-screen p-6">
+            <div class="max-w-7xl mx-auto">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold mb-2">Direction 1: Reference Layout</h2>
+                    <p class="text-fg-muted">Chart-dominant left side, trade ticket right. Based on the reference screenshot. Clean, focused trading experience.</p>
+                </div>
+
+                <!-- App Frame -->
+                <div class="bg-bg-secondary rounded-lg border border-border-default overflow-hidden">
+                    <!-- Header -->
+                    <header class="bg-bg-tertiary border-b border-border-default px-6 py-4 flex items-center justify-between">
+                        <div class="flex items-center gap-6">
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-full bg-accent flex items-center justify-center font-bold text-bg-primary">F</div>
+                                <span class="font-bold text-lg">FOGO Pulse</span>
+                            </div>
+                            <div class="flex gap-1">
+                                <button class="px-4 py-2 text-sm font-medium tab-active">BTC</button>
+                                <button class="px-4 py-2 text-sm font-medium text-fg-muted hover:text-fg-primary">ETH</button>
+                                <button class="px-4 py-2 text-sm font-medium text-fg-muted hover:text-fg-primary">SOL</button>
+                                <button class="px-4 py-2 text-sm font-medium text-fg-muted hover:text-fg-primary">FOGO</button>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <button class="px-4 py-2 rounded bg-accent text-bg-primary font-medium text-sm">Connect Wallet</button>
+                        </div>
+                    </header>
+
+                    <!-- Main Content -->
+                    <div class="p-6">
+                        <div class="grid grid-cols-12 gap-6">
+                            <!-- Chart Area (8 cols) -->
+                            <div class="col-span-8">
+                                <div class="bg-bg-primary rounded-lg border border-border-default p-6">
+                                    <!-- Chart Header -->
+                                    <div class="flex items-center justify-between mb-6">
+                                        <div class="flex items-center gap-4">
+                                            <div class="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center">
+                                                <span class="text-accent font-bold text-xl">₿</span>
+                                            </div>
+                                            <div>
+                                                <h3 class="text-lg font-semibold">Bitcoin Up or Down - 5 Minutes</h3>
+                                                <p class="text-sm text-fg-muted">March 11, 8:00-8:05 AM ET</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-8">
+                                            <div>
+                                                <p class="text-xs text-fg-muted uppercase tracking-wide">Price to Beat</p>
+                                                <p class="text-2xl font-bold font-mono">$69,173.98</p>
+                                            </div>
+                                            <div>
+                                                <p class="text-xs text-fg-muted uppercase tracking-wide">Current Price</p>
+                                                <p class="text-2xl font-bold font-mono">$69,105.32 <span class="text-down text-lg">▼ $68</span></p>
+                                            </div>
+                                            <div class="text-right">
+                                                <p class="text-xs text-fg-muted uppercase tracking-wide">Time Left</p>
+                                                <p class="text-2xl font-bold font-mono text-accent">04:25</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Chart SVG -->
+                                    <div class="h-64 relative">
+                                        <svg class="w-full h-full" viewBox="0 0 800 200">
+                                            <!-- Grid -->
+                                            <line x1="0" y1="50" x2="800" y2="50" stroke="#27272a" stroke-dasharray="4"/>
+                                            <line x1="0" y1="100" x2="800" y2="100" stroke="#27272a" stroke-dasharray="4"/>
+                                            <line x1="0" y1="150" x2="800" y2="150" stroke="#27272a" stroke-dasharray="4"/>
+
+                                            <!-- Target Line -->
+                                            <line x1="0" y1="80" x2="800" y2="80" stroke="#a1a1aa" stroke-dasharray="8,4" stroke-width="2"/>
+                                            <text x="760" y="75" fill="#a1a1aa" font-size="12">Target</text>
+
+                                            <!-- Price Line -->
+                                            <path d="M 0 70 Q 100 65, 200 75 T 400 85 T 600 110 T 750 120"
+                                                  fill="none" stroke="#f7931a" stroke-width="3" class="chart-line"/>
+
+                                            <!-- Current Price Dot -->
+                                            <circle cx="750" cy="120" r="6" fill="#f7931a" class="pulse-dot"/>
+
+                                            <!-- Position Markers -->
+                                            <circle cx="300" cy="82" r="4" fill="#22c55e"/>
+                                            <text x="20" y="85" fill="#22c55e" font-size="11">+ $50</text>
+                                        </svg>
+
+                                        <!-- Y-Axis Labels -->
+                                        <div class="absolute right-0 top-0 h-full flex flex-col justify-between text-xs text-fg-muted pr-2 py-2">
+                                            <span>$69,250</span>
+                                            <span>$69,200</span>
+                                            <span>$69,150</span>
+                                            <span>$69,100</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- State Badge -->
+                                    <div class="mt-4 flex items-center gap-2">
+                                        <span class="px-3 py-1 rounded-full bg-up/20 text-up text-sm font-medium">OPEN - Trading Active</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Trade Ticket (4 cols) -->
+                            <div class="col-span-4">
+                                <div class="bg-bg-primary rounded-lg border border-border-default p-6">
+                                    <h3 class="text-lg font-semibold mb-4">Place Trade</h3>
+
+                                    <!-- Direction Buttons -->
+                                    <div class="grid grid-cols-2 gap-3 mb-6">
+                                        <button class="py-4 rounded-lg bg-up hover:bg-up-hover text-white font-bold text-lg transition-colors">
+                                            ▲ UP
+                                        </button>
+                                        <button class="py-4 rounded-lg bg-down hover:bg-down-hover text-white font-bold text-lg transition-colors">
+                                            ▼ DOWN
+                                        </button>
+                                    </div>
+
+                                    <!-- Probability Bar -->
+                                    <div class="mb-6">
+                                        <div class="flex justify-between text-sm mb-2">
+                                            <span class="text-up font-medium">UP 48%</span>
+                                            <span class="text-down font-medium">DOWN 52%</span>
+                                        </div>
+                                        <div class="h-2 rounded-full bg-bg-tertiary overflow-hidden flex">
+                                            <div class="bg-up" style="width: 48%"></div>
+                                            <div class="bg-down" style="width: 52%"></div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Amount Input -->
+                                    <div class="mb-4">
+                                        <label class="text-sm text-fg-muted mb-2 block">Amount (USDC)</label>
+                                        <input type="text" value="50" class="w-full bg-bg-tertiary border border-border-default rounded-lg px-4 py-3 text-lg font-mono focus:border-accent focus:outline-none"/>
+                                        <div class="flex gap-2 mt-2">
+                                            <button class="px-3 py-1 rounded bg-bg-tertiary text-sm hover:bg-border-focus">10</button>
+                                            <button class="px-3 py-1 rounded bg-bg-tertiary text-sm hover:bg-border-focus">25</button>
+                                            <button class="px-3 py-1 rounded bg-accent/20 text-accent text-sm">50</button>
+                                            <button class="px-3 py-1 rounded bg-bg-tertiary text-sm hover:bg-border-focus">100</button>
+                                            <button class="px-3 py-1 rounded bg-bg-tertiary text-sm hover:bg-border-focus">MAX</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Preview -->
+                                    <div class="bg-bg-tertiary rounded-lg p-4 mb-4">
+                                        <div class="flex justify-between text-sm mb-2">
+                                            <span class="text-fg-muted">Fee (1.8%)</span>
+                                            <span>0.90 USDC</span>
+                                        </div>
+                                        <div class="flex justify-between text-sm mb-2">
+                                            <span class="text-fg-muted">If UP wins</span>
+                                            <span class="text-up font-medium">~95 USDC (+90%)</span>
+                                        </div>
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-fg-muted">If DOWN wins</span>
+                                            <span class="text-down font-medium">0 USDC</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Confirm Button -->
+                                    <button class="w-full py-4 rounded-lg bg-accent hover:bg-accent-hover text-bg-primary font-bold text-lg transition-colors">
+                                        Confirm Trade
+                                    </button>
+                                </div>
+
+                                <!-- Position Card -->
+                                <div class="bg-bg-primary rounded-lg border border-border-default p-4 mt-4">
+                                    <h4 class="text-sm font-medium text-fg-muted mb-3">Your Position</h4>
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-3">
+                                            <span class="px-2 py-1 rounded bg-up/20 text-up text-sm font-medium">UP</span>
+                                            <span class="font-mono">50 USDC</span>
+                                        </div>
+                                        <span class="text-fg-muted text-sm">Entry: $69,105</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Positions/History Section -->
+                        <div class="mt-6">
+                            <div class="bg-bg-primary rounded-lg border border-border-default">
+                                <div class="border-b border-border-default px-6 py-3 flex gap-6">
+                                    <button class="text-sm font-medium tab-active pb-2">Open Positions</button>
+                                    <button class="text-sm font-medium text-fg-muted hover:text-fg-primary pb-2">History</button>
+                                </div>
+                                <div class="p-6">
+                                    <div class="flex items-center justify-between py-3 border-b border-border-default">
+                                        <div class="flex items-center gap-4">
+                                            <span class="text-accent font-bold">BTC</span>
+                                            <span class="px-2 py-1 rounded bg-up/20 text-up text-xs font-medium">UP</span>
+                                            <span class="font-mono">50 USDC</span>
+                                        </div>
+                                        <div class="flex items-center gap-6">
+                                            <span class="text-fg-muted text-sm">Entry: $69,105</span>
+                                            <span class="text-fg-muted text-sm">04:25 left</span>
+                                            <button class="text-sm text-accent hover:text-accent-hover">Early Exit</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 p-4 bg-bg-secondary rounded-lg border border-border-default">
+                    <h4 class="font-semibold mb-2">Direction 1 Characteristics:</h4>
+                    <ul class="text-sm text-fg-muted space-y-1">
+                        <li>• Chart-dominant layout (65/35 split) - matches reference design</li>
+                        <li>• Trade ticket always visible on right side</li>
+                        <li>• Asset tabs in header for quick switching</li>
+                        <li>• Positions section below main trading area</li>
+                        <li>• Best for: Focused single-asset trading sessions</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Direction 2: Compact Trading View -->
+        <section id="mockup-2" class="mockup-section min-h-screen p-6 hidden">
+            <div class="max-w-7xl mx-auto">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold mb-2">Direction 2: Compact Trading View</h2>
+                    <p class="text-fg-muted">Denser layout with trade ticket integrated below chart. Better for smaller screens and multi-tasking.</p>
+                </div>
+
+                <!-- App Frame -->
+                <div class="bg-bg-secondary rounded-lg border border-border-default overflow-hidden">
+                    <!-- Header -->
+                    <header class="bg-bg-tertiary border-b border-border-default px-6 py-3 flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="flex items-center gap-2">
+                                <div class="w-7 h-7 rounded-full bg-accent flex items-center justify-center font-bold text-bg-primary text-sm">F</div>
+                                <span class="font-bold">Pulse</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 bg-bg-primary rounded-lg p-1">
+                            <button class="px-4 py-2 rounded-md bg-accent text-bg-primary text-sm font-medium">BTC</button>
+                            <button class="px-4 py-2 rounded-md text-fg-muted text-sm font-medium hover:text-fg-primary">ETH</button>
+                            <button class="px-4 py-2 rounded-md text-fg-muted text-sm font-medium hover:text-fg-primary">SOL</button>
+                            <button class="px-4 py-2 rounded-md text-fg-muted text-sm font-medium hover:text-fg-primary">FOGO</button>
+                        </div>
+                        <button class="px-4 py-2 rounded bg-accent text-bg-primary font-medium text-sm">Connect</button>
+                    </header>
+
+                    <!-- Main Content -->
+                    <div class="p-4">
+                        <!-- Chart Card - Full Width -->
+                        <div class="bg-bg-primary rounded-lg border border-border-default p-4 mb-4">
+                            <!-- Compact Header -->
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center gap-6">
+                                    <div>
+                                        <p class="text-xs text-fg-muted">Price to Beat</p>
+                                        <p class="text-xl font-bold font-mono">$69,173.98</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-fg-muted">Current</p>
+                                        <p class="text-xl font-bold font-mono">$69,105 <span class="text-down text-sm">▼$68</span></p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-4">
+                                    <span class="px-3 py-1 rounded-full bg-up/20 text-up text-sm font-medium">OPEN</span>
+                                    <div class="text-right">
+                                        <p class="text-2xl font-bold font-mono text-accent">04:25</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Chart -->
+                            <div class="h-48 relative bg-bg-tertiary rounded-lg">
+                                <svg class="w-full h-full" viewBox="0 0 800 150">
+                                    <line x1="0" y1="60" x2="800" y2="60" stroke="#a1a1aa" stroke-dasharray="8,4" stroke-width="2"/>
+                                    <path d="M 0 50 Q 100 45, 200 55 T 400 65 T 600 90 T 750 100"
+                                          fill="none" stroke="#f7931a" stroke-width="3"/>
+                                    <circle cx="750" cy="100" r="5" fill="#f7931a" class="pulse-dot"/>
+                                </svg>
+                            </div>
+                        </div>
+
+                        <!-- Trade Section - Horizontal Layout -->
+                        <div class="grid grid-cols-3 gap-4 mb-4">
+                            <!-- Direction + Probability -->
+                            <div class="bg-bg-primary rounded-lg border border-border-default p-4">
+                                <div class="grid grid-cols-2 gap-2 mb-4">
+                                    <button class="py-3 rounded-lg bg-up hover:bg-up-hover text-white font-bold transition-colors">▲ UP</button>
+                                    <button class="py-3 rounded-lg bg-down hover:bg-down-hover text-white font-bold transition-colors">▼ DOWN</button>
+                                </div>
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span class="text-up">48%</span>
+                                    <span class="text-down">52%</span>
+                                </div>
+                                <div class="h-1.5 rounded-full bg-bg-tertiary overflow-hidden flex">
+                                    <div class="bg-up" style="width: 48%"></div>
+                                    <div class="bg-down" style="width: 52%"></div>
+                                </div>
+                            </div>
+
+                            <!-- Amount -->
+                            <div class="bg-bg-primary rounded-lg border border-border-default p-4">
+                                <label class="text-xs text-fg-muted mb-2 block">Amount (USDC)</label>
+                                <input type="text" value="50" class="w-full bg-bg-tertiary border border-border-default rounded px-3 py-2 font-mono text-lg focus:border-accent focus:outline-none"/>
+                                <div class="flex gap-1 mt-2">
+                                    <button class="flex-1 px-2 py-1 rounded bg-bg-tertiary text-xs">10</button>
+                                    <button class="flex-1 px-2 py-1 rounded bg-bg-tertiary text-xs">25</button>
+                                    <button class="flex-1 px-2 py-1 rounded bg-accent/20 text-accent text-xs">50</button>
+                                    <button class="flex-1 px-2 py-1 rounded bg-bg-tertiary text-xs">100</button>
+                                </div>
+                            </div>
+
+                            <!-- Preview + Confirm -->
+                            <div class="bg-bg-primary rounded-lg border border-border-default p-4">
+                                <div class="text-sm mb-3 space-y-1">
+                                    <div class="flex justify-between">
+                                        <span class="text-fg-muted">If UP</span>
+                                        <span class="text-up">~95 USDC</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-fg-muted">Fee</span>
+                                        <span>0.90</span>
+                                    </div>
+                                </div>
+                                <button class="w-full py-3 rounded-lg bg-accent hover:bg-accent-hover text-bg-primary font-bold transition-colors">
+                                    Confirm
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Position Strip -->
+                        <div class="bg-bg-primary rounded-lg border border-border-default p-3 flex items-center justify-between">
+                            <div class="flex items-center gap-4">
+                                <span class="text-sm text-fg-muted">Your Position:</span>
+                                <span class="px-2 py-0.5 rounded bg-up/20 text-up text-sm">UP</span>
+                                <span class="font-mono">50 USDC @ $69,105</span>
+                            </div>
+                            <button class="text-sm text-accent">Early Exit</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 p-4 bg-bg-secondary rounded-lg border border-border-default">
+                    <h4 class="font-semibold mb-2">Direction 2 Characteristics:</h4>
+                    <ul class="text-sm text-fg-muted space-y-1">
+                        <li>• Horizontal trade flow below chart</li>
+                        <li>• More compact - fits on smaller screens</li>
+                        <li>• Pill-style asset switcher in header</li>
+                        <li>• Position as minimal strip at bottom</li>
+                        <li>• Best for: Quick trades, mobile-friendly layouts</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Direction 3: Dashboard Multi-Asset View -->
+        <section id="mockup-3" class="mockup-section min-h-screen p-6 hidden">
+            <div class="max-w-7xl mx-auto">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold mb-2">Direction 3: Dashboard Multi-Asset View</h2>
+                    <p class="text-fg-muted">All 4 assets visible at once with quick-trade capability. For traders monitoring multiple markets.</p>
+                </div>
+
+                <!-- App Frame -->
+                <div class="bg-bg-secondary rounded-lg border border-border-default overflow-hidden">
+                    <!-- Header -->
+                    <header class="bg-bg-tertiary border-b border-border-default px-6 py-3 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-full bg-accent flex items-center justify-center font-bold text-bg-primary">F</div>
+                            <span class="font-bold text-lg">FOGO Pulse</span>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <span class="text-sm text-fg-muted">4 Active Markets</span>
+                            <button class="px-4 py-2 rounded bg-accent text-bg-primary font-medium text-sm">Connect Wallet</button>
+                        </div>
+                    </header>
+
+                    <!-- Main Content -->
+                    <div class="p-4">
+                        <!-- 2x2 Grid of Markets -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <!-- BTC Market Card -->
+                            <div class="bg-bg-primary rounded-lg border border-border-default p-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent font-bold">₿</div>
+                                        <div>
+                                            <h3 class="font-semibold">BTC/USD</h3>
+                                            <p class="text-xs text-fg-muted">5 min epoch</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="font-mono font-bold">$69,105</p>
+                                        <p class="text-sm text-down">▼ $68</p>
+                                    </div>
+                                </div>
+
+                                <!-- Mini Chart -->
+                                <div class="h-20 bg-bg-tertiary rounded mb-3">
+                                    <svg class="w-full h-full" viewBox="0 0 200 60">
+                                        <path d="M 0 30 Q 50 25, 100 35 T 180 45" fill="none" stroke="#f7931a" stroke-width="2"/>
+                                    </svg>
+                                </div>
+
+                                <!-- Quick Stats -->
+                                <div class="flex items-center justify-between mb-3">
+                                    <div class="flex gap-3 text-sm">
+                                        <span class="text-up">UP 48%</span>
+                                        <span class="text-down">DOWN 52%</span>
+                                    </div>
+                                    <span class="font-mono text-accent">04:25</span>
+                                </div>
+
+                                <!-- Quick Trade Buttons -->
+                                <div class="grid grid-cols-2 gap-2">
+                                    <button class="py-2 rounded bg-up/20 text-up font-medium hover:bg-up/30">▲ UP</button>
+                                    <button class="py-2 rounded bg-down/20 text-down font-medium hover:bg-down/30">▼ DOWN</button>
+                                </div>
+                            </div>
+
+                            <!-- ETH Market Card -->
+                            <div class="bg-bg-primary rounded-lg border border-border-default p-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 font-bold">Ξ</div>
+                                        <div>
+                                            <h3 class="font-semibold">ETH/USD</h3>
+                                            <p class="text-xs text-fg-muted">5 min epoch</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="font-mono font-bold">$3,842</p>
+                                        <p class="text-sm text-up">▲ $12</p>
+                                    </div>
+                                </div>
+
+                                <div class="h-20 bg-bg-tertiary rounded mb-3">
+                                    <svg class="w-full h-full" viewBox="0 0 200 60">
+                                        <path d="M 0 40 Q 50 35, 100 30 T 180 25" fill="none" stroke="#3b82f6" stroke-width="2"/>
+                                    </svg>
+                                </div>
+
+                                <div class="flex items-center justify-between mb-3">
+                                    <div class="flex gap-3 text-sm">
+                                        <span class="text-up">UP 61%</span>
+                                        <span class="text-down">DOWN 39%</span>
+                                    </div>
+                                    <span class="font-mono text-accent">03:15</span>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-2">
+                                    <button class="py-2 rounded bg-up/20 text-up font-medium hover:bg-up/30">▲ UP</button>
+                                    <button class="py-2 rounded bg-down/20 text-down font-medium hover:bg-down/30">▼ DOWN</button>
+                                </div>
+                            </div>
+
+                            <!-- SOL Market Card -->
+                            <div class="bg-bg-primary rounded-lg border border-border-default p-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 font-bold">◎</div>
+                                        <div>
+                                            <h3 class="font-semibold">SOL/USD</h3>
+                                            <p class="text-xs text-fg-muted">5 min epoch</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="font-mono font-bold">$142.50</p>
+                                        <p class="text-sm text-down">▼ $0.80</p>
+                                    </div>
+                                </div>
+
+                                <div class="h-20 bg-bg-tertiary rounded mb-3">
+                                    <svg class="w-full h-full" viewBox="0 0 200 60">
+                                        <path d="M 0 25 Q 50 30, 100 35 T 180 40" fill="none" stroke="#a855f7" stroke-width="2"/>
+                                    </svg>
+                                </div>
+
+                                <div class="flex items-center justify-between mb-3">
+                                    <div class="flex gap-3 text-sm">
+                                        <span class="text-up">UP 45%</span>
+                                        <span class="text-down">DOWN 55%</span>
+                                    </div>
+                                    <span class="font-mono text-accent">02:45</span>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-2">
+                                    <button class="py-2 rounded bg-up/20 text-up font-medium hover:bg-up/30">▲ UP</button>
+                                    <button class="py-2 rounded bg-down/20 text-down font-medium hover:bg-down/30">▼ DOWN</button>
+                                </div>
+                            </div>
+
+                            <!-- FOGO Market Card -->
+                            <div class="bg-bg-primary rounded-lg border border-border-default p-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent font-bold">F</div>
+                                        <div>
+                                            <h3 class="font-semibold">FOGO/USD</h3>
+                                            <p class="text-xs text-fg-muted">5 min epoch</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="font-mono font-bold">$0.0842</p>
+                                        <p class="text-sm text-up">▲ $0.002</p>
+                                    </div>
+                                </div>
+
+                                <div class="h-20 bg-bg-tertiary rounded mb-3">
+                                    <svg class="w-full h-full" viewBox="0 0 200 60">
+                                        <path d="M 0 35 Q 50 30, 100 25 T 180 20" fill="none" stroke="#f7931a" stroke-width="2"/>
+                                    </svg>
+                                </div>
+
+                                <div class="flex items-center justify-between mb-3">
+                                    <div class="flex gap-3 text-sm">
+                                        <span class="text-up">UP 58%</span>
+                                        <span class="text-down">DOWN 42%</span>
+                                    </div>
+                                    <span class="font-mono text-accent">04:50</span>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-2">
+                                    <button class="py-2 rounded bg-up/20 text-up font-medium hover:bg-up/30">▲ UP</button>
+                                    <button class="py-2 rounded bg-down/20 text-down font-medium hover:bg-down/30">▼ DOWN</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- All Positions Bar -->
+                        <div class="mt-4 bg-bg-primary rounded-lg border border-border-default p-4">
+                            <div class="flex items-center justify-between">
+                                <h4 class="font-medium">Your Positions (2 active)</h4>
+                                <div class="flex gap-6">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-accent">BTC</span>
+                                        <span class="px-2 py-0.5 rounded bg-up/20 text-up text-sm">UP</span>
+                                        <span class="font-mono">50 USDC</span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-purple-400">SOL</span>
+                                        <span class="px-2 py-0.5 rounded bg-down/20 text-down text-sm">DOWN</span>
+                                        <span class="font-mono">25 USDC</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 p-4 bg-bg-secondary rounded-lg border border-border-default">
+                    <h4 class="font-semibold mb-2">Direction 3 Characteristics:</h4>
+                    <ul class="text-sm text-fg-muted space-y-1">
+                        <li>• All 4 markets visible simultaneously</li>
+                        <li>• Mini charts for quick visual scanning</li>
+                        <li>• Quick-trade buttons on each card (opens modal for amount)</li>
+                        <li>• Combined positions bar at bottom</li>
+                        <li>• Best for: Multi-asset traders, market scanning, portfolio view</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Direction 4: Mobile-First / Focused -->
+        <section id="mockup-4" class="mockup-section min-h-screen p-6 hidden">
+            <div class="max-w-md mx-auto">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold mb-2">Direction 4: Mobile-First / Focused</h2>
+                    <p class="text-fg-muted">Single-column layout optimized for mobile. Shows how the responsive experience would work.</p>
+                </div>
+
+                <!-- Phone Frame -->
+                <div class="bg-bg-secondary rounded-3xl border-4 border-border-default overflow-hidden shadow-2xl">
+                    <!-- Status Bar -->
+                    <div class="bg-bg-primary px-4 py-2 flex items-center justify-between text-xs">
+                        <span>9:41</span>
+                        <div class="flex items-center gap-1">
+                            <span>📶</span>
+                            <span>🔋</span>
+                        </div>
+                    </div>
+
+                    <!-- Header -->
+                    <header class="bg-bg-tertiary px-4 py-3 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-full bg-accent flex items-center justify-center font-bold text-bg-primary text-sm">F</div>
+                            <span class="font-bold">Pulse</span>
+                        </div>
+                        <button class="px-3 py-1.5 rounded bg-accent text-bg-primary font-medium text-sm">Connect</button>
+                    </header>
+
+                    <!-- Asset Tabs (Scrollable) -->
+                    <div class="bg-bg-tertiary px-4 pb-3 flex gap-2 overflow-x-auto">
+                        <button class="px-4 py-2 rounded-full bg-accent text-bg-primary text-sm font-medium whitespace-nowrap">BTC</button>
+                        <button class="px-4 py-2 rounded-full bg-bg-primary text-fg-muted text-sm font-medium whitespace-nowrap">ETH</button>
+                        <button class="px-4 py-2 rounded-full bg-bg-primary text-fg-muted text-sm font-medium whitespace-nowrap">SOL</button>
+                        <button class="px-4 py-2 rounded-full bg-bg-primary text-fg-muted text-sm font-medium whitespace-nowrap">FOGO</button>
+                    </div>
+
+                    <!-- Main Content -->
+                    <div class="bg-bg-primary p-4 space-y-4">
+                        <!-- Price Header -->
+                        <div class="text-center">
+                            <p class="text-xs text-fg-muted uppercase tracking-wide">Price to Beat</p>
+                            <p class="text-3xl font-bold font-mono">$69,173.98</p>
+                            <p class="text-lg font-mono mt-1">
+                                <span class="text-fg-muted">Now:</span> $69,105
+                                <span class="text-down">▼ $68</span>
+                            </p>
+                        </div>
+
+                        <!-- Countdown -->
+                        <div class="flex justify-center">
+                            <div class="bg-bg-secondary rounded-full px-6 py-2 flex items-center gap-3">
+                                <span class="text-up text-sm font-medium">OPEN</span>
+                                <span class="text-2xl font-bold font-mono text-accent">04:25</span>
+                            </div>
+                        </div>
+
+                        <!-- Chart -->
+                        <div class="h-40 bg-bg-secondary rounded-xl p-2">
+                            <svg class="w-full h-full" viewBox="0 0 300 120">
+                                <line x1="0" y1="50" x2="300" y2="50" stroke="#a1a1aa" stroke-dasharray="4,4"/>
+                                <path d="M 0 40 Q 75 35, 150 50 T 280 70" fill="none" stroke="#f7931a" stroke-width="3"/>
+                                <circle cx="280" cy="70" r="5" fill="#f7931a" class="pulse-dot"/>
+                            </svg>
+                        </div>
+
+                        <!-- Probability -->
+                        <div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-up font-medium">▲ UP 48%</span>
+                                <span class="text-down font-medium">▼ DOWN 52%</span>
+                            </div>
+                            <div class="h-3 rounded-full bg-bg-secondary overflow-hidden flex">
+                                <div class="bg-up" style="width: 48%"></div>
+                                <div class="bg-down" style="width: 52%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Trade Buttons -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <button class="py-4 rounded-xl bg-up hover:bg-up-hover text-white font-bold text-lg">
+                                ▲ UP
+                            </button>
+                            <button class="py-4 rounded-xl bg-down hover:bg-down-hover text-white font-bold text-lg">
+                                ▼ DOWN
+                            </button>
+                        </div>
+
+                        <!-- Amount Quick Select -->
+                        <div class="flex gap-2 justify-center">
+                            <button class="px-4 py-2 rounded-lg bg-bg-secondary text-sm">10</button>
+                            <button class="px-4 py-2 rounded-lg bg-bg-secondary text-sm">25</button>
+                            <button class="px-4 py-2 rounded-lg bg-accent text-bg-primary text-sm font-medium">50</button>
+                            <button class="px-4 py-2 rounded-lg bg-bg-secondary text-sm">100</button>
+                        </div>
+
+                        <!-- Your Position (if any) -->
+                        <div class="bg-bg-secondary rounded-xl p-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-xs text-fg-muted">Your Position</p>
+                                    <p class="font-medium">
+                                        <span class="text-up">▲ UP</span> • 50 USDC
+                                    </p>
+                                </div>
+                                <button class="text-accent text-sm">Exit</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bottom Nav -->
+                    <div class="bg-bg-tertiary border-t border-border-default px-6 py-3 flex justify-around">
+                        <button class="flex flex-col items-center text-accent">
+                            <span class="text-xl">📈</span>
+                            <span class="text-xs mt-1">Trade</span>
+                        </button>
+                        <button class="flex flex-col items-center text-fg-muted">
+                            <span class="text-xl">📋</span>
+                            <span class="text-xs mt-1">Positions</span>
+                        </button>
+                        <button class="flex flex-col items-center text-fg-muted">
+                            <span class="text-xl">💧</span>
+                            <span class="text-xs mt-1">LP</span>
+                        </button>
+                        <button class="flex flex-col items-center text-fg-muted">
+                            <span class="text-xl">⚙️</span>
+                            <span class="text-xs mt-1">Settings</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-6 p-4 bg-bg-secondary rounded-lg border border-border-default">
+                    <h4 class="font-semibold mb-2">Direction 4 Characteristics:</h4>
+                    <ul class="text-sm text-fg-muted space-y-1">
+                        <li>• Single-column, thumb-friendly layout</li>
+                        <li>• Large touch targets for trade buttons</li>
+                        <li>• Centered price focus with visual hierarchy</li>
+                        <li>• Bottom navigation for section switching</li>
+                        <li>• Best for: Mobile trading, touch-first interaction</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Comparison Footer -->
+    <footer class="fixed bottom-0 left-0 right-0 bg-bg-secondary border-t border-border-default p-4">
+        <div class="max-w-7xl mx-auto">
+            <div class="grid grid-cols-4 gap-4 text-center text-sm">
+                <div>
+                    <h5 class="font-medium text-accent mb-1">Direction 1</h5>
+                    <p class="text-fg-muted">Reference Layout<br>Chart Left + Ticket Right</p>
+                </div>
+                <div>
+                    <h5 class="font-medium text-accent mb-1">Direction 2</h5>
+                    <p class="text-fg-muted">Compact View<br>Horizontal Trade Flow</p>
+                </div>
+                <div>
+                    <h5 class="font-medium text-accent mb-1">Direction 3</h5>
+                    <p class="text-fg-muted">Dashboard<br>Multi-Asset Grid</p>
+                </div>
+                <div>
+                    <h5 class="font-medium text-accent mb-1">Direction 4</h5>
+                    <p class="text-fg-muted">Mobile-First<br>Single Column</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function showMockup(num) {
+            // Hide all mockups
+            document.querySelectorAll('.mockup-section').forEach(el => el.classList.add('hidden'));
+
+            // Show selected mockup
+            document.getElementById('mockup-' + num).classList.remove('hidden');
+
+            // Update nav buttons
+            document.querySelectorAll('[id^="nav-"]').forEach(btn => {
+                btn.classList.remove('bg-accent', 'text-bg-primary');
+                btn.classList.add('bg-bg-tertiary', 'text-fg-muted');
+            });
+            document.getElementById('nav-' + num).classList.remove('bg-bg-tertiary', 'text-fg-muted');
+            document.getElementById('nav-' + num).classList.add('bg-accent', 'text-bg-primary');
+        }
+    </script>
+</body>
+</html>

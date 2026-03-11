@@ -1,0 +1,25 @@
+[toolchain]
+package_manager = "pnpm"
+
+[features]
+resolution = true
+skip-lint = false
+
+# Note: Anchor doesn't support custom cluster names like "fogo-testnet"
+# We use localnet as a placeholder and deploy using solana program deploy directly
+[programs.localnet]
+fogopulse = "Ht3NLQDkJG4BLgsnUnyuWD2393wULyP5nEXx8AyXhiGr"
+
+# Alias for FOGO testnet deployments
+[programs.devnet]
+fogopulse = "Ht3NLQDkJG4BLgsnUnyuWD2393wULyP5nEXx8AyXhiGr"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/fogo-testnet.json"
+
+[scripts]
+test = "pnpm jest"

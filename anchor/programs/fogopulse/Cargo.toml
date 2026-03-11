@@ -1,0 +1,26 @@
+[package]
+name = "fogopulse"
+version = "0.1.0"
+description = "FOGO Pulse - Prediction market on FOGO chain"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "fogopulse"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+
+
+[dependencies]
+anchor-lang = "0.32.1"
+# anchor-lang 0.32.1 declares ^2 for these crates but needs specific minimum
+# versions that contain the APIs it uses (store_current_index_checked, resize)
+solana-instructions-sysvar = ">=2.2.2"
+solana-account-info = ">=2.3.0"
+
