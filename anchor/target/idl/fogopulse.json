@@ -8,6 +8,137 @@
   },
   "instructions": [
     {
+      "name": "create_epoch",
+      "discriminator": [
+        115,
+        111,
+        36,
+        230,
+        59,
+        145,
+        168,
+        27
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "docs": [
+            "Anyone can call - permissionless for crank bots/keepers"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global_config",
+          "docs": [
+            "GlobalConfig - boxed to prevent stack overflow"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "Pool - must have no active epoch"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.asset_mint",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "epoch",
+          "docs": [
+            "Epoch account to be created"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  112,
+                  111,
+                  99,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.next_epoch_id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "clock",
+          "docs": [
+            "Clock sysvar for timestamp"
+          ],
+          "address": "SysvarC1ock11111111111111111111111111111111"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "start_price",
+          "type": "u64"
+        },
+        {
+          "name": "start_confidence",
+          "type": "u64"
+        },
+        {
+          "name": "start_publish_time",
+          "type": "i64"
+        }
+      ]
+    },
+    {
       "name": "create_pool",
       "discriminator": [
         233,
@@ -210,6 +341,19 @@
   ],
   "accounts": [
     {
+      "name": "Epoch",
+      "discriminator": [
+        93,
+        83,
+        120,
+        89,
+        151,
+        138,
+        152,
+        108
+      ]
+    },
+    {
       "name": "GlobalConfig",
       "discriminator": [
         149,
@@ -237,6 +381,19 @@
     }
   ],
   "events": [
+    {
+      "name": "EpochCreated",
+      "discriminator": [
+        191,
+        150,
+        240,
+        63,
+        59,
+        212,
+        233,
+        124
+      ]
+    },
     {
       "name": "GlobalConfigInitialized",
       "discriminator": [
@@ -309,9 +466,237 @@
       "code": 6008,
       "name": "ProtocolFrozen",
       "msg": "Protocol is frozen - emergency halt active"
+    },
+    {
+      "code": 6009,
+      "name": "PoolPaused",
+      "msg": "Pool is paused - no new epochs allowed"
+    },
+    {
+      "code": 6010,
+      "name": "PoolFrozen",
+      "msg": "Pool is frozen - emergency halt active"
+    },
+    {
+      "code": 6011,
+      "name": "EpochAlreadyActive",
+      "msg": "Cannot create epoch - active epoch exists"
+    },
+    {
+      "code": 6012,
+      "name": "Overflow",
+      "msg": "Arithmetic overflow"
     }
   ],
   "types": [
+    {
+      "name": "Epoch",
+      "docs": [
+        "Epoch account - represents a time-bounded trading period within a pool"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "docs": [
+              "Parent pool reference"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch_id",
+            "docs": [
+              "Sequential identifier within pool (0, 1, 2, ...)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "state",
+            "docs": [
+              "Current epoch state"
+            ],
+            "type": {
+              "defined": {
+                "name": "EpochState"
+              }
+            }
+          },
+          {
+            "name": "start_time",
+            "docs": [
+              "Unix timestamp when epoch begins"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "end_time",
+            "docs": [
+              "Unix timestamp when epoch ends"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "freeze_time",
+            "docs": [
+              "When trading stops (end_time - freeze_window_seconds)"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "start_price",
+            "docs": [
+              "Oracle price at epoch creation"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "start_confidence",
+            "docs": [
+              "Oracle confidence at epoch creation"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "start_publish_time",
+            "docs": [
+              "Oracle publish timestamp at epoch creation"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "settlement_price",
+            "docs": [
+              "Oracle price at settlement (None until settled)"
+            ],
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "settlement_confidence",
+            "docs": [
+              "Oracle confidence at settlement"
+            ],
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "settlement_publish_time",
+            "docs": [
+              "Oracle publish timestamp at settlement"
+            ],
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "outcome",
+            "docs": [
+              "Final outcome (Up, Down, or Refunded)"
+            ],
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "Outcome"
+                }
+              }
+            }
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump seed"
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EpochCreated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "epoch",
+            "docs": [
+              "Epoch account pubkey"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "pool",
+            "docs": [
+              "Parent pool"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch_id",
+            "docs": [
+              "Sequential epoch identifier within pool"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "start_price",
+            "docs": [
+              "Oracle price at epoch creation"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "start_confidence",
+            "docs": [
+              "Oracle confidence at epoch creation"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "start_time",
+            "docs": [
+              "Unix timestamp when epoch begins"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "end_time",
+            "docs": [
+              "Unix timestamp when epoch ends"
+            ],
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EpochState",
+      "docs": [
+        "Epoch state machine - tracks the lifecycle of a trading epoch"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Open"
+          },
+          {
+            "name": "Frozen"
+          },
+          {
+            "name": "Settling"
+          },
+          {
+            "name": "Settled"
+          },
+          {
+            "name": "Refunded"
+          }
+        ]
+      }
+    },
     {
       "name": "GlobalConfig",
       "type": {
@@ -521,6 +906,26 @@
           {
             "name": "allow_hedging",
             "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Outcome",
+      "docs": [
+        "Final outcome of an epoch after settlement"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Up"
+          },
+          {
+            "name": "Down"
+          },
+          {
+            "name": "Refunded"
           }
         ]
       }

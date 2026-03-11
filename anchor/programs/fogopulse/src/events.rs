@@ -31,3 +31,21 @@ pub struct PoolCreated {
     /// Max exposure per side in basis points (copied from GlobalConfig)
     pub side_cap_bps: u16,
 }
+
+#[event]
+pub struct EpochCreated {
+    /// Epoch account pubkey
+    pub epoch: Pubkey,
+    /// Parent pool
+    pub pool: Pubkey,
+    /// Sequential epoch identifier within pool
+    pub epoch_id: u64,
+    /// Oracle price at epoch creation
+    pub start_price: u64,
+    /// Oracle confidence at epoch creation
+    pub start_confidence: u64,
+    /// Unix timestamp when epoch begins
+    pub start_time: i64,
+    /// Unix timestamp when epoch ends
+    pub end_time: i64,
+}

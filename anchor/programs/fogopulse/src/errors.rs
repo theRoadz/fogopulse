@@ -31,4 +31,18 @@ pub enum FogoPulseError {
 
     #[msg("Protocol is frozen - emergency halt active")]
     ProtocolFrozen,
+
+    // Pool state errors
+    #[msg("Pool is paused - no new epochs allowed")]
+    PoolPaused,
+
+    #[msg("Pool is frozen - emergency halt active")]
+    PoolFrozen,
+
+    // Epoch errors
+    #[msg("Cannot create epoch - active epoch exists")]
+    EpochAlreadyActive,
+
+    #[msg("Arithmetic overflow")]
+    Overflow,
 }

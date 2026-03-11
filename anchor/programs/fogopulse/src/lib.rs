@@ -59,4 +59,13 @@ pub mod fogopulse {
     pub fn create_pool(ctx: Context<CreatePool>) -> Result<()> {
         instructions::create_pool::handler(ctx)
     }
+
+    pub fn create_epoch(
+        ctx: Context<CreateEpoch>,
+        start_price: u64,
+        start_confidence: u64,
+        start_publish_time: i64,
+    ) -> Result<()> {
+        instructions::create_epoch::handler(ctx, start_price, start_confidence, start_publish_time)
+    }
 }

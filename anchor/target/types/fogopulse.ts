@@ -14,6 +14,137 @@ export type Fogopulse = {
   },
   "instructions": [
     {
+      "name": "createEpoch",
+      "discriminator": [
+        115,
+        111,
+        36,
+        230,
+        59,
+        145,
+        168,
+        27
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "docs": [
+            "Anyone can call - permissionless for crank bots/keepers"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "globalConfig",
+          "docs": [
+            "GlobalConfig - boxed to prevent stack overflow"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "Pool - must have no active epoch"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.asset_mint",
+                "account": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "epoch",
+          "docs": [
+            "Epoch account to be created"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  112,
+                  111,
+                  99,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.next_epoch_id",
+                "account": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "clock",
+          "docs": [
+            "Clock sysvar for timestamp"
+          ],
+          "address": "SysvarC1ock11111111111111111111111111111111"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "startPrice",
+          "type": "u64"
+        },
+        {
+          "name": "startConfidence",
+          "type": "u64"
+        },
+        {
+          "name": "startPublishTime",
+          "type": "i64"
+        }
+      ]
+    },
+    {
       "name": "createPool",
       "discriminator": [
         233,
@@ -216,6 +347,19 @@ export type Fogopulse = {
   ],
   "accounts": [
     {
+      "name": "epoch",
+      "discriminator": [
+        93,
+        83,
+        120,
+        89,
+        151,
+        138,
+        152,
+        108
+      ]
+    },
+    {
       "name": "globalConfig",
       "discriminator": [
         149,
@@ -243,6 +387,19 @@ export type Fogopulse = {
     }
   ],
   "events": [
+    {
+      "name": "epochCreated",
+      "discriminator": [
+        191,
+        150,
+        240,
+        63,
+        59,
+        212,
+        233,
+        124
+      ]
+    },
     {
       "name": "globalConfigInitialized",
       "discriminator": [
@@ -315,9 +472,237 @@ export type Fogopulse = {
       "code": 6008,
       "name": "protocolFrozen",
       "msg": "Protocol is frozen - emergency halt active"
+    },
+    {
+      "code": 6009,
+      "name": "poolPaused",
+      "msg": "Pool is paused - no new epochs allowed"
+    },
+    {
+      "code": 6010,
+      "name": "poolFrozen",
+      "msg": "Pool is frozen - emergency halt active"
+    },
+    {
+      "code": 6011,
+      "name": "epochAlreadyActive",
+      "msg": "Cannot create epoch - active epoch exists"
+    },
+    {
+      "code": 6012,
+      "name": "overflow",
+      "msg": "Arithmetic overflow"
     }
   ],
   "types": [
+    {
+      "name": "epoch",
+      "docs": [
+        "Epoch account - represents a time-bounded trading period within a pool"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "docs": [
+              "Parent pool reference"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "epochId",
+            "docs": [
+              "Sequential identifier within pool (0, 1, 2, ...)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "state",
+            "docs": [
+              "Current epoch state"
+            ],
+            "type": {
+              "defined": {
+                "name": "epochState"
+              }
+            }
+          },
+          {
+            "name": "startTime",
+            "docs": [
+              "Unix timestamp when epoch begins"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "endTime",
+            "docs": [
+              "Unix timestamp when epoch ends"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "freezeTime",
+            "docs": [
+              "When trading stops (end_time - freeze_window_seconds)"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "startPrice",
+            "docs": [
+              "Oracle price at epoch creation"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "startConfidence",
+            "docs": [
+              "Oracle confidence at epoch creation"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "startPublishTime",
+            "docs": [
+              "Oracle publish timestamp at epoch creation"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "settlementPrice",
+            "docs": [
+              "Oracle price at settlement (None until settled)"
+            ],
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "settlementConfidence",
+            "docs": [
+              "Oracle confidence at settlement"
+            ],
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "settlementPublishTime",
+            "docs": [
+              "Oracle publish timestamp at settlement"
+            ],
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "outcome",
+            "docs": [
+              "Final outcome (Up, Down, or Refunded)"
+            ],
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "outcome"
+                }
+              }
+            }
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump seed"
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "epochCreated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "epoch",
+            "docs": [
+              "Epoch account pubkey"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "pool",
+            "docs": [
+              "Parent pool"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "epochId",
+            "docs": [
+              "Sequential epoch identifier within pool"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "startPrice",
+            "docs": [
+              "Oracle price at epoch creation"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "startConfidence",
+            "docs": [
+              "Oracle confidence at epoch creation"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "startTime",
+            "docs": [
+              "Unix timestamp when epoch begins"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "endTime",
+            "docs": [
+              "Unix timestamp when epoch ends"
+            ],
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "epochState",
+      "docs": [
+        "Epoch state machine - tracks the lifecycle of a trading epoch"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "open"
+          },
+          {
+            "name": "frozen"
+          },
+          {
+            "name": "settling"
+          },
+          {
+            "name": "settled"
+          },
+          {
+            "name": "refunded"
+          }
+        ]
+      }
+    },
     {
       "name": "globalConfig",
       "type": {
@@ -527,6 +912,26 @@ export type Fogopulse = {
           {
             "name": "allowHedging",
             "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "outcome",
+      "docs": [
+        "Final outcome of an epoch after settlement"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "up"
+          },
+          {
+            "name": "down"
+          },
+          {
+            "name": "refunded"
           }
         ]
       }
