@@ -45,7 +45,7 @@ development_status:
   1-1-initialize-project-with-create-solana-dapp: done
   1-2-configure-shadcn-ui-and-theme-system: done
   1-3-configure-fogo-testnet-environment: done
-  1-4-implement-globalconfig-account-structure: backlog
+  1-4-implement-globalconfig-account-structure: done
   1-5-implement-pool-account-structure: backlog
   1-6-implement-epoch-account-structure: backlog
   1-7-implement-userposition-account-structure: backlog
