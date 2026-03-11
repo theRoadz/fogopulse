@@ -19,3 +19,15 @@ pub struct GlobalConfigInitialized {
     pub freeze_window_seconds: i64,
     pub allow_hedging: bool,
 }
+
+#[event]
+pub struct PoolCreated {
+    /// Pool account pubkey
+    pub pool: Pubkey,
+    /// Asset mint this pool tracks
+    pub asset_mint: Pubkey,
+    /// Max position per wallet in basis points (copied from GlobalConfig)
+    pub wallet_cap_bps: u16,
+    /// Max exposure per side in basis points (copied from GlobalConfig)
+    pub side_cap_bps: u16,
+}

@@ -14,6 +14,94 @@ export type Fogopulse = {
   },
   "instructions": [
     {
+      "name": "createPool",
+      "discriminator": [
+        233,
+        146,
+        209,
+        142,
+        207,
+        104,
+        64,
+        188
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "docs": [
+            "Admin authority - must match GlobalConfig.admin"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "globalConfig",
+          "docs": [
+            "GlobalConfig account - boxed to prevent stack overflow"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "assetMint",
+          "docs": [
+            "Asset mint this pool will track (e.g., BTC mint address)",
+            "Admin is trusted to pass valid SPL token mints. Invalid mints create unusable",
+            "pools but pose no security risk (they're simply useless)."
+          ]
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "Pool account to be created"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "assetMint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "initialize",
       "discriminator": [
         175,
@@ -139,6 +227,19 @@ export type Fogopulse = {
         176,
         217
       ]
+    },
+    {
+      "name": "pool",
+      "discriminator": [
+        241,
+        154,
+        109,
+        4,
+        17,
+        177,
+        109,
+        188
+      ]
     }
   ],
   "events": [
@@ -153,6 +254,19 @@ export type Fogopulse = {
         87,
         157,
         113
+      ]
+    },
+    {
+      "name": "poolCreated",
+      "discriminator": [
+        202,
+        44,
+        41,
+        88,
+        104,
+        220,
+        157,
+        82
       ]
     }
   ],
@@ -191,6 +305,16 @@ export type Fogopulse = {
       "code": 6006,
       "name": "invalidOracleThreshold",
       "msg": "Invalid oracle threshold - must be between 1 and 10000 bps"
+    },
+    {
+      "code": 6007,
+      "name": "protocolPaused",
+      "msg": "Protocol is paused - no new operations allowed"
+    },
+    {
+      "code": 6008,
+      "name": "protocolFrozen",
+      "msg": "Protocol is frozen - emergency halt active"
     }
   ],
   "types": [
@@ -403,6 +527,136 @@ export type Fogopulse = {
           {
             "name": "allowHedging",
             "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "pool",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "assetMint",
+            "docs": [
+              "Asset mint this pool tracks (e.g., BTC mint address)"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "yesReserves",
+            "docs": [
+              "YES token reserves (USDC backing YES positions)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "noReserves",
+            "docs": [
+              "NO token reserves (USDC backing NO positions)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "totalLpShares",
+            "docs": [
+              "Total LP shares issued for this pool"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "nextEpochId",
+            "docs": [
+              "Counter for next epoch creation (starts at 0)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "activeEpoch",
+            "docs": [
+              "Current active epoch PDA, or None if no active epoch"
+            ],
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "activeEpochState",
+            "docs": [
+              "Cached state: 0=None, 1=Open, 2=Frozen"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "walletCapBps",
+            "docs": [
+              "Max position per wallet in basis points (copied from GlobalConfig at creation)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "sideCapBps",
+            "docs": [
+              "Max exposure per side in basis points (copied from GlobalConfig at creation)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "isPaused",
+            "docs": [
+              "Pool-level pause flag (blocks new trades/epochs)"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "isFrozen",
+            "docs": [
+              "Pool-level freeze flag (emergency halt)"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump seed"
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "poolCreated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "docs": [
+              "Pool account pubkey"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "assetMint",
+            "docs": [
+              "Asset mint this pool tracks"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "walletCapBps",
+            "docs": [
+              "Max position per wallet in basis points (copied from GlobalConfig)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "sideCapBps",
+            "docs": [
+              "Max exposure per side in basis points (copied from GlobalConfig)"
+            ],
+            "type": "u16"
           }
         ]
       }

@@ -24,4 +24,11 @@ pub enum FogoPulseError {
 
     #[msg("Invalid oracle threshold - must be between 1 and 10000 bps")]
     InvalidOracleThreshold,
+
+    // Protocol state errors
+    #[msg("Protocol is paused - no new operations allowed")]
+    ProtocolPaused,
+
+    #[msg("Protocol is frozen - emergency halt active")]
+    ProtocolFrozen,
 }

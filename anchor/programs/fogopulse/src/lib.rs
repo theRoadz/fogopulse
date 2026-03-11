@@ -55,4 +55,8 @@ pub mod fogopulse {
             allow_hedging,
         )
     }
+
+    pub fn create_pool(ctx: Context<CreatePool>) -> Result<()> {
+        instructions::create_pool::handler(ctx)
+    }
 }
