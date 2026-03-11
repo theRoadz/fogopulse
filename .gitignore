@@ -53,3 +53,9 @@ next-env.d.ts
 /anchor/target/.rustc_info.json
 test-ledger
 **/*.rs.bk
+
+# AI/Agent tooling
+_bmad/
+.agents/
+.claude/
+.gemini/

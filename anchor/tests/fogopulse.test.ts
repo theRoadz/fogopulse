@@ -1,15 +1,15 @@
 import * as anchor from '@coral-xyz/anchor'
 import { Program } from '@coral-xyz/anchor'
 import { Keypair } from '@solana/web3.js'
-import { Counter } from '../target/types/counter'
+import { Fogopulse } from '../target/types/fogopulse'
 
-describe('counter', () => {
+describe('fogopulse', () => {
   // Configure the client to use the local cluster.
   const provider = anchor.AnchorProvider.env()
   anchor.setProvider(provider)
   const payer = provider.wallet as anchor.Wallet
 
-  const program = anchor.workspace.Counter as Program<Counter>
+  const program = anchor.workspace.Fogopulse as Program<Fogopulse>
 
   const counterKeypair = Keypair.generate()
 

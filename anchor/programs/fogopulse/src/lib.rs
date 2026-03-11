@@ -28,7 +28,7 @@ pub mod fogopulse {
     }
 
     pub fn set(ctx: Context<Update>, value: u8) -> Result<()> {
-        ctx.accounts.counter.count = value.clone();
+        ctx.accounts.counter.count = value;
         Ok(())
     }
 }

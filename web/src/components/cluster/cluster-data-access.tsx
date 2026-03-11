@@ -19,21 +19,20 @@ export enum ClusterNetwork {
   Custom = 'custom',
 }
 
-// By default, we don't configure the mainnet-beta cluster
-// The endpoint provided by clusterApiUrl('mainnet-beta') does not allow access from the browser due to CORS restrictions
-// To use the mainnet-beta cluster, provide a custom endpoint
+// FOGO testnet is the primary network for this application
+// FOGO is SVM-compatible (Solana Virtual Machine)
 export const defaultClusters: SolanaCluster[] = [
+  {
+    name: 'fogo-testnet',
+    endpoint: 'https://testnet.fogo.io',
+    network: ClusterNetwork.Custom,
+  },
   {
     name: 'devnet',
     endpoint: clusterApiUrl('devnet'),
     network: ClusterNetwork.Devnet,
   },
   { name: 'local', endpoint: 'http://localhost:8899' },
-  {
-    name: 'testnet',
-    endpoint: clusterApiUrl('testnet'),
-    network: ClusterNetwork.Testnet,
-  },
 ]
 
 const clusterAtom = atomWithStorage<SolanaCluster>('solana-cluster', defaultClusters[0])
@@ -108,7 +107,9 @@ function getClusterUrlParam(cluster: SolanaCluster): string {
     case ClusterNetwork.Testnet:
       suffix = 'testnet'
       break
+    case ClusterNetwork.Custom:
     default:
+      // For FOGO testnet and other custom clusters, use custom URL param
       suffix = `custom&customUrl=${encodeURIComponent(cluster.endpoint)}`
       break
   }
