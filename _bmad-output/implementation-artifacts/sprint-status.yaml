@@ -48,7 +48,7 @@ development_status:
   1-4-implement-globalconfig-account-structure: done
   1-5-implement-pool-account-structure: done
   1-6-implement-epoch-account-structure: done
-  1-7-implement-userposition-account-structure: backlog
+  1-7-implement-userposition-account-structure: done
   1-8-integrate-pyth-lazer-ed25519-verification: backlog
   1-9-integrate-fogo-sessions-sdk: backlog
   1-10-deploy-program-to-fogo-testnet: backlog
