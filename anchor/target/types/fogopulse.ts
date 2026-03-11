@@ -2,10 +2,7 @@
  * Program IDL in camelCase format in order to be used in JS/TS.
  *
  * Note that this is only a type helper and is not the actual IDL. The original
- * having names in snake_case.
- *
- * If you are building for a client, you should use @coral-xyz/anchor's coder
- * to generate a client SDK instead of using this type helper.
+ * IDL can be found at `target/idl/fogopulse.json`.
  */
 export type Fogopulse = {
   "address": "Ht3NLQDkJG4BLgsnUnyuWD2393wULyP5nEXx8AyXhiGr",
@@ -18,7 +15,16 @@ export type Fogopulse = {
   "instructions": [
     {
       "name": "close",
-      "discriminator": [98, 165, 201, 177, 108, 65, 206, 96],
+      "discriminator": [
+        98,
+        165,
+        201,
+        177,
+        108,
+        65,
+        206,
+        96
+      ],
       "accounts": [
         {
           "name": "payer",
@@ -34,7 +40,16 @@ export type Fogopulse = {
     },
     {
       "name": "decrement",
-      "discriminator": [106, 227, 168, 59, 248, 27, 150, 101],
+      "discriminator": [
+        106,
+        227,
+        168,
+        59,
+        248,
+        27,
+        150,
+        101
+      ],
       "accounts": [
         {
           "name": "counter",
@@ -45,7 +60,16 @@ export type Fogopulse = {
     },
     {
       "name": "increment",
-      "discriminator": [11, 18, 104, 9, 104, 174, 59, 33],
+      "discriminator": [
+        11,
+        18,
+        104,
+        9,
+        104,
+        174,
+        59,
+        33
+      ],
       "accounts": [
         {
           "name": "counter",
@@ -56,7 +80,16 @@ export type Fogopulse = {
     },
     {
       "name": "initialize",
-      "discriminator": [175, 175, 109, 31, 13, 152, 155, 237],
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
       "accounts": [
         {
           "name": "payer",
@@ -77,7 +110,16 @@ export type Fogopulse = {
     },
     {
       "name": "set",
-      "discriminator": [198, 51, 53, 241, 116, 29, 126, 194],
+      "discriminator": [
+        198,
+        51,
+        53,
+        241,
+        116,
+        29,
+        126,
+        194
+      ],
       "accounts": [
         {
           "name": "counter",
@@ -95,7 +137,16 @@ export type Fogopulse = {
   "accounts": [
     {
       "name": "counter",
-      "discriminator": [255, 176, 4, 245, 188, 253, 124, 25]
+      "discriminator": [
+        255,
+        176,
+        4,
+        245,
+        188,
+        253,
+        124,
+        25
+      ]
     }
   ],
   "types": [
