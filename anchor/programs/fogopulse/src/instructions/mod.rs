@@ -5,6 +5,11 @@ pub mod create_pool;
 pub mod initialize;
 pub mod sell_position;
 
+// Re-export Accounts structs for use in lib.rs Context<T>
+// Note: Multiple modules export `handler` functions, but they are called
+// via explicit paths (e.g., instructions::buy_position::handler), so the
+// ambiguous glob re-export warning is benign.
+#[allow(ambiguous_glob_reexports)]
 pub use buy_position::*;
 pub use claim_payout::*;
 pub use create_epoch::*;

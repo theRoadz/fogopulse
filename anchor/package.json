@@ -7,17 +7,22 @@
     "build": "echo 'Run anchor build in WSL (not Windows)'",
     "build:wsl": "anchor build",
     "test": "echo 'Run anchor test in WSL (not Windows)'",
-    "test:wsl": "anchor test"
+    "test:wsl": "anchor test",
+    "create-epoch": "tsx scripts/create-test-epoch.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
     "@solana/spl-token": "^0.4.6",
-    "@solana/web3.js": "^1.98.4"
+    "@solana/web3.js": "^1.98.4",
+    "dotenv": "^16.6.1",
+    "ts-node": "^10.9.2",
+    "ws": "^8.16.0"
   },
   "devDependencies": {
     "@types/bn.js": "^5.2.0",
     "@types/chai": "^4.3.0",
     "@types/mocha": "^10.0.10",
+    "@types/ws": "^8.5.10",
     "chai": "^4.3.7",
     "mocha": "^10.2.0",
     "ts-mocha": "^10.0.0",

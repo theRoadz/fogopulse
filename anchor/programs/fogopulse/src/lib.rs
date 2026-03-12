@@ -8,6 +8,7 @@ pub mod events;
 pub mod instructions;
 pub mod session;
 pub mod state;
+pub mod utils;
 
 pub use constants::*;
 pub use errors::*;

@@ -56,8 +56,8 @@ development_status:
   epic-1-retrospective: optional
 
   # Epic 2: Core Trading Experience
-  epic-2: backlog
-  2-1-implement-buy-position-instruction: backlog
+  epic-2: in-progress
+  2-1-implement-buy-position-instruction: done
   2-2-implement-wallet-connection-ui: backlog
   2-3-create-asset-selector-and-market-layout: backlog
   2-4-integrate-pyth-hermes-price-feed: backlog

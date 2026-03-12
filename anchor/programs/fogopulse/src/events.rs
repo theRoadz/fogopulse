@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use crate::state::Direction;
 
 #[event]
 pub struct GlobalConfigInitialized {
@@ -50,4 +51,22 @@ pub struct EpochCreated {
     pub start_time: i64,
     /// Unix timestamp when epoch ends
     pub end_time: i64,
+}
+
+#[event]
+pub struct PositionOpened {
+    /// Epoch account pubkey
+    pub epoch: Pubkey,
+    /// User wallet that opened the position
+    pub user: Pubkey,
+    /// Direction of the position (Up or Down)
+    pub direction: Direction,
+    /// Amount in USDC (lamports, 6 decimals)
+    pub amount: u64,
+    /// Shares received from CPMM calculation
+    pub shares: u64,
+    /// Entry price per share (for PnL calculations)
+    pub entry_price: u64,
+    /// Unix timestamp when position was opened
+    pub timestamp: i64,
 }

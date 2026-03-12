@@ -76,4 +76,32 @@ pub enum FogoPulseError {
     // Placeholder for unimplemented instructions
     #[msg("Instruction not yet implemented")]
     NotImplemented,
+
+    // Trading errors
+    #[msg("Epoch is not in Open state")]
+    EpochNotOpen,
+
+    #[msg("Exceeds per-wallet position cap")]
+    ExceedsWalletCap,
+
+    #[msg("Exceeds per-side exposure cap")]
+    ExceedsSideCap,
+
+    #[msg("Insufficient token balance")]
+    InsufficientBalance,
+
+    #[msg("Cannot open opposite direction - hedging disabled")]
+    InvalidDirection,
+
+    #[msg("Amount must be greater than zero")]
+    ZeroAmount,
+
+    #[msg("Token account owner does not match expected user")]
+    TokenOwnerMismatch,
+
+    #[msg("Token account mint does not match expected mint")]
+    InvalidMint,
+
+    #[msg("Trade amount below minimum required")]
+    BelowMinimumTrade,
 }
