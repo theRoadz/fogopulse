@@ -119,8 +119,9 @@ export const ASSET_METADATA: Record<
   FOGO: {
     label: 'FOGO',
     color: 'text-primary',
-    // TODO(Story 2-4): FOGO price feed ID required for Pyth Hermes integration
-    // FOGO token may not have a Pyth feed - check alternatives or use placeholder
+    // FOGO does not have a Pyth Hermes price feed available.
+    // The UI gracefully handles this by showing "Price Unavailable" and "Offline" status.
+    // If a FOGO feed becomes available in the future, add the feedId here.
     feedId: '',
   },
 } as const

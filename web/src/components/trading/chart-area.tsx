@@ -1,9 +1,12 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import type { Asset } from '@/types/assets'
 import { ASSET_METADATA } from '@/lib/constants'
-import { cn } from '@/lib/utils'
+import { cn, formatUsdPrice } from '@/lib/utils'
+import { usePythPrice } from '@/hooks/use-pyth-price'
+import { ConnectionStatus } from './connection-status'
 
 interface ChartAreaProps {
   asset: Asset
@@ -12,17 +15,31 @@ interface ChartAreaProps {
 
 export function ChartArea({ asset, className }: ChartAreaProps) {
   const metadata = ASSET_METADATA[asset]
+  const { price, connectionState } = usePythPrice(asset)
+
+  // Check if this asset has a price feed
+  const hasFeed = Boolean(metadata.feedId)
+  const isConnecting = connectionState === 'connecting' || (connectionState === 'disconnected' && hasFeed && price === null)
 
   return (
     <Card className={cn('h-full', className)}>
       <CardHeader className="border-b">
         <CardTitle className="flex items-center justify-between">
           <span className={metadata.color}>{metadata.label}/USD</span>
-          <span className="text-sm text-muted-foreground">Price to Beat</span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Price to Beat</span>
+            <ConnectionStatus state={hasFeed ? connectionState : 'disconnected'} />
+          </div>
         </CardTitle>
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">Chart Coming Soon</span>
-          <span className="font-mono text-lg">$--,---.--</span>
+          {isConnecting ? (
+            <Skeleton className="h-7 w-32" />
+          ) : hasFeed ? (
+            <span className="font-mono text-lg">{formatUsdPrice(price?.price ?? null)}</span>
+          ) : (
+            <span className="font-mono text-lg text-muted-foreground">Price Unavailable</span>
+          )}
         </div>
       </CardHeader>
       <CardContent className="flex flex-1 items-center justify-center">
