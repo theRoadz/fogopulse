@@ -9,11 +9,11 @@ skip-lint = false
 # Note: Anchor doesn't support custom cluster names like "fogo-testnet"
 # We use localnet as a placeholder and deploy using solana program deploy directly
 [programs.localnet]
-fogopulse = "Ht3NLQDkJG4BLgsnUnyuWD2393wULyP5nEXx8AyXhiGr"
+fogopulse = "D8htKqaQPp8g3VRpbwno1rCQcaBrMCbZZcaFVxSyDsX5"
 
 # Alias for FOGO testnet deployments
 [programs.devnet]
-fogopulse = "Ht3NLQDkJG4BLgsnUnyuWD2393wULyP5nEXx8AyXhiGr"
+fogopulse = "D8htKqaQPp8g3VRpbwno1rCQcaBrMCbZZcaFVxSyDsX5"
 
 [registry]
 url = "https://api.apr.dev"

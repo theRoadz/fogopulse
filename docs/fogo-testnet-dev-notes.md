@@ -263,13 +263,13 @@ export function usePool(asset: Asset) {
 
 | Account | Address |
 |---------|---------|
-| Program | `6GJBgvTbE8wRN86iyfAPE8CEBqDNcbb7ReQ7ycacGJqq` |
-| GlobalConfig | `29iqRjEUTFhFHnqUqyk2frF3p52bAzjrbcRvYdbgsdi3` |
+| Program | `D8htKqaQPp8g3VRpbwno1rCQcaBrMCbZZcaFVxSyDsX5` |
+| GlobalConfig | TBD - created in Story 1.11 |
 | USDC Mint | `6jzddTQNDh2RPuav88r19gdSGmGnbH6EWa2NXgLV8cAy` |
-| BTC Pool | `G8RK2T9LGKe1CavtvEWbXgkHzKFEYPYnNPcQL91FRFpE` |
-| ETH Pool | `EBWAWhf5q3eEx1hdJRtVZNm2oHF6WhX9BdGo9aTpviCs` |
-| SOL Pool | `G9sE5RtaLLRoNfQ4nrthQQUKyxQfpcAgvExavvwR8KVH` |
-| FOGO Pool | `FYeD5NdHtNFxhRqKqdN5pF3j4GU9iihFGWcgemf2eJ78` |
+| BTC Pool | TBD - created in Story 1.11 |
+| ETH Pool | TBD - created in Story 1.11 |
+| SOL Pool | TBD - created in Story 1.11 |
+| FOGO Pool | TBD - created in Story 1.11 |
 
 ---
 

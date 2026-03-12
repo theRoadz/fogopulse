@@ -15,7 +15,7 @@ pub use events::*;
 pub use instructions::*;
 pub use state::*;
 
-declare_id!("Ht3NLQDkJG4BLgsnUnyuWD2393wULyP5nEXx8AyXhiGr");
+declare_id!("D8htKqaQPp8g3VRpbwno1rCQcaBrMCbZZcaFVxSyDsX5");
 
 #[program]
 pub mod fogopulse {

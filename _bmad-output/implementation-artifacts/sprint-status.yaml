@@ -51,7 +51,7 @@ development_status:
   1-7-implement-userposition-account-structure: done
   1-8-integrate-pyth-lazer-ed25519-verification: done
   1-9-integrate-fogo-sessions-sdk: done
-  1-10-deploy-program-to-fogo-testnet: backlog
+  1-10-deploy-program-to-fogo-testnet: done
   1-11-initialize-globalconfig-and-create-test-pools: backlog
   epic-1-retrospective: optional
 

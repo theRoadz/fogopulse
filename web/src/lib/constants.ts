@@ -1,10 +1,16 @@
 import { PublicKey } from '@solana/web3.js'
 
 // =============================================================================
+// FOGO TESTNET RPC
+// =============================================================================
+
+export const FOGO_TESTNET_RPC = 'https://testnet.fogo.io'
+
+// =============================================================================
 // PROGRAM ID
 // =============================================================================
 
-export const PROGRAM_ID = new PublicKey('Ht3NLQDkJG4BLgsnUnyuWD2393wULyP5nEXx8AyXhiGr')
+export const PROGRAM_ID = new PublicKey('D8htKqaQPp8g3VRpbwno1rCQcaBrMCbZZcaFVxSyDsX5')
 
 // =============================================================================
 // FOGO TESTNET USDC MINT

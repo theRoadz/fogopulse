@@ -207,10 +207,10 @@ Anchor 0.31.1 does NOT support custom cluster names like `fogo-testnet`.
 ```toml
 # Anchor.toml
 [programs.localnet]
-fogopulse = "6GJBgvTbE8wRN86iyfAPE8CEBqDNcbb7ReQ7ycacGJqq"
+fogopulse = "D8htKqaQPp8g3VRpbwno1rCQcaBrMCbZZcaFVxSyDsX5"
 
 [programs.devnet]
-fogopulse = "6GJBgvTbE8wRN86iyfAPE8CEBqDNcbb7ReQ7ycacGJqq"
+fogopulse = "D8htKqaQPp8g3VRpbwno1rCQcaBrMCbZZcaFVxSyDsX5"
 
 [provider]
 cluster = "localnet"

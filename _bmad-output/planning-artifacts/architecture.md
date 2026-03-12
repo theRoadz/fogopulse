@@ -964,8 +964,8 @@ No local devnet. No mock oracles. All development and testing happens on FOGO te
 
 | Account | Address |
 |---------|---------|
-| Program | `6GJBgvTbE8wRN86iyfAPE8CEBqDNcbb7ReQ7ycacGJqq` |
-| GlobalConfig | `29iqRjEUTFhFHnqUqyk2frF3p52bAzjrbcRvYdbgsdi3` |
+| Program | `D8htKqaQPp8g3VRpbwno1rCQcaBrMCbZZcaFVxSyDsX5` |
+| GlobalConfig | TBD - created in Story 1.11 |
 
 **Asset Mints (for PDA derivation):**
 
@@ -994,10 +994,10 @@ Anchor 0.31.1 does NOT support custom cluster names like `fogo-testnet`.
 ```toml
 # Anchor.toml
 [programs.localnet]
-fogopulse = "6GJBgvTbE8wRN86iyfAPE8CEBqDNcbb7ReQ7ycacGJqq"
+fogopulse = "D8htKqaQPp8g3VRpbwno1rCQcaBrMCbZZcaFVxSyDsX5"
 
 [programs.devnet]
-fogopulse = "6GJBgvTbE8wRN86iyfAPE8CEBqDNcbb7ReQ7ycacGJqq"
+fogopulse = "D8htKqaQPp8g3VRpbwno1rCQcaBrMCbZZcaFVxSyDsX5"
 
 [provider]
 cluster = "localnet"
