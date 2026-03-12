@@ -45,4 +45,20 @@ pub enum FogoPulseError {
 
     #[msg("Arithmetic overflow")]
     Overflow,
+
+    // Oracle errors
+    #[msg("Oracle verification failed - signature invalid or untrusted signer")]
+    OracleVerificationFailed,
+
+    #[msg("Oracle data invalid - failed to deserialize message")]
+    OracleDataInvalid,
+
+    #[msg("Oracle price missing - no price data in payload")]
+    OraclePriceMissing,
+
+    #[msg("Oracle data stale - publish time exceeds staleness threshold")]
+    OracleDataStale,
+
+    #[msg("Oracle confidence too wide - exceeds confidence threshold")]
+    OracleConfidenceTooWide,
 }

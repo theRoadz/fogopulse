@@ -44,6 +44,8 @@ pub struct EpochCreated {
     pub start_price: u64,
     /// Oracle confidence at epoch creation
     pub start_confidence: u64,
+    /// Oracle publish timestamp at epoch creation (from verified Pyth data)
+    pub start_publish_time: i64,
     /// Unix timestamp when epoch begins
     pub start_time: i64,
     /// Unix timestamp when epoch ends

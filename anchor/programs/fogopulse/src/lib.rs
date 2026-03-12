@@ -2,11 +2,13 @@
 
 use anchor_lang::prelude::*;
 
+pub mod constants;
 pub mod errors;
 pub mod events;
 pub mod instructions;
 pub mod state;
 
+pub use constants::*;
 pub use errors::*;
 pub use events::*;
 pub use instructions::*;
@@ -60,12 +62,25 @@ pub mod fogopulse {
         instructions::create_pool::handler(ctx)
     }
 
+    /// Create a new epoch for a pool with verified Pyth Lazer oracle data
+    ///
+    /// # Arguments
+    /// * `pyth_message` - Signed Pyth Lazer message bytes (Ed25519 format)
+    /// * `ed25519_instruction_index` - Index of Ed25519 verify instruction in transaction (typically 0)
+    /// * `signature_index` - Index of signature within Ed25519 instruction (typically 0)
+    ///
+    /// # Transaction Structure (client-side)
+    /// ```text
+    /// Transaction:
+    ///   [0] Ed25519 signature verification instruction (MUST be first)
+    ///   [1] create_epoch instruction (contains pyth_message)
+    /// ```
     pub fn create_epoch(
         ctx: Context<CreateEpoch>,
-        start_price: u64,
-        start_confidence: u64,
-        start_publish_time: i64,
+        pyth_message: Vec<u8>,
+        ed25519_instruction_index: u8,
+        signature_index: u8,
     ) -> Result<()> {
-        instructions::create_epoch::handler(ctx, start_price, start_confidence, start_publish_time)
+        instructions::create_epoch::handler(ctx, pyth_message, ed25519_instruction_index, signature_index)
     }
 }
