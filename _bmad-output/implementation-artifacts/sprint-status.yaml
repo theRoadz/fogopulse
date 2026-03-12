@@ -52,7 +52,7 @@ development_status:
   1-8-integrate-pyth-lazer-ed25519-verification: done
   1-9-integrate-fogo-sessions-sdk: done
   1-10-deploy-program-to-fogo-testnet: done
-  1-11-initialize-globalconfig-and-create-test-pools: backlog
+  1-11-initialize-globalconfig-and-create-test-pools: done
   epic-1-retrospective: optional
 
   # Epic 2: Core Trading Experience

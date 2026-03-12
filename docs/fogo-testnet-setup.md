@@ -142,7 +142,7 @@ solana program deploy target/deploy/fogopulse.so \
 | Item | Value |
 |------|-------|
 | Program ID | `D8htKqaQPp8g3VRpbwno1rCQcaBrMCbZZcaFVxSyDsX5` |
-| GlobalConfig PDA | TBD - created in Story 1.11 |
+| GlobalConfig PDA | `GGUyA3vgbtNvC5oigtNc4uu8Z36MBjANPAfcZvoGjans` |
 
 ---
 
@@ -261,12 +261,35 @@ const keypairPath = path.join(os.homedir(), '.config', 'solana', 'fogo-testnet.j
 | Account | Address |
 |---------|---------|
 | Program | `D8htKqaQPp8g3VRpbwno1rCQcaBrMCbZZcaFVxSyDsX5` |
-| GlobalConfig | TBD - created in Story 1.11 |
+| GlobalConfig | `GGUyA3vgbtNvC5oigtNc4uu8Z36MBjANPAfcZvoGjans` |
 | USDC Mint | `6jzddTQNDh2RPuav88r19gdSGmGnbH6EWa2NXgLV8cAy` |
-| BTC Pool | TBD - created in Story 1.11 |
-| ETH Pool | TBD - created in Story 1.11 |
-| SOL Pool | TBD - created in Story 1.11 |
-| FOGO Pool | TBD - created in Story 1.11 |
+| BTC Pool | `5c4wcGimy5kSW8pa6yYpCLTy8RbfeMhDMkqzShUoJh3W` |
+| ETH Pool | `4reapQVB2dBZKeRnA3j6siCsR5NkPzyaLexsDejE7cNY` |
+| SOL Pool | `KK92JDHfEujRxEfbMny3UC4AmwuUQDVqaNAtH7X2RHN` |
+| FOGO Pool | `AVNWyL2YE8xRNSjHfuEfhnBEmnYKrKRcrPua9WnQTUXL` |
+
+### Pool USDC Token Accounts
+
+| Pool | USDC ATA Address |
+|------|------------------|
+| BTC | `7secVYnHhudPDG24PYBUzxaWEzNRTHpPfoQAZwgoX5wh` |
+| ETH | `J2wvG4ukQQ6wURzJgddSpgwjgGdZkDvVAsFifPD3t1sH` |
+| SOL | `EGbJvFHqnMRw7P4R1nnEqeFwYBJBeFBH4kdHXyUrqQF9` |
+| FOGO | `J1DYCptjmChQ6r7kak7oGbJFjxpqaHsQmmrKUzvopBFG` |
+
+### Initialization Transactions
+
+| Operation | Transaction Signature |
+|-----------|----------------------|
+| GlobalConfig Init | `3FPpMz91ARNKtVcwNDgDQtPFwCq1QuEEXuHqb49PN9wESLVBahTjkBU6UpGV7yUqCJ7gDBKa5L9GRELz9MZBi763` |
+| BTC Pool Creation | `5SAWucmoGixukNqVTYQm6SDKwmPTuCQ91Kj9huPZ5QsWq4zwzAA8nQ1rEgsLdoFFrTcBSJmUb3Q5QAwk96Lv9zV2` |
+| BTC Pool USDC ATA | `4bwQebE7DjRtXywe6GPbiEbTCX8L8r17KZTJebHwQ3uKWeKQWwz74aQi9wqAzc6V81hGw16KKqndMMFJLTkaGYBZ` |
+| ETH Pool Creation | `2FgWjxHQwf6bWFrtunuh78jf9VLYNNuT9bNkyduNHHS92CykwLY45obQG58ZJnTst6X5a7sPwSMZdzfcihqZ8QrT` |
+| ETH Pool USDC ATA | `4QN295mcJMMh4zayPLFPSVp1iKgtqyK3GCthpp53Cke3FTEe18xULkth6PiMFvWPEGcYtmysZ2S96F4fXTxc644S` |
+| SOL Pool Creation | `2U58r8v6hvu3Zv34XDg4xTg59uq2p5eQp6TZNcDQYHLRdw81aGa1yZ9QqVumDFttMNhXH4Uhri6vmo77AYBq7QBM` |
+| SOL Pool USDC ATA | `2WRxgFwsDVYZKgRUG5mgNnzF3FTyrhYEJDsTp6pcYdn9o8WYmVYXMGvaKZ7S24MGyKVXZsN8k54C8TVnhpmkkxCm` |
+| FOGO Pool Creation | `3Ucsj7vse2QHbSzGmwNUDeTguSUcdJpUzm964CeLpE7jE32JYKhziUvfwV4Sy199tVKkUAjEoQjDgDmVkVWTX1cc` |
+| FOGO Pool USDC ATA | `3vc2BHP9CXWQ1PF2AXCVAXAFJDwsJng3TzHHJdNBWRjwLpuCzaVwf2u31VxAwBrVSYSKhTjLLSErNPSFM5XjjxFi` |
 
 ---
 

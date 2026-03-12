@@ -68,3 +68,23 @@ export const SEEDS = {
   POSITION: Buffer.from('position'),
   LP_SHARE: Buffer.from('lp_share'),
 } as const
+
+// =============================================================================
+// INITIALIZED ACCOUNTS (Story 1.11)
+// =============================================================================
+
+export const GLOBAL_CONFIG_PDA = new PublicKey('GGUyA3vgbtNvC5oigtNc4uu8Z36MBjANPAfcZvoGjans')
+
+export const POOL_PDAS = {
+  BTC: new PublicKey('5c4wcGimy5kSW8pa6yYpCLTy8RbfeMhDMkqzShUoJh3W'),
+  ETH: new PublicKey('4reapQVB2dBZKeRnA3j6siCsR5NkPzyaLexsDejE7cNY'),
+  SOL: new PublicKey('KK92JDHfEujRxEfbMny3UC4AmwuUQDVqaNAtH7X2RHN'),
+  FOGO: new PublicKey('AVNWyL2YE8xRNSjHfuEfhnBEmnYKrKRcrPua9WnQTUXL'),
+} as const
+
+export const POOL_USDC_ATAS = {
+  BTC: new PublicKey('7secVYnHhudPDG24PYBUzxaWEzNRTHpPfoQAZwgoX5wh'),
+  ETH: new PublicKey('J2wvG4ukQQ6wURzJgddSpgwjgGdZkDvVAsFifPD3t1sH'),
+  SOL: new PublicKey('EGbJvFHqnMRw7P4R1nnEqeFwYBJBeFBH4kdHXyUrqQF9'),
+  FOGO: new PublicKey('J1DYCptjmChQ6r7kak7oGbJFjxpqaHsQmmrKUzvopBFG'),
+} as const
