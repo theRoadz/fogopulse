@@ -1,11 +1,34 @@
+//! Create Pool instruction - Admin creates new trading pool for an asset
+//!
+//! ## Session Exclusion (ADMIN-ONLY)
+//!
+//! This instruction does NOT use FOGO Sessions and requires direct admin wallet signature.
+//!
+//! **Rationale:** Pool creation is a privileged admin operation that:
+//! - Creates a new Pool account for a specific asset
+//! - Requires verification against GlobalConfig.admin
+//! - Determines which assets can be traded on the protocol
+//! - Must be performed by the actual admin wallet, not a delegated session
+//!
+//! Session accounts enable gasless UX for repetitive user operations (trading, claiming).
+//! Admin operations are rare, require maximum security, and should never be delegated.
+//!
+//! ## User-facing instructions that DO use sessions:
+//! - `buy_position`, `sell_position`, `claim_payout`, `claim_refund`
+//! - `deposit_liquidity`, `withdraw_liquidity`
+//!
+//! See `src/session.rs` for the session extraction pattern.
+
 use anchor_lang::prelude::*;
 use crate::errors::FogoPulseError;
 use crate::events::PoolCreated;
 use crate::state::{GlobalConfig, Pool};
 
+/// Create Pool accounts - admin-only, no session support
 #[derive(Accounts)]
 pub struct CreatePool<'info> {
     /// Admin authority - must match GlobalConfig.admin
+    /// NOT using session extraction: admin operations require direct wallet signature
     #[account(mut)]
     pub admin: Signer<'info>,
 

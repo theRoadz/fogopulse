@@ -24,3 +24,8 @@ anchor-lang = "0.31.1"
 # NOTE: Version 0.5.0 with "cpi" feature is required for CPI support
 pyth-lazer-solana-contract = { version = "0.5.0", features = ["no-entrypoint", "cpi"] }
 
+# FOGO Sessions SDK for gasless session-based transactions
+# Enables dual-signature pattern: accepts either direct wallet or session account
+# Version 0.7.5 fixes Bytes constraints bug from earlier versions
+fogo-sessions-sdk = { version = "0.7.5", features = ["anchor"] }
+

@@ -1,8 +1,30 @@
+//! Initialize instruction - One-time protocol setup by admin
+//!
+//! ## Session Exclusion (ADMIN-ONLY)
+//!
+//! This instruction does NOT use FOGO Sessions and requires direct admin wallet signature.
+//!
+//! **Rationale:** Protocol initialization is a one-time, high-privilege operation that:
+//! - Creates the GlobalConfig singleton account
+//! - Sets the admin pubkey (derived from actual signer, not session)
+//! - Configures all protocol parameters (fees, caps, thresholds)
+//! - Must be performed by the actual admin wallet, not a delegated session
+//!
+//! Session accounts enable gasless UX for repetitive user operations (trading, claiming).
+//! Admin operations are rare, require maximum security, and should never be delegated.
+//!
+//! ## User-facing instructions that DO use sessions:
+//! - `buy_position`, `sell_position`, `claim_payout`, `claim_refund`
+//! - `deposit_liquidity`, `withdraw_liquidity`
+//!
+//! See `src/session.rs` for the session extraction pattern.
+
 use anchor_lang::prelude::*;
 use crate::errors::FogoPulseError;
 use crate::events::GlobalConfigInitialized;
 use crate::state::GlobalConfig;
 
+/// Initialize accounts - admin-only, no session support
 #[derive(Accounts)]
 pub struct Initialize<'info> {
     #[account(mut)]

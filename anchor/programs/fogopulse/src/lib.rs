@@ -6,6 +6,7 @@ pub mod constants;
 pub mod errors;
 pub mod events;
 pub mod instructions;
+pub mod session;
 pub mod state;
 
 pub use constants::*;
@@ -82,5 +83,47 @@ pub mod fogopulse {
         signature_index: u8,
     ) -> Result<()> {
         instructions::create_epoch::handler(ctx, pyth_message, ed25519_instruction_index, signature_index)
+    }
+
+    // =========================================================================
+    // USER-FACING INSTRUCTIONS (with FOGO Sessions support)
+    // =========================================================================
+    // These instructions support both direct wallet signatures AND session accounts.
+    // The `user` parameter is validated against extract_user() in each handler.
+    // See src/session.rs for the session extraction pattern.
+    //
+    // NOTE: These are STUBS for Story 1.9. Full implementation in later Epics.
+
+    /// Buy a position in an epoch (STUB - returns NotImplemented)
+    ///
+    /// Supports FOGO Sessions for gasless trading.
+    /// Full implementation in Epic 2.
+    pub fn buy_position(
+        ctx: Context<BuyPosition>,
+        user: Pubkey,
+        direction: Direction,
+        amount: u64,
+    ) -> Result<()> {
+        instructions::buy_position::handler(ctx, user, direction, amount)
+    }
+
+    /// Sell a position before epoch settlement (STUB - returns NotImplemented)
+    ///
+    /// Supports FOGO Sessions for gasless trading.
+    /// Full implementation in Epic 4.
+    pub fn sell_position(
+        ctx: Context<SellPosition>,
+        user: Pubkey,
+        shares: u64,
+    ) -> Result<()> {
+        instructions::sell_position::handler(ctx, user, shares)
+    }
+
+    /// Claim payout from a winning position (STUB - returns NotImplemented)
+    ///
+    /// Supports FOGO Sessions for gasless claims.
+    /// Full implementation in Epic 3.
+    pub fn claim_payout(ctx: Context<ClaimPayout>, user: Pubkey) -> Result<()> {
+        instructions::claim_payout::handler(ctx, user)
     }
 }

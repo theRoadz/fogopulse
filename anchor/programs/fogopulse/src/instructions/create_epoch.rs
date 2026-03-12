@@ -1,3 +1,29 @@
+//! Create Epoch instruction - Permissionless epoch creation with Pyth oracle
+//!
+//! ## Session Exclusion (PERMISSIONLESS)
+//!
+//! This instruction does NOT use FOGO Sessions because it is PERMISSIONLESS.
+//!
+//! **Rationale:** Epoch creation is designed to be callable by anyone:
+//! - Keeper bots / crank services can automatically create epochs
+//! - No user identity verification needed - any wallet can pay the transaction fee
+//! - The caller's identity is irrelevant to the operation
+//! - No position or funds are associated with the caller
+//!
+//! Since there's no "user" whose identity matters, session extraction is not applicable.
+//! The payer is simply whoever pays the transaction fee, not a user performing an action
+//! on their account.
+//!
+//! ## Similar permissionless instructions (no session needed):
+//! - `advance_epoch` - Anyone can trigger epoch settlement and advance
+//! - `settle_epoch` - Anyone can settle an expired epoch
+//!
+//! ## User-facing instructions that DO use sessions:
+//! - `buy_position`, `sell_position`, `claim_payout`, `claim_refund`
+//! - `deposit_liquidity`, `withdraw_liquidity`
+//!
+//! See `src/session.rs` for the session extraction pattern.
+
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::sysvar::instructions as sysvar_instructions;
 
@@ -9,9 +35,11 @@ use crate::errors::FogoPulseError;
 use crate::events::EpochCreated;
 use crate::state::{Epoch, EpochState, GlobalConfig, Pool};
 
+/// Create Epoch accounts - permissionless, no session needed
 #[derive(Accounts)]
 pub struct CreateEpoch<'info> {
     /// Anyone can call - permissionless for crank bots/keepers
+    /// NOT using session extraction: no user identity matters here
     #[account(mut)]
     pub payer: Signer<'info>,
 

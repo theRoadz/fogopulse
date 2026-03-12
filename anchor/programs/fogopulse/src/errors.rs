@@ -61,4 +61,19 @@ pub enum FogoPulseError {
 
     #[msg("Oracle confidence too wide - exceeds confidence threshold")]
     OracleConfidenceTooWide,
+
+    // Session errors
+    #[msg("Session extraction failed - invalid, expired, or unauthorized session")]
+    SessionExtractionFailed,
+
+    // Position errors
+    #[msg("Invalid epoch reference")]
+    InvalidEpoch,
+
+    #[msg("Position already claimed")]
+    AlreadyClaimed,
+
+    // Placeholder for unimplemented instructions
+    #[msg("Instruction not yet implemented")]
+    NotImplemented,
 }

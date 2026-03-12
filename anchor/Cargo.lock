@@ -696,10 +696,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2551bf44bc5f776c15044b9b94153a00198be06743e262afaaa61f11ac7523a5"
 
 [[package]]
+name = "fogo-sessions-sdk"
+version = "0.7.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d63d256f93b29563279a94e01438a2cd6ee7993c537617b5ef993efc3aafddf5"
+dependencies = [
+ "anchor-lang",
+ "borsh 0.10.4",
+ "solana-program",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "fogopulse"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "fogo-sessions-sdk",
  "pyth-lazer-solana-contract",
 ]
 
