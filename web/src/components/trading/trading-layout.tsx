@@ -1,0 +1,40 @@
+'use client'
+
+import { useUIStore } from '@/stores/ui-store'
+import type { Asset } from '@/types/assets'
+import { AssetTabs } from './asset-tabs'
+import { ChartArea } from './chart-area'
+import { TradeTicketArea } from './trade-ticket-area'
+
+interface TradingLayoutProps {
+  onAssetChange?: (asset: Asset) => void
+}
+
+export function TradingLayout({ onAssetChange }: TradingLayoutProps) {
+  const activeAsset = useUIStore((s) => s.activeAsset)
+
+  return (
+    <div className="flex flex-col gap-4 p-4">
+      {/* Header with Asset Tabs */}
+      <div className="flex justify-center">
+        <AssetTabs onAssetChange={onAssetChange} />
+      </div>
+
+      {/* Main trading area: 65% chart / 35% trade ticket on desktop */}
+      <div className="flex flex-col lg:flex-row gap-4">
+        {/* Chart Area - 65% on desktop, full width on mobile/tablet */}
+        <div className="w-full lg:w-[65%]">
+          <ChartArea
+            asset={activeAsset}
+            className="min-h-[300px] md:min-h-[350px] lg:min-h-[400px]"
+          />
+        </div>
+
+        {/* Trade Ticket Area - 35% on desktop, full width on mobile/tablet */}
+        <div className="w-full lg:w-[35%]">
+          <TradeTicketArea asset={activeAsset} />
+        </div>
+      </div>
+    </div>
+  )
+}

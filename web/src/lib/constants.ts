@@ -1,5 +1,7 @@
 import { PublicKey } from '@solana/web3.js'
 
+import type { Asset } from '@/types/assets'
+
 // =============================================================================
 // FOGO TESTNET RPC
 // =============================================================================
@@ -36,8 +38,6 @@ export const ASSET_MINTS = {
   SOL: new PublicKey('CYZxBEe7U5gBAfcGat91qjJ96xHdJ5CWJYvDmkFKyiPP'),
   FOGO: new PublicKey('H9Y6TpfVEMiAEATkbUrsECzi3ZrCSLt6poruEFzNf89X'),
 } as const
-
-export type Asset = keyof typeof ASSET_MINTS
 
 // =============================================================================
 // TRADING CONSTANTS (FROM GLOBALCONFIG)
@@ -87,4 +87,47 @@ export const POOL_USDC_ATAS = {
   ETH: new PublicKey('J2wvG4ukQQ6wURzJgddSpgwjgGdZkDvVAsFifPD3t1sH'),
   SOL: new PublicKey('EGbJvFHqnMRw7P4R1nnEqeFwYBJBeFBH4kdHXyUrqQF9'),
   FOGO: new PublicKey('J1DYCptjmChQ6r7kak7oGbJFjxpqaHsQmmrKUzvopBFG'),
+} as const
+
+// =============================================================================
+// ASSET METADATA (UI)
+// =============================================================================
+
+export const ASSET_METADATA: Record<
+  Asset,
+  {
+    label: string
+    color: string
+    feedId: string
+  }
+> = {
+  BTC: {
+    label: 'BTC',
+    color: 'text-orange-500',
+    feedId: '0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43',
+  },
+  ETH: {
+    label: 'ETH',
+    color: 'text-blue-500',
+    feedId: '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace',
+  },
+  SOL: {
+    label: 'SOL',
+    color: 'text-purple-500',
+    feedId: '0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d',
+  },
+  FOGO: {
+    label: 'FOGO',
+    color: 'text-primary',
+    // TODO(Story 2-4): FOGO price feed ID required for Pyth Hermes integration
+    // FOGO token may not have a Pyth feed - check alternatives or use placeholder
+    feedId: '',
+  },
+} as const
+
+export const PYTH_FEED_IDS = {
+  BTC_USD: ASSET_METADATA.BTC.feedId,
+  ETH_USD: ASSET_METADATA.ETH.feedId,
+  SOL_USD: ASSET_METADATA.SOL.feedId,
+  FOGO_USD: ASSET_METADATA.FOGO.feedId,
 } as const

@@ -59,7 +59,7 @@ development_status:
   epic-2: in-progress
   2-1-implement-buy-position-instruction: done
   2-2-implement-wallet-connection-ui: done
-  2-3-create-asset-selector-and-market-layout: backlog
+  2-3-create-asset-selector-and-market-layout: done
   2-4-integrate-pyth-hermes-price-feed: backlog
   2-5-implement-price-chart-component: backlog
   2-6-create-epoch-status-display: backlog
