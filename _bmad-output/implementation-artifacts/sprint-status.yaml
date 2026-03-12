@@ -58,7 +58,7 @@ development_status:
   # Epic 2: Core Trading Experience
   epic-2: in-progress
   2-1-implement-buy-position-instruction: done
-  2-2-implement-wallet-connection-ui: backlog
+  2-2-implement-wallet-connection-ui: done
   2-3-create-asset-selector-and-market-layout: backlog
   2-4-integrate-pyth-hermes-price-feed: backlog
   2-5-implement-price-chart-component: backlog

@@ -8,28 +8,38 @@ import {
   useWallet,
   WalletProvider,
 } from '@solana/wallet-adapter-react'
-import { WalletModalProvider } from '@solana/wallet-adapter-react-ui'
-import dynamic from 'next/dynamic'
 import { ReactNode, useCallback, useMemo } from 'react'
 import { useCluster } from '../cluster/cluster-data-access'
-import '@solana/wallet-adapter-react-ui/styles.css'
 import { AnchorProvider } from '@coral-xyz/anchor'
-
-export const WalletButton = dynamic(async () => (await import('@solana/wallet-adapter-react-ui')).WalletMultiButton, {
-  ssr: false,
-})
+import { toast } from 'sonner'
 
 export function SolanaProvider({ children }: { children: ReactNode }) {
   const { cluster } = useCluster()
   const endpoint = useMemo(() => cluster.endpoint, [cluster])
+
   const onError = useCallback((error: WalletError) => {
-    console.error(error)
+    console.error('Wallet error:', error)
+
+    // Show user-friendly error messages
+    if (error.name === 'WalletNotReadyError') {
+      toast.error('Wallet not ready. Please ensure your wallet extension is installed and unlocked.')
+    } else if (error.name === 'WalletConnectionError') {
+      toast.error('Failed to connect wallet. Please try again.')
+    } else if (error.name === 'WalletDisconnectedError') {
+      toast.info('Wallet disconnected')
+    } else if (error.name === 'WalletSignTransactionError') {
+      toast.error('Transaction signing failed. Please try again.')
+    } else if (error.message?.includes('User rejected')) {
+      toast.info('Connection request cancelled')
+    } else {
+      toast.error(`Wallet error: ${error.message || 'Unknown error'}`)
+    }
   }, [])
 
   return (
     <ConnectionProvider endpoint={endpoint}>
       <WalletProvider wallets={[]} onError={onError} autoConnect={true}>
-        <WalletModalProvider>{children}</WalletModalProvider>
+        {children}
       </WalletProvider>
     </ConnectionProvider>
   )

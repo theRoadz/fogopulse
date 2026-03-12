@@ -1,116 +1,73 @@
 'use client'
 
-import { Keypair, PublicKey } from '@solana/web3.js'
-import { useMemo } from 'react'
-import { ExplorerLink } from '../cluster/cluster-ui'
-import { useFogopulseProgram, useFogopulseProgramAccount } from './fogopulse-data-access'
-import { ellipsify } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
+import { useFogopulseProgram } from './fogopulse-data-access'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
+import { ExplorerLink } from '../cluster/cluster-ui'
+import { ellipsify } from '@/lib/utils'
 
-export function FogopulseCreate() {
-  const { initialize } = useFogopulseProgram()
+/**
+ * FogoPulse Trading UI Components
+ *
+ * Note: The original scaffolding used a counter example.
+ * This file will be expanded with:
+ * - Asset selector
+ * - Price chart
+ * - Trade ticket
+ * - Position list
+ * - Epoch status
+ *
+ * These will be built in subsequent stories (2.3 - 2.10)
+ */
 
-  return (
-    <Button onClick={() => initialize.mutateAsync(Keypair.generate())} disabled={initialize.isPending}>
-      Create {initialize.isPending && '...'}
-    </Button>
-  )
-}
-
-export function FogopulseList() {
-  const { accounts, getProgramAccount } = useFogopulseProgram()
+export function FogopulseDashboard() {
+  const { programId, getProgramAccount } = useFogopulseProgram()
 
   if (getProgramAccount.isLoading) {
-    return <span className="loading loading-spinner loading-lg"></span>
-  }
-  if (!getProgramAccount.data?.value) {
     return (
-      <div className="alert alert-info flex justify-center">
-        <span>Program account not found. Make sure you have deployed the program and are on the correct cluster.</span>
+      <div className="flex justify-center py-8">
+        <span className="loading loading-spinner loading-lg"></span>
       </div>
     )
   }
+
+  if (!getProgramAccount.data?.value) {
+    return (
+      <Card>
+        <CardContent className="py-8">
+          <div className="text-center text-muted-foreground">
+            <p>Program account not found.</p>
+            <p className="text-sm mt-2">
+              Make sure you have deployed the program and are connected to FOGO Testnet.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
-    <div className={'space-y-6'}>
-      {accounts.isLoading ? (
-        <span className="loading loading-spinner loading-lg"></span>
-      ) : accounts.data?.length ? (
-        <div className="grid md:grid-cols-2 gap-4">
-          {accounts.data?.map((account) => (
-            <FogopulseCard key={account.publicKey.toString()} account={account.publicKey} />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center">
-          <h2 className={'text-2xl'}>No accounts</h2>
-          No accounts found. Create one above to get started.
-        </div>
-      )}
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>FogoPulse Program</CardTitle>
+          <CardDescription>
+            Program ID: <ExplorerLink path={`account/${programId}`} label={ellipsify(programId.toString())} />
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">
+            Trading UI components will be added in upcoming stories.
+          </p>
+          <ul className="list-disc list-inside mt-4 text-sm text-muted-foreground space-y-1">
+            <li>Story 2.3: Asset Selector & Market Layout</li>
+            <li>Story 2.4: Pyth Price Feed Integration</li>
+            <li>Story 2.5: Price Chart Component</li>
+            <li>Story 2.6: Epoch Status Display</li>
+            <li>Story 2.7: Pool State Display</li>
+            <li>Story 2.8: Trade Ticket Component</li>
+          </ul>
+        </CardContent>
+      </Card>
     </div>
-  )
-}
-
-function FogopulseCard({ account }: { account: PublicKey }) {
-  const { accountQuery, incrementMutation, setMutation, decrementMutation, closeMutation } = useFogopulseProgramAccount({
-    account,
-  })
-
-  const count = useMemo(() => accountQuery.data?.count ?? 0, [accountQuery.data?.count])
-
-  return accountQuery.isLoading ? (
-    <span className="loading loading-spinner loading-lg"></span>
-  ) : (
-    <Card>
-      <CardHeader>
-        <CardTitle>Counter: {count}</CardTitle>
-        <CardDescription>
-          Account: <ExplorerLink path={`account/${account}`} label={ellipsify(account.toString())} />
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex gap-4">
-          <Button
-            variant="outline"
-            onClick={() => incrementMutation.mutateAsync()}
-            disabled={incrementMutation.isPending}
-          >
-            Increment
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              const value = window.prompt('Set value to:', count.toString() ?? '0')
-              if (!value || parseInt(value) === count || isNaN(parseInt(value))) {
-                return
-              }
-              return setMutation.mutateAsync(parseInt(value))
-            }}
-            disabled={setMutation.isPending}
-          >
-            Set
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => decrementMutation.mutateAsync()}
-            disabled={decrementMutation.isPending}
-          >
-            Decrement
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={() => {
-              if (!window.confirm('Are you sure you want to close this account?')) {
-                return
-              }
-              return closeMutation.mutateAsync()
-            }}
-            disabled={closeMutation.isPending}
-          >
-            Close
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
   )
 }

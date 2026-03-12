@@ -1,7 +1,7 @@
 'use client'
 
 import { useWallet } from '@solana/wallet-adapter-react'
-import { WalletButton } from '../solana/solana-provider'
+import { WalletButton } from '@/components/wallet'
 
 import { redirect } from 'next/navigation'
 
