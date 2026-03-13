@@ -23,4 +23,8 @@ cluster = "localnet"
 wallet = "~/.config/solana/fogo-testnet.json"
 
 [scripts]
-test = "pnpm jest"
+# Integration tests (requires WALLET_PATH env var and network access):
+# test = "pnpm ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.test.ts"
+#
+# Rust unit tests only (no network required):
+test = "cargo test --manifest-path programs/fogopulse/Cargo.toml"
