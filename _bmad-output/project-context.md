@@ -98,7 +98,7 @@ client.subscribe({
 - [ ] Ed25519 instruction MUST be first in transaction (index 0)
 - [ ] Include `instructions_sysvar` account in Rust
 - [ ] Use `VerifyMessage` CPI (NOT `VerifyEcdsaMessage`)
-- [ ] pythMessageOffset = 20 (8 discriminator + 8 epoch_id + 4 vec length)
+- [ ] pythMessageOffset = 12 (8 discriminator + 4 vec length) - NOTE: No epoch_id in instruction data
 
 ### FOGO Sessions Integration
 
