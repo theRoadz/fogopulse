@@ -63,7 +63,7 @@ development_status:
   2-4-integrate-pyth-hermes-price-feed: done
   2-5-implement-price-chart-component: done
   2-6-create-epoch-status-display: done
-  2-7-implement-pool-state-display: backlog
+  2-7-implement-pool-state-display: done
   2-8-create-trade-ticket-component: backlog
   2-9-implement-trade-execution-flow: backlog
   2-10-add-trade-preview-calculations: backlog

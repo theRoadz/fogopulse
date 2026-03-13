@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import type { Asset } from '@/types/assets'
 import { ASSET_METADATA } from '@/lib/constants'
+import { PoolStateDisplay } from './pool-state-display'
 
 interface TradeTicketAreaProps {
   asset: Asset
@@ -13,16 +14,17 @@ export function TradeTicketArea({ asset }: TradeTicketAreaProps) {
   const metadata = ASSET_METADATA[asset]
 
   return (
-    <Card className="h-full">
-      <CardHeader className="border-b">
-        <CardTitle className="text-center">
-          Trade {metadata.label}
-        </CardTitle>
-        <p className="text-sm text-muted-foreground text-center">
-          Trade Ticket Coming Soon
-        </p>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 h-full">
+      {/* Pool State Display - shows market sentiment */}
+      <PoolStateDisplay asset={asset} />
+
+      {/* Trade Ticket Card */}
+      <Card className="flex-1">
+        <CardHeader className="border-b">
+          <CardTitle className="text-center">Trade {metadata.label}</CardTitle>
+          <p className="text-sm text-muted-foreground text-center">Trade Ticket Coming Soon</p>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
         {/* Direction Buttons */}
         <div className="grid grid-cols-2 gap-3">
           <Button
@@ -81,6 +83,7 @@ export function TradeTicketArea({ asset }: TradeTicketAreaProps) {
           Predict if {metadata.label} will be above or below the price at epoch end
         </p>
       </CardContent>
-    </Card>
+      </Card>
+    </div>
   )
 }
