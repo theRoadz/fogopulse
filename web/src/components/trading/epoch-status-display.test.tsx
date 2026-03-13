@@ -1,6 +1,7 @@
 /**
  * @jest-environment jsdom
  */
+import React from 'react'
 import { render, screen } from '@testing-library/react'
 import { EpochStatusDisplay } from './epoch-status-display'
 import { EpochState } from '@/types/epoch'
@@ -40,9 +41,26 @@ const mockUsePythPrice = jest.fn().mockReturnValue({
   connectionState: 'connected',
 })
 
+const mockUseWalletConnection = jest.fn().mockReturnValue({
+  connected: false,
+  publicKey: null,
+  connecting: false,
+})
+
+const mockUseEpochCreation = jest.fn().mockReturnValue({
+  state: 'idle',
+  needsEpochCreation: false,
+  isCreating: false,
+  error: null,
+  createEpoch: jest.fn(),
+  reset: jest.fn(),
+})
+
 jest.mock('@/hooks', () => ({
   useEpoch: (...args: unknown[]) => mockUseEpoch(...args),
   usePythPrice: (...args: unknown[]) => mockUsePythPrice(...args),
+  useWalletConnection: () => mockUseWalletConnection(),
+  useEpochCreation: (...args: unknown[]) => mockUseEpochCreation(...args),
 }))
 
 // Mock child components
@@ -70,6 +88,15 @@ jest.mock('./price-to-beat', () => ({
 jest.mock('@/components/ui/skeleton', () => ({
   Skeleton: ({ className }: { className?: string }) => (
     <div data-testid="skeleton" className={className} />
+  ),
+}))
+
+// Mock Button
+jest.mock('@/components/ui/button', () => ({
+  Button: ({ children, onClick, disabled, className }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; className?: string }) => (
+    <button data-testid="create-epoch-button" onClick={onClick} disabled={disabled} className={className}>
+      {children}
+    </button>
   ),
 }))
 

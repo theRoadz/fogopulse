@@ -152,3 +152,34 @@ export const QUERY_KEYS = {
 // =============================================================================
 
 export const FOGO_EXPLORER_TX_URL = 'https://explorer.fogo.io/tx'
+
+// =============================================================================
+// ED25519 PROGRAM AND SYSVARS
+// =============================================================================
+
+export const ED25519_PROGRAM_ID = new PublicKey('Ed25519SigVerify111111111111111111111111111')
+export const SYSVAR_CLOCK = new PublicKey('SysvarC1ock11111111111111111111111111111111')
+export const SYSVAR_INSTRUCTIONS = new PublicKey('Sysvar1nstructions1111111111111111111111111')
+
+// =============================================================================
+// CREATE_EPOCH INSTRUCTION DISCRIMINATOR (from IDL)
+// =============================================================================
+
+export const CREATE_EPOCH_DISCRIMINATOR = new Uint8Array([115, 111, 36, 230, 59, 145, 168, 27])
+
+// =============================================================================
+// PYTH LAZER WEBSOCKET
+// =============================================================================
+
+export const PYTH_LAZER_WS = 'wss://pyth-lazer.dourolabs.app/v1/stream'
+
+// =============================================================================
+// PYTH LAZER FEED IDS (NUMERIC - NOT hex strings like Hermes)
+// =============================================================================
+
+export const PYTH_LAZER_FEED_IDS: Record<Asset, number> = {
+  BTC: 1, // BTC/USD
+  ETH: 2, // ETH/USD
+  SOL: 5, // SOL/USD
+  FOGO: 1, // Placeholder - uses BTC feed
+}
