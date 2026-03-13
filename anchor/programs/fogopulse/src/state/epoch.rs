@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 /// Epoch state machine - tracks the lifecycle of a trading epoch
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace, Default)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace, Default, Debug)]
 pub enum EpochState {
     /// Trading allowed
     #[default]

@@ -104,4 +104,7 @@ pub enum FogoPulseError {
 
     #[msg("Trade amount below minimum required")]
     BelowMinimumTrade,
+
+    #[msg("Invalid epoch state for this operation")]
+    InvalidEpochState,
 }

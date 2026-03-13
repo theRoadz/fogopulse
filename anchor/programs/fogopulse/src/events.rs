@@ -70,3 +70,15 @@ pub struct PositionOpened {
     /// Unix timestamp when position was opened
     pub timestamp: i64,
 }
+
+#[event]
+pub struct EpochForceClosed {
+    /// Epoch account pubkey
+    pub epoch: Pubkey,
+    /// Parent pool
+    pub pool: Pubkey,
+    /// Sequential epoch identifier within pool
+    pub epoch_id: u64,
+    /// Admin who force-closed the epoch
+    pub admin: Pubkey,
+}

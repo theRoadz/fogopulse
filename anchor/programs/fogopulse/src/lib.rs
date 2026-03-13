@@ -127,4 +127,17 @@ pub mod fogopulse {
     pub fn claim_payout(ctx: Context<ClaimPayout>, user: Pubkey) -> Result<()> {
         instructions::claim_payout::handler(ctx, user)
     }
+
+    // =========================================================================
+    // ADMIN INSTRUCTIONS
+    // =========================================================================
+
+    /// Force-close a stuck epoch (admin only)
+    ///
+    /// Emergency instruction to clear a stuck epoch when settlement
+    /// is not yet implemented. Sets epoch state to Refunded and
+    /// clears pool.active_epoch to allow new epoch creation.
+    pub fn admin_force_close_epoch(ctx: Context<AdminForceCloseEpoch>) -> Result<()> {
+        instructions::admin_force_close_epoch::handler(ctx)
+    }
 }

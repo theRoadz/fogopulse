@@ -1,3 +1,4 @@
+pub mod admin_force_close_epoch;
 pub mod buy_position;
 pub mod claim_payout;
 pub mod create_epoch;
@@ -10,6 +11,7 @@ pub mod sell_position;
 // via explicit paths (e.g., instructions::buy_position::handler), so the
 // ambiguous glob re-export warning is benign.
 #[allow(ambiguous_glob_reexports)]
+pub use admin_force_close_epoch::*;
 pub use buy_position::*;
 pub use claim_payout::*;
 pub use create_epoch::*;
