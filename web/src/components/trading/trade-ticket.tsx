@@ -17,6 +17,7 @@ import { DirectionButton } from './direction-button'
 import { AmountInput } from './amount-input'
 import { QuickAmountButtons } from './quick-amount-buttons'
 import { BalanceDisplay } from './balance-display'
+import { TradePreview } from './trade-preview'
 
 interface TradeTicketProps {
   asset: Asset
@@ -244,7 +245,10 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
           disabled={isInputDisabled}
         />
 
-        {/* Trade Preview - Story 2.10 will add preview calculations here */}
+        {/* Trade Preview - Show when amount > 0 and direction selected */}
+        {direction && amount && parseFloat(amount) > 0 && (
+          <TradePreview asset={asset} />
+        )}
 
         {/* Action Button */}
         {!connected ? (
