@@ -140,4 +140,12 @@ pub mod fogopulse {
     pub fn admin_force_close_epoch(ctx: Context<AdminForceCloseEpoch>) -> Result<()> {
         instructions::admin_force_close_epoch::handler(ctx)
     }
+
+    /// Update protocol configuration (admin only)
+    ///
+    /// Allows admin to modify GlobalConfig parameters like oracle thresholds,
+    /// fee settings, and feature flags. Only provided fields are updated.
+    pub fn update_config(ctx: Context<UpdateConfig>, params: UpdateConfigParams) -> Result<()> {
+        instructions::update_config::handler(ctx, params)
+    }
 }

@@ -82,3 +82,18 @@ pub struct EpochForceClosed {
     /// Admin who force-closed the epoch
     pub admin: Pubkey,
 }
+
+#[event]
+pub struct ConfigUpdated {
+    /// Admin who updated the config
+    pub admin: Pubkey,
+    /// GlobalConfig account pubkey
+    pub config: Pubkey,
+    /// Bitmask of which fields were updated (for efficient indexing)
+    /// Bit positions: 0=treasury, 1=insurance, 2=trading_fee, 3=lp_fee,
+    /// 4=treasury_fee, 5=insurance_fee, 6=wallet_cap, 7=side_cap,
+    /// 8=confidence_start, 9=confidence_settle, 10=staleness_start,
+    /// 11=staleness_settle, 12=epoch_duration, 13=freeze_window,
+    /// 14=allow_hedging, 15=paused, 16=frozen
+    pub fields_updated: u32,
+}

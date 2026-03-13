@@ -5,6 +5,7 @@ pub mod create_epoch;
 pub mod create_pool;
 pub mod initialize;
 pub mod sell_position;
+pub mod update_config;
 
 // Re-export Accounts structs for use in lib.rs Context<T>
 // Note: Multiple modules export `handler` functions, but they are called
@@ -18,3 +19,4 @@ pub use create_epoch::*;
 pub use create_pool::*;
 pub use initialize::*;
 pub use sell_position::*;
+pub use update_config::*;
