@@ -19,6 +19,7 @@ export const PROGRAM_ID = new PublicKey('D8htKqaQPp8g3VRpbwno1rCQcaBrMCbZZcaFVxS
 // =============================================================================
 
 export const USDC_MINT = new PublicKey('6jzddTQNDh2RPuav88r19gdSGmGnbH6EWa2NXgLV8cAy')
+export const USDC_DECIMALS = 6
 
 // =============================================================================
 // PYTH LAZER ADDRESSES (FOGO TESTNET)
