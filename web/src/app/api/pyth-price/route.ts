@@ -10,9 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import WebSocket from 'ws'
-
-import { PYTH_LAZER_WS } from '@/lib/constants'
+import { PythLazerClient } from '@pythnetwork/pyth-lazer-sdk'
 
 // Valid feed IDs (BTC=1, ETH=2, SOL=5)
 const VALID_FEED_IDS = new Set([1, 2, 5])
@@ -20,28 +18,28 @@ const VALID_FEED_IDS = new Set([1, 2, 5])
 // Timeout for WebSocket connection (30 seconds)
 const TIMEOUT_MS = 30000
 
-interface PythStreamMessage {
-  type: string
-  subscriptionId?: number
-  solana?: {
-    encoding: string
-    data: string
-  }
-  error?: string
-  message?: string
-}
+// Pyth Lazer WebSocket endpoints
+const PYTH_LAZER_WS_URLS = [
+  'wss://pyth-lazer-0.dourolabs.app/v1/stream',
+  'wss://pyth-lazer-1.dourolabs.app/v1/stream',
+  'wss://pyth-lazer-2.dourolabs.app/v1/stream',
+]
 
 /**
- * Fetch signed Pyth message from WebSocket
+ * Fetch signed Pyth message using official SDK
  */
 async function fetchPythMessage(feedId: number, accessToken: string): Promise<string> {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
+    let client: Awaited<ReturnType<typeof PythLazerClient.create>> | null = null
     let resolved = false
-    let ws: WebSocket | null = null
 
     const cleanup = () => {
-      if (ws && ws.readyState !== WebSocket.CLOSED) {
-        ws.close()
+      if (client) {
+        try {
+          client.shutdown()
+        } catch {
+          // Ignore shutdown errors
+        }
       }
     }
 
@@ -54,69 +52,65 @@ async function fetchPythMessage(feedId: number, accessToken: string): Promise<st
     }, TIMEOUT_MS)
 
     try {
-      // Connect with auth token in URL (standard Pyth Lazer pattern)
-      ws = new WebSocket(`${PYTH_LAZER_WS}?token=${encodeURIComponent(accessToken)}`)
-
-      ws.on('open', () => {
-        // Subscribe to price feed with Ed25519 format (required for FOGO)
-        const subscribeMsg = {
-          type: 'subscribe',
-          subscriptionId: Date.now(),
-          priceFeedIds: [feedId],
-          properties: ['price', 'confidence'],
-          formats: ['solana'], // Ed25519 format, NOT 'leEcdsa'
-          deliveryFormat: 'json',
-          channel: 'fixed_rate@200ms',
-          jsonBinaryEncoding: 'hex',
-        }
-        ws?.send(JSON.stringify(subscribeMsg))
+      // Create client with SDK v6.0.0 API
+      client = await PythLazerClient.create({
+        token: accessToken,
+        webSocketPoolConfig: {
+          urls: PYTH_LAZER_WS_URLS,
+        },
       })
 
-      ws.on('message', (data: WebSocket.Data) => {
+      const subscriptionId = Date.now()
+
+      // Add message listener - SDK v6.0.0 wraps messages in { type, value }
+      client.addMessageListener((response: unknown) => {
         if (resolved) return
 
-        try {
-          const msg = JSON.parse(data.toString()) as PythStreamMessage
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const typedResponse = response as any
+        const message = typedResponse?.value
 
-          if (msg.type === 'error') {
-            resolved = true
-            clearTimeout(timeout)
-            cleanup()
-            reject(new Error(`Pyth API error: ${msg.message || msg.error}`))
-            return
-          }
-
-          if (msg.type === 'streamUpdated' && msg.solana?.data) {
-            resolved = true
-            clearTimeout(timeout)
-            cleanup()
-            resolve(msg.solana.data)
-          }
-        } catch {
-          // Ignore parse errors
-        }
-      })
-
-      ws.on('error', () => {
-        if (!resolved) {
+        if (message?.type === 'error') {
           resolved = true
           clearTimeout(timeout)
           cleanup()
-          reject(new Error('WebSocket connection error'))
+          reject(new Error(`Pyth API error: ${message.message || message.error}`))
+          return
+        }
+
+        if (message?.type === 'streamUpdated' && message.subscriptionId === subscriptionId) {
+          // Get the solana-encoded message (Ed25519 format for Solana verification)
+          const solanaData = typedResponse?.value?.solana?.data
+
+          if (!solanaData) {
+            resolved = true
+            clearTimeout(timeout)
+            cleanup()
+            reject(new Error('No solana-encoded data in response'))
+            return
+          }
+
+          resolved = true
+          clearTimeout(timeout)
+          cleanup()
+          resolve(solanaData) // Already hex string
         }
       })
 
-      ws.on('close', (code: number, reason: Buffer) => {
-        if (!resolved) {
-          resolved = true
-          clearTimeout(timeout)
-          if (code !== 1000) {
-            reject(new Error(`WebSocket closed: ${reason.toString() || 'Unknown reason'}`))
-          }
-        }
+      // Subscribe to the price feed with solana format (Ed25519 for FOGO)
+      client.subscribe({
+        type: 'subscribe',
+        subscriptionId,
+        priceFeedIds: [feedId],
+        properties: ['price', 'confidence'],
+        formats: ['solana'], // Ed25519 format for Solana/FOGO verification
+        deliveryFormat: 'json',
+        channel: 'fixed_rate@200ms',
+        jsonBinaryEncoding: 'hex',
       })
     } catch (err) {
       clearTimeout(timeout)
+      cleanup()
       reject(err instanceof Error ? err : new Error('Failed to connect to Pyth Lazer'))
     }
   })

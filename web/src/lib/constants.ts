@@ -168,12 +168,6 @@ export const SYSVAR_INSTRUCTIONS = new PublicKey('Sysvar1nstructions111111111111
 export const CREATE_EPOCH_DISCRIMINATOR = new Uint8Array([115, 111, 36, 230, 59, 145, 168, 27])
 
 // =============================================================================
-// PYTH LAZER WEBSOCKET
-// =============================================================================
-
-export const PYTH_LAZER_WS = 'wss://pyth-lazer.dourolabs.app/v1/stream'
-
-// =============================================================================
 // PYTH LAZER FEED IDS (NUMERIC - NOT hex strings like Hermes)
 // =============================================================================
 

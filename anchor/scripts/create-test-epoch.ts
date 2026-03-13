@@ -62,8 +62,13 @@ const PYTH_PROGRAM_ID = new PublicKey('pytd2yyk641x7ak7mkaasSJVXh6YYZnC7wTmtgAyx
 const PYTH_STORAGE_ID = new PublicKey('3rdJbqfnagQ4yx9HXJViD4zc4xpiSqmFsKpPuSCQVyQL')
 const PYTH_TREASURY_ID = new PublicKey('upg8KLALUN7ByDHiBu4wEbMDTC6UnSVFSYfTyGfXuzr')
 
-// Pyth Lazer WebSocket endpoint
-const PYTH_LAZER_WS = 'wss://pyth-lazer.dourolabs.app/v1/stream'
+// Pyth Lazer WebSocket endpoints (numbered endpoints required)
+// See: https://docs.pyth.network/price-feeds/pro/subscribe-to-prices
+const PYTH_LAZER_WS_URLS = [
+  'wss://pyth-lazer-0.dourolabs.app/v1/stream',
+  'wss://pyth-lazer-1.dourolabs.app/v1/stream',
+  'wss://pyth-lazer-2.dourolabs.app/v1/stream',
+]
 
 // Asset mints for pool derivation
 const ASSET_MINTS = {
@@ -179,7 +184,9 @@ async function fetchPythMessage(feedId: number, accessToken: string): Promise<Bu
       reject(new Error('Timeout waiting for Pyth price message (30s)'))
     }, 30000)
 
-    const ws = new WebSocket(PYTH_LAZER_WS, {
+    // Use first available WebSocket endpoint
+    const wsUrl = PYTH_LAZER_WS_URLS[0]
+    const ws = new WebSocket(wsUrl, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
       },
