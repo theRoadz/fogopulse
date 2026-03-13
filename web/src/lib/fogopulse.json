@@ -1,0 +1,1995 @@
+{
+  "address": "D8htKqaQPp8g3VRpbwno1rCQcaBrMCbZZcaFVxSyDsX5",
+  "metadata": {
+    "name": "fogopulse",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "FOGO Pulse - Prediction market on FOGO chain"
+  },
+  "instructions": [
+    {
+      "name": "buy_position",
+      "docs": [
+        "Buy a position in an epoch (STUB - returns NotImplemented)",
+        "",
+        "Supports FOGO Sessions for gasless trading.",
+        "Full implementation in Epic 2."
+      ],
+      "discriminator": [
+        210,
+        108,
+        108,
+        28,
+        10,
+        46,
+        226,
+        137
+      ],
+      "accounts": [
+        {
+          "name": "signer_or_session",
+          "docs": [
+            "The user OR a session account representing the user.",
+            "Session validation is performed via extract_user().",
+            "This enables gasless trading when using FOGO Sessions."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "docs": [
+            "Global protocol configuration",
+            "Used to check: paused, frozen, allow_hedging"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "The pool being traded",
+            "Used to check: paused, frozen, reserves, active_epoch"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.asset_mint",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "epoch",
+          "docs": [
+            "The epoch being traded in",
+            "Must be in Open state"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  112,
+                  111,
+                  99,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "epoch.epoch_id",
+                "account": "Epoch"
+              }
+            ]
+          }
+        },
+        {
+          "name": "position",
+          "docs": [
+            "User's position account - derived from USER wallet, not session",
+            "Uses init_if_needed to handle both new and existing positions"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  115,
+                  105,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "epoch"
+              },
+              {
+                "kind": "arg",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user_usdc",
+          "docs": [
+            "User's USDC ATA - must be owned by the actual user wallet",
+            "CRITICAL: When using FOGO Sessions, the session signer cannot authorize",
+            "token transfers from user's ATA. User must either:",
+            "1. Sign directly (not using session), OR",
+            "2. Pre-approve a delegate for their token account"
+          ],
+          "writable": true
+        },
+        {
+          "name": "pool_usdc",
+          "docs": [
+            "Pool's USDC ATA - owned by pool PDA"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "usdc_mint",
+          "docs": [
+            "USDC mint - verified against constant"
+          ],
+          "address": "6jzddTQNDh2RPuav88r19gdSGmGnbH6EWa2NXgLV8cAy"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "user",
+          "type": "pubkey"
+        },
+        {
+          "name": "direction",
+          "type": {
+            "defined": {
+              "name": "Direction"
+            }
+          }
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "claim_payout",
+      "docs": [
+        "Claim payout from a winning position (STUB - returns NotImplemented)",
+        "",
+        "Supports FOGO Sessions for gasless claims.",
+        "Full implementation in Epic 3."
+      ],
+      "discriminator": [
+        127,
+        240,
+        132,
+        62,
+        227,
+        198,
+        146,
+        133
+      ],
+      "accounts": [
+        {
+          "name": "signer_or_session",
+          "docs": [
+            "The user OR a session account representing the user.",
+            "Session validation is performed via extract_user().",
+            "This enables gasless claims when using FOGO Sessions."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "docs": [
+            "Global protocol configuration"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "The pool containing the epoch"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.asset_mint",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "epoch",
+          "docs": [
+            "The settled epoch",
+            "Must be in Settled state with Up or Down outcome"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  112,
+                  111,
+                  99,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "epoch.epoch_id",
+                "account": "Epoch"
+              }
+            ]
+          }
+        },
+        {
+          "name": "position",
+          "docs": [
+            "User's position to claim - derived from USER wallet, not session",
+            "Must match outcome direction and not be already claimed"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  115,
+                  105,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "epoch"
+              },
+              {
+                "kind": "arg",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "user",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "create_epoch",
+      "docs": [
+        "Create a new epoch for a pool with verified Pyth Lazer oracle data",
+        "",
+        "# Arguments",
+        "* `pyth_message` - Signed Pyth Lazer message bytes (Ed25519 format)",
+        "* `ed25519_instruction_index` - Index of Ed25519 verify instruction in transaction (typically 0)",
+        "* `signature_index` - Index of signature within Ed25519 instruction (typically 0)",
+        "",
+        "# Transaction Structure (client-side)",
+        "```text",
+        "Transaction:",
+        "[0] Ed25519 signature verification instruction (MUST be first)",
+        "[1] create_epoch instruction (contains pyth_message)",
+        "```"
+      ],
+      "discriminator": [
+        115,
+        111,
+        36,
+        230,
+        59,
+        145,
+        168,
+        27
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "docs": [
+            "Anyone can call - permissionless for crank bots/keepers",
+            "NOT using session extraction: no user identity matters here"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global_config",
+          "docs": [
+            "GlobalConfig - boxed to prevent stack overflow"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "Pool - must have no active epoch"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.asset_mint",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "epoch",
+          "docs": [
+            "Epoch account to be created"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  112,
+                  111,
+                  99,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.next_epoch_id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "clock",
+          "docs": [
+            "Clock sysvar for timestamp"
+          ],
+          "address": "SysvarC1ock11111111111111111111111111111111"
+        },
+        {
+          "name": "instructions_sysvar",
+          "docs": [
+            "Instructions sysvar for Ed25519 signature verification"
+          ],
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        },
+        {
+          "name": "pyth_program",
+          "docs": [
+            "Pyth Lazer Program (FOGO-specific)"
+          ],
+          "address": "pytd2yyk641x7ak7mkaasSJVXh6YYZnC7wTmtgAyxPt"
+        },
+        {
+          "name": "pyth_storage",
+          "docs": [
+            "Pyth Storage account (contains registered signers)"
+          ],
+          "address": "3rdJbqfnagQ4yx9HXJViD4zc4xpiSqmFsKpPuSCQVyQL"
+        },
+        {
+          "name": "pyth_treasury",
+          "docs": [
+            "Pyth Treasury account (receives verification fees)"
+          ],
+          "writable": true,
+          "address": "upg8KLALUN7ByDHiBu4wEbMDTC6UnSVFSYfTyGfXuzr"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "pyth_message",
+          "type": "bytes"
+        },
+        {
+          "name": "ed25519_instruction_index",
+          "type": "u8"
+        },
+        {
+          "name": "signature_index",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "create_pool",
+      "discriminator": [
+        233,
+        146,
+        209,
+        142,
+        207,
+        104,
+        64,
+        188
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "docs": [
+            "Admin authority - must match GlobalConfig.admin",
+            "NOT using session extraction: admin operations require direct wallet signature"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global_config",
+          "docs": [
+            "GlobalConfig account - boxed to prevent stack overflow"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "asset_mint",
+          "docs": [
+            "Asset mint this pool will track (e.g., BTC mint address)",
+            "Admin is trusted to pass valid SPL token mints. Invalid mints create unusable",
+            "pools but pose no security risk (they're simply useless)."
+          ]
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "Pool account to be created"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "asset_mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize",
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "treasury",
+          "type": "pubkey"
+        },
+        {
+          "name": "insurance",
+          "type": "pubkey"
+        },
+        {
+          "name": "trading_fee_bps",
+          "type": "u16"
+        },
+        {
+          "name": "lp_fee_share_bps",
+          "type": "u16"
+        },
+        {
+          "name": "treasury_fee_share_bps",
+          "type": "u16"
+        },
+        {
+          "name": "insurance_fee_share_bps",
+          "type": "u16"
+        },
+        {
+          "name": "per_wallet_cap_bps",
+          "type": "u16"
+        },
+        {
+          "name": "per_side_cap_bps",
+          "type": "u16"
+        },
+        {
+          "name": "oracle_confidence_threshold_start_bps",
+          "type": "u16"
+        },
+        {
+          "name": "oracle_confidence_threshold_settle_bps",
+          "type": "u16"
+        },
+        {
+          "name": "oracle_staleness_threshold_start",
+          "type": "i64"
+        },
+        {
+          "name": "oracle_staleness_threshold_settle",
+          "type": "i64"
+        },
+        {
+          "name": "epoch_duration_seconds",
+          "type": "i64"
+        },
+        {
+          "name": "freeze_window_seconds",
+          "type": "i64"
+        },
+        {
+          "name": "allow_hedging",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "sell_position",
+      "docs": [
+        "Sell a position before epoch settlement (STUB - returns NotImplemented)",
+        "",
+        "Supports FOGO Sessions for gasless trading.",
+        "Full implementation in Epic 4."
+      ],
+      "discriminator": [
+        11,
+        170,
+        234,
+        139,
+        126,
+        196,
+        142,
+        74
+      ],
+      "accounts": [
+        {
+          "name": "signer_or_session",
+          "docs": [
+            "The user OR a session account representing the user.",
+            "Session validation is performed via extract_user().",
+            "This enables gasless trading when using FOGO Sessions."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "docs": [
+            "Global protocol configuration",
+            "Used to check: paused, frozen"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "The pool being traded",
+            "Used to check: paused, frozen, reserves"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.asset_mint",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "epoch",
+          "docs": [
+            "The epoch being traded in",
+            "Must be in Open state"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  112,
+                  111,
+                  99,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "epoch.epoch_id",
+                "account": "Epoch"
+              }
+            ]
+          }
+        },
+        {
+          "name": "position",
+          "docs": [
+            "User's existing position - derived from USER wallet, not session",
+            "Must have shares to sell"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  115,
+                  105,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "epoch"
+              },
+              {
+                "kind": "arg",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "user",
+          "type": "pubkey"
+        },
+        {
+          "name": "shares",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Epoch",
+      "discriminator": [
+        93,
+        83,
+        120,
+        89,
+        151,
+        138,
+        152,
+        108
+      ]
+    },
+    {
+      "name": "GlobalConfig",
+      "discriminator": [
+        149,
+        8,
+        156,
+        202,
+        160,
+        252,
+        176,
+        217
+      ]
+    },
+    {
+      "name": "Pool",
+      "discriminator": [
+        241,
+        154,
+        109,
+        4,
+        17,
+        177,
+        109,
+        188
+      ]
+    },
+    {
+      "name": "UserPosition",
+      "discriminator": [
+        251,
+        248,
+        209,
+        245,
+        83,
+        234,
+        17,
+        27
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "EpochCreated",
+      "discriminator": [
+        191,
+        150,
+        240,
+        63,
+        59,
+        212,
+        233,
+        124
+      ]
+    },
+    {
+      "name": "GlobalConfigInitialized",
+      "discriminator": [
+        5,
+        221,
+        172,
+        158,
+        77,
+        87,
+        157,
+        113
+      ]
+    },
+    {
+      "name": "PoolCreated",
+      "discriminator": [
+        202,
+        44,
+        41,
+        88,
+        104,
+        220,
+        157,
+        82
+      ]
+    },
+    {
+      "name": "PositionOpened",
+      "discriminator": [
+        237,
+        175,
+        243,
+        230,
+        147,
+        117,
+        101,
+        121
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "Unauthorized",
+      "msg": "Unauthorized - admin signature required"
+    },
+    {
+      "code": 6001,
+      "name": "AlreadyInitialized",
+      "msg": "GlobalConfig already initialized"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidFeeShare",
+      "msg": "Invalid fee share - must sum to 10000 bps"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidCap",
+      "msg": "Invalid cap value - must be between 0 and 10000 bps"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidTradingFee",
+      "msg": "Invalid trading fee - must be between 0 and 1000 bps (10%)"
+    },
+    {
+      "code": 6005,
+      "name": "InvalidTimingParams",
+      "msg": "Invalid timing parameters - freeze window must be less than epoch duration, epoch must be at least 60 seconds"
+    },
+    {
+      "code": 6006,
+      "name": "InvalidOracleThreshold",
+      "msg": "Invalid oracle threshold - must be between 1 and 10000 bps"
+    },
+    {
+      "code": 6007,
+      "name": "ProtocolPaused",
+      "msg": "Protocol is paused - no new operations allowed"
+    },
+    {
+      "code": 6008,
+      "name": "ProtocolFrozen",
+      "msg": "Protocol is frozen - emergency halt active"
+    },
+    {
+      "code": 6009,
+      "name": "PoolPaused",
+      "msg": "Pool is paused - no new epochs allowed"
+    },
+    {
+      "code": 6010,
+      "name": "PoolFrozen",
+      "msg": "Pool is frozen - emergency halt active"
+    },
+    {
+      "code": 6011,
+      "name": "EpochAlreadyActive",
+      "msg": "Cannot create epoch - active epoch exists"
+    },
+    {
+      "code": 6012,
+      "name": "Overflow",
+      "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6013,
+      "name": "OracleVerificationFailed",
+      "msg": "Oracle verification failed - signature invalid or untrusted signer"
+    },
+    {
+      "code": 6014,
+      "name": "OracleDataInvalid",
+      "msg": "Oracle data invalid - failed to deserialize message"
+    },
+    {
+      "code": 6015,
+      "name": "OraclePriceMissing",
+      "msg": "Oracle price missing - no price data in payload"
+    },
+    {
+      "code": 6016,
+      "name": "OracleDataStale",
+      "msg": "Oracle data stale - publish time exceeds staleness threshold"
+    },
+    {
+      "code": 6017,
+      "name": "OracleConfidenceTooWide",
+      "msg": "Oracle confidence too wide - exceeds confidence threshold"
+    },
+    {
+      "code": 6018,
+      "name": "SessionExtractionFailed",
+      "msg": "Session extraction failed - invalid, expired, or unauthorized session"
+    },
+    {
+      "code": 6019,
+      "name": "InvalidEpoch",
+      "msg": "Invalid epoch reference"
+    },
+    {
+      "code": 6020,
+      "name": "AlreadyClaimed",
+      "msg": "Position already claimed"
+    },
+    {
+      "code": 6021,
+      "name": "NotImplemented",
+      "msg": "Instruction not yet implemented"
+    },
+    {
+      "code": 6022,
+      "name": "EpochNotOpen",
+      "msg": "Epoch is not in Open state"
+    },
+    {
+      "code": 6023,
+      "name": "ExceedsWalletCap",
+      "msg": "Exceeds per-wallet position cap"
+    },
+    {
+      "code": 6024,
+      "name": "ExceedsSideCap",
+      "msg": "Exceeds per-side exposure cap"
+    },
+    {
+      "code": 6025,
+      "name": "InsufficientBalance",
+      "msg": "Insufficient token balance"
+    },
+    {
+      "code": 6026,
+      "name": "InvalidDirection",
+      "msg": "Cannot open opposite direction - hedging disabled"
+    },
+    {
+      "code": 6027,
+      "name": "ZeroAmount",
+      "msg": "Amount must be greater than zero"
+    },
+    {
+      "code": 6028,
+      "name": "TokenOwnerMismatch",
+      "msg": "Token account owner does not match expected user"
+    },
+    {
+      "code": 6029,
+      "name": "InvalidMint",
+      "msg": "Token account mint does not match expected mint"
+    },
+    {
+      "code": 6030,
+      "name": "BelowMinimumTrade",
+      "msg": "Trade amount below minimum required"
+    }
+  ],
+  "types": [
+    {
+      "name": "Direction",
+      "docs": [
+        "Direction of a user's position prediction"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Up"
+          },
+          {
+            "name": "Down"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Epoch",
+      "docs": [
+        "Epoch account - represents a time-bounded trading period within a pool"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "docs": [
+              "Parent pool reference"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch_id",
+            "docs": [
+              "Sequential identifier within pool (0, 1, 2, ...)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "state",
+            "docs": [
+              "Current epoch state"
+            ],
+            "type": {
+              "defined": {
+                "name": "EpochState"
+              }
+            }
+          },
+          {
+            "name": "start_time",
+            "docs": [
+              "Unix timestamp when epoch begins"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "end_time",
+            "docs": [
+              "Unix timestamp when epoch ends"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "freeze_time",
+            "docs": [
+              "When trading stops (end_time - freeze_window_seconds)"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "start_price",
+            "docs": [
+              "Oracle price at epoch creation"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "start_confidence",
+            "docs": [
+              "Oracle confidence at epoch creation"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "start_publish_time",
+            "docs": [
+              "Oracle publish timestamp at epoch creation"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "settlement_price",
+            "docs": [
+              "Oracle price at settlement (None until settled)"
+            ],
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "settlement_confidence",
+            "docs": [
+              "Oracle confidence at settlement"
+            ],
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "settlement_publish_time",
+            "docs": [
+              "Oracle publish timestamp at settlement"
+            ],
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "outcome",
+            "docs": [
+              "Final outcome (Up, Down, or Refunded)"
+            ],
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "Outcome"
+                }
+              }
+            }
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump seed"
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EpochCreated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "epoch",
+            "docs": [
+              "Epoch account pubkey"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "pool",
+            "docs": [
+              "Parent pool"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch_id",
+            "docs": [
+              "Sequential epoch identifier within pool"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "start_price",
+            "docs": [
+              "Oracle price at epoch creation"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "start_confidence",
+            "docs": [
+              "Oracle confidence at epoch creation"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "start_publish_time",
+            "docs": [
+              "Oracle publish timestamp at epoch creation (from verified Pyth data)"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "start_time",
+            "docs": [
+              "Unix timestamp when epoch begins"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "end_time",
+            "docs": [
+              "Unix timestamp when epoch ends"
+            ],
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EpochState",
+      "docs": [
+        "Epoch state machine - tracks the lifecycle of a trading epoch"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Open"
+          },
+          {
+            "name": "Frozen"
+          },
+          {
+            "name": "Settling"
+          },
+          {
+            "name": "Settled"
+          },
+          {
+            "name": "Refunded"
+          }
+        ]
+      }
+    },
+    {
+      "name": "GlobalConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "docs": [
+              "Admin authority - can update config, pause/freeze"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury",
+            "docs": [
+              "Treasury account for fee collection (20% of fees)"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "insurance",
+            "docs": [
+              "Insurance buffer account (10% of fees)"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "trading_fee_bps",
+            "docs": [
+              "Trading fee in basis points (e.g., 180 = 1.8%)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "lp_fee_share_bps",
+            "docs": [
+              "LP share of trading fees in basis points (e.g., 7000 = 70%)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "treasury_fee_share_bps",
+            "docs": [
+              "Treasury share of trading fees in basis points (e.g., 2000 = 20%)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "insurance_fee_share_bps",
+            "docs": [
+              "Insurance share of trading fees in basis points (e.g., 1000 = 10%)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "per_wallet_cap_bps",
+            "docs": [
+              "Maximum position per wallet in basis points of pool (e.g., 500 = 5%)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "per_side_cap_bps",
+            "docs": [
+              "Maximum exposure per side in basis points of pool (e.g., 3000 = 30%)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "oracle_confidence_threshold_start_bps",
+            "docs": [
+              "Max confidence ratio for epoch start in basis points (e.g., 25 = 0.25%)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "oracle_confidence_threshold_settle_bps",
+            "docs": [
+              "Max confidence ratio for settlement in basis points (e.g., 80 = 0.8%)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "oracle_staleness_threshold_start",
+            "docs": [
+              "Max oracle age in seconds for epoch start (e.g., 3)"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "oracle_staleness_threshold_settle",
+            "docs": [
+              "Max oracle age in seconds for settlement (e.g., 10)"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "epoch_duration_seconds",
+            "docs": [
+              "Epoch duration in seconds (e.g., 300 = 5 minutes)"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "freeze_window_seconds",
+            "docs": [
+              "Freeze window before settlement in seconds (e.g., 15)"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "allow_hedging",
+            "docs": [
+              "If true, users can hold both UP and DOWN positions in same epoch"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "paused",
+            "docs": [
+              "Pause new epoch creation globally"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "frozen",
+            "docs": [
+              "Emergency freeze - halts ALL activity"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump seed"
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "GlobalConfigInitialized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "treasury",
+            "type": "pubkey"
+          },
+          {
+            "name": "insurance",
+            "type": "pubkey"
+          },
+          {
+            "name": "trading_fee_bps",
+            "type": "u16"
+          },
+          {
+            "name": "lp_fee_share_bps",
+            "type": "u16"
+          },
+          {
+            "name": "treasury_fee_share_bps",
+            "type": "u16"
+          },
+          {
+            "name": "insurance_fee_share_bps",
+            "type": "u16"
+          },
+          {
+            "name": "per_wallet_cap_bps",
+            "type": "u16"
+          },
+          {
+            "name": "per_side_cap_bps",
+            "type": "u16"
+          },
+          {
+            "name": "oracle_confidence_threshold_start_bps",
+            "type": "u16"
+          },
+          {
+            "name": "oracle_confidence_threshold_settle_bps",
+            "type": "u16"
+          },
+          {
+            "name": "oracle_staleness_threshold_start",
+            "type": "i64"
+          },
+          {
+            "name": "oracle_staleness_threshold_settle",
+            "type": "i64"
+          },
+          {
+            "name": "epoch_duration_seconds",
+            "type": "i64"
+          },
+          {
+            "name": "freeze_window_seconds",
+            "type": "i64"
+          },
+          {
+            "name": "allow_hedging",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Outcome",
+      "docs": [
+        "Final outcome of an epoch after settlement"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Up"
+          },
+          {
+            "name": "Down"
+          },
+          {
+            "name": "Refunded"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Pool",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "asset_mint",
+            "docs": [
+              "Asset mint this pool tracks (e.g., BTC mint address)"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "yes_reserves",
+            "docs": [
+              "YES token reserves (USDC backing YES positions)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "no_reserves",
+            "docs": [
+              "NO token reserves (USDC backing NO positions)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_lp_shares",
+            "docs": [
+              "Total LP shares issued for this pool"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "next_epoch_id",
+            "docs": [
+              "Counter for next epoch creation (starts at 0)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "active_epoch",
+            "docs": [
+              "Current active epoch PDA, or None if no active epoch"
+            ],
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "active_epoch_state",
+            "docs": [
+              "Cached state: 0=None, 1=Open, 2=Frozen"
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "wallet_cap_bps",
+            "docs": [
+              "Max position per wallet in basis points (copied from GlobalConfig at creation)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "side_cap_bps",
+            "docs": [
+              "Max exposure per side in basis points (copied from GlobalConfig at creation)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "is_paused",
+            "docs": [
+              "Pool-level pause flag (blocks new trades/epochs)"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "is_frozen",
+            "docs": [
+              "Pool-level freeze flag (emergency halt)"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump seed"
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PoolCreated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "docs": [
+              "Pool account pubkey"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "asset_mint",
+            "docs": [
+              "Asset mint this pool tracks"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "wallet_cap_bps",
+            "docs": [
+              "Max position per wallet in basis points (copied from GlobalConfig)"
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "side_cap_bps",
+            "docs": [
+              "Max exposure per side in basis points (copied from GlobalConfig)"
+            ],
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PositionOpened",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "epoch",
+            "docs": [
+              "Epoch account pubkey"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "user",
+            "docs": [
+              "User wallet that opened the position"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "direction",
+            "docs": [
+              "Direction of the position (Up or Down)"
+            ],
+            "type": {
+              "defined": {
+                "name": "Direction"
+              }
+            }
+          },
+          {
+            "name": "amount",
+            "docs": [
+              "Amount in USDC (lamports, 6 decimals)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "shares",
+            "docs": [
+              "Shares received from CPMM calculation"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "entry_price",
+            "docs": [
+              "Entry price per share (for PnL calculations)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "docs": [
+              "Unix timestamp when position was opened"
+            ],
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UserPosition",
+      "docs": [
+        "UserPosition account - tracks a user's position within a specific epoch",
+        "PDA Seeds: [\"position\", epoch.key(), user.key()]"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "docs": [
+              "Wallet address of the position holder"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch",
+            "docs": [
+              "Reference to the epoch this position is in"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "direction",
+            "docs": [
+              "Direction of the prediction (Up or Down)"
+            ],
+            "type": {
+              "defined": {
+                "name": "Direction"
+              }
+            }
+          },
+          {
+            "name": "amount",
+            "docs": [
+              "Position size in USDC (lamports, 6 decimals)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "shares",
+            "docs": [
+              "Shares received from CPMM calculation"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "entry_price",
+            "docs": [
+              "Price paid per share at entry (for PnL calculations)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "claimed",
+            "docs": [
+              "Whether payout or refund has been claimed"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump seed"
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}

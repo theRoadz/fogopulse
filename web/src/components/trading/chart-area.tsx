@@ -5,10 +5,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import type { Asset } from '@/types/assets'
 import { ASSET_METADATA } from '@/lib/constants'
 import { cn, formatUsdPrice } from '@/lib/utils'
-import { usePythPrice } from '@/hooks/use-pyth-price'
-import { usePriceHistory } from '@/hooks/use-price-history'
+import { usePythPrice, usePriceHistory, useEpoch } from '@/hooks'
 import { ConnectionStatus } from './connection-status'
 import { PriceChart } from './price-chart'
+import { EpochStatusDisplay } from './epoch-status-display'
 
 interface ChartAreaProps {
   asset: Asset
@@ -19,31 +19,36 @@ export function ChartArea({ asset, className }: ChartAreaProps) {
   const metadata = ASSET_METADATA[asset]
   const { price, connectionState } = usePythPrice(asset)
   const { history } = usePriceHistory(asset, price)
+  const { epochState } = useEpoch(asset)
 
   // Check if this asset has a price feed
   const hasFeed = Boolean(metadata.feedId)
   const isConnecting = connectionState === 'connecting' || (connectionState === 'disconnected' && hasFeed && price === null)
 
+  // Get target price (Price to Beat) from epoch for the chart line
+  const targetPrice = epochState.startPriceDisplay ?? undefined
+
   return (
     <Card className={cn('h-full flex flex-col', className)}>
       <CardHeader className="border-b flex-shrink-0">
         <CardTitle className="flex items-center justify-between">
-          <span className={metadata.color}>{metadata.label}/USD</span>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Price to Beat</span>
+            <span className={metadata.color}>{metadata.label}/USD</span>
             <ConnectionStatus state={hasFeed ? connectionState : 'disconnected'} />
           </div>
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Live:</span>
+            {isConnecting ? (
+              <Skeleton className="h-5 w-24" />
+            ) : hasFeed ? (
+              <span className="font-mono font-medium">{formatUsdPrice(price?.price ?? null)}</span>
+            ) : (
+              <span className="font-mono text-muted-foreground">--</span>
+            )}
+          </div>
         </CardTitle>
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">Live Price</span>
-          {isConnecting ? (
-            <Skeleton className="h-7 w-32" />
-          ) : hasFeed ? (
-            <span className="font-mono text-lg">{formatUsdPrice(price?.price ?? null)}</span>
-          ) : (
-            <span className="font-mono text-lg text-muted-foreground">Price Unavailable</span>
-          )}
-        </div>
+        {/* Epoch Status Display - shows Price to Beat, countdown, and state badge */}
+        <EpochStatusDisplay asset={asset} className="pt-2" />
       </CardHeader>
       <CardContent className="flex-1 p-0 min-h-[300px]">
         {!hasFeed ? (
@@ -76,7 +81,7 @@ export function ChartArea({ asset, className }: ChartAreaProps) {
           <PriceChart
             asset={asset}
             data={history}
-            // targetPrice will be passed when epoch data is available (future story)
+            targetPrice={targetPrice}
             className="h-full"
           />
         )}
