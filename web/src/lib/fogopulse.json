@@ -8,6 +8,330 @@
   },
   "instructions": [
     {
+      "name": "admin_force_close_epoch",
+      "docs": [
+        "Force-close a stuck epoch (admin only)",
+        "",
+        "Emergency instruction to clear a stuck epoch when settlement",
+        "is not yet implemented. Sets epoch state to Refunded and",
+        "clears pool.active_epoch to allow new epoch creation."
+      ],
+      "discriminator": [
+        81,
+        199,
+        93,
+        201,
+        181,
+        131,
+        174,
+        29
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "docs": [
+            "Protocol admin - must match GlobalConfig.admin"
+          ],
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        },
+        {
+          "name": "global_config",
+          "docs": [
+            "GlobalConfig - validates admin authority"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "Pool - must have this epoch as active"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.asset_mint",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "epoch",
+          "docs": [
+            "Epoch - the stuck epoch to force-close"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  112,
+                  111,
+                  99,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "epoch.epoch_id",
+                "account": "Epoch"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "admin_seed_liquidity",
+      "docs": [
+        "Seed initial liquidity into a pool (admin only)",
+        "",
+        "Transfers USDC from admin wallet to pool vault and splits",
+        "the amount 50/50 between YES and NO reserves. Used to bootstrap",
+        "pools with initial liquidity for testnet trading."
+      ],
+      "discriminator": [
+        194,
+        141,
+        140,
+        99,
+        191,
+        15,
+        59,
+        217
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "docs": [
+            "Protocol admin - must match GlobalConfig.admin"
+          ],
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        },
+        {
+          "name": "global_config",
+          "docs": [
+            "GlobalConfig - validates admin authority"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "Pool to receive liquidity"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.asset_mint",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool_usdc",
+          "docs": [
+            "Pool's USDC ATA - owned by pool PDA"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "admin_usdc",
+          "docs": [
+            "Admin's USDC ATA - source of liquidity"
+          ],
+          "writable": true
+        },
+        {
+          "name": "usdc_mint",
+          "docs": [
+            "USDC mint - verified against constant"
+          ],
+          "address": "6jzddTQNDh2RPuav88r19gdSGmGnbH6EWa2NXgLV8cAy"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "buy_position",
       "docs": [
         "Buy a position in an epoch (STUB - returns NotImplemented)",
@@ -995,6 +1319,76 @@
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "update_config",
+      "docs": [
+        "Update protocol configuration (admin only)",
+        "",
+        "Allows admin to modify GlobalConfig parameters like oracle thresholds,",
+        "fee settings, and feature flags. Only provided fields are updated."
+      ],
+      "discriminator": [
+        29,
+        158,
+        252,
+        191,
+        10,
+        83,
+        219,
+        99
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "docs": [
+            "Protocol admin - must match GlobalConfig.admin"
+          ],
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        },
+        {
+          "name": "global_config",
+          "docs": [
+            "GlobalConfig - the account to update"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "UpdateConfigParams"
+            }
+          }
+        }
+      ]
     }
   ],
   "accounts": [
@@ -1053,6 +1447,19 @@
   ],
   "events": [
     {
+      "name": "ConfigUpdated",
+      "discriminator": [
+        40,
+        241,
+        230,
+        122,
+        11,
+        19,
+        198,
+        194
+      ]
+    },
+    {
       "name": "EpochCreated",
       "discriminator": [
         191,
@@ -1066,6 +1473,19 @@
       ]
     },
     {
+      "name": "EpochForceClosed",
+      "discriminator": [
+        160,
+        233,
+        169,
+        107,
+        254,
+        253,
+        235,
+        34
+      ]
+    },
+    {
       "name": "GlobalConfigInitialized",
       "discriminator": [
         5,
@@ -1076,6 +1496,19 @@
         87,
         157,
         113
+      ]
+    },
+    {
+      "name": "LiquiditySeeded",
+      "discriminator": [
+        147,
+        232,
+        14,
+        56,
+        38,
+        188,
+        80,
+        31
       ]
     },
     {
@@ -1260,9 +1693,48 @@
       "code": 6030,
       "name": "BelowMinimumTrade",
       "msg": "Trade amount below minimum required"
+    },
+    {
+      "code": 6031,
+      "name": "InvalidEpochState",
+      "msg": "Invalid epoch state for this operation"
     }
   ],
   "types": [
+    {
+      "name": "ConfigUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "docs": [
+              "Admin who updated the config"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "config",
+            "docs": [
+              "GlobalConfig account pubkey"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "fields_updated",
+            "docs": [
+              "Bitmask of which fields were updated (for efficient indexing)",
+              "Bit positions: 0=treasury, 1=insurance, 2=trading_fee, 3=lp_fee,",
+              "4=treasury_fee, 5=insurance_fee, 6=wallet_cap, 7=side_cap,",
+              "8=confidence_start, 9=confidence_settle, 10=staleness_start,",
+              "11=staleness_settle, 12=epoch_duration, 13=freeze_window,",
+              "14=allow_hedging, 15=paused, 16=frozen"
+            ],
+            "type": "u32"
+          }
+        ]
+      }
+    },
     {
       "name": "Direction",
       "docs": [
@@ -1465,6 +1937,42 @@
               "Unix timestamp when epoch ends"
             ],
             "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EpochForceClosed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "epoch",
+            "docs": [
+              "Epoch account pubkey"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "pool",
+            "docs": [
+              "Parent pool"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch_id",
+            "docs": [
+              "Sequential epoch identifier within pool"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "admin",
+            "docs": [
+              "Admin who force-closed the epoch"
+            ],
+            "type": "pubkey"
           }
         ]
       }
@@ -1709,6 +2217,63 @@
       }
     },
     {
+      "name": "LiquiditySeeded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "docs": [
+              "Pool account pubkey"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "admin",
+            "docs": [
+              "Admin who seeded liquidity"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "docs": [
+              "Total USDC amount seeded"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "yes_reserves_before",
+            "docs": [
+              "YES reserves before seeding"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "no_reserves_before",
+            "docs": [
+              "NO reserves before seeding"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "yes_reserves_after",
+            "docs": [
+              "YES reserves after seeding"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "no_reserves_after",
+            "docs": [
+              "NO reserves after seeding"
+            ],
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
       "name": "Outcome",
       "docs": [
         "Final outcome of an epoch after settlement"
@@ -1915,6 +2480,120 @@
               "Unix timestamp when position was opened"
             ],
             "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UpdateConfigParams",
+      "docs": [
+        "Parameters for updating config - all fields optional",
+        "Only provided fields will be updated"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "treasury",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "insurance",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "trading_fee_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "lp_fee_share_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "treasury_fee_share_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "insurance_fee_share_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "per_wallet_cap_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "per_side_cap_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "oracle_confidence_threshold_start_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "oracle_confidence_threshold_settle_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "oracle_staleness_threshold_start",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "oracle_staleness_threshold_settle",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "epoch_duration_seconds",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "freeze_window_seconds",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "allow_hedging",
+            "type": {
+              "option": "bool"
+            }
+          },
+          {
+            "name": "paused",
+            "type": {
+              "option": "bool"
+            }
+          },
+          {
+            "name": "frozen",
+            "type": {
+              "option": "bool"
+            }
           }
         ]
       }

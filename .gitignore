@@ -51,6 +51,8 @@ next-env.d.ts
 /anchor/target/
 test-ledger
 **/*.rs.bk
+# npm lock files (project uses pnpm)
+**/package-lock.json
 
 # AI/Agent tooling
 _bmad/

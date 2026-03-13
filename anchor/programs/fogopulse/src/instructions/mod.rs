@@ -1,4 +1,5 @@
 pub mod admin_force_close_epoch;
+pub mod admin_seed_liquidity;
 pub mod buy_position;
 pub mod claim_payout;
 pub mod create_epoch;
@@ -13,6 +14,7 @@ pub mod update_config;
 // ambiguous glob re-export warning is benign.
 #[allow(ambiguous_glob_reexports)]
 pub use admin_force_close_epoch::*;
+pub use admin_seed_liquidity::*;
 pub use buy_position::*;
 pub use claim_payout::*;
 pub use create_epoch::*;

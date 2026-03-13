@@ -97,3 +97,21 @@ pub struct ConfigUpdated {
     /// 14=allow_hedging, 15=paused, 16=frozen
     pub fields_updated: u32,
 }
+
+#[event]
+pub struct LiquiditySeeded {
+    /// Pool account pubkey
+    pub pool: Pubkey,
+    /// Admin who seeded liquidity
+    pub admin: Pubkey,
+    /// Total USDC amount seeded
+    pub amount: u64,
+    /// YES reserves before seeding
+    pub yes_reserves_before: u64,
+    /// NO reserves before seeding
+    pub no_reserves_before: u64,
+    /// YES reserves after seeding
+    pub yes_reserves_after: u64,
+    /// NO reserves after seeding
+    pub no_reserves_after: u64,
+}

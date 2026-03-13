@@ -68,6 +68,7 @@ development_status:
   2-9-implement-trade-execution-flow: done
   2-10-add-trade-preview-calculations: done
   2-11-implement-epoch-auto-creation: done
+  2-12-implement-admin-seed-liquidity: done
   epic-2-retrospective: optional
 
   # Epic 3: Settlement & Payouts
