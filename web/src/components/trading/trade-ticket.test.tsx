@@ -18,6 +18,7 @@ const mockEpochState = {
   epochState: {
     epoch: {
       state: EpochState.Open,
+      epochId: BigInt(1),
     },
     isFrozen: false,
     isSettling: false,
@@ -52,9 +53,15 @@ jest.mock('@solana/wallet-adapter-react-ui', () => ({
   useWalletModal: () => mockUseWalletModal,
 }))
 
+const mockBuyPosition = {
+  mutate: jest.fn(),
+  isPending: false,
+}
+
 jest.mock('@/hooks', () => ({
   useEpoch: () => mockEpochState,
   useUsdcBalance: () => mockUsdcBalance,
+  useBuyPosition: () => mockBuyPosition,
 }))
 
 jest.mock('@/stores/trade-store', () => ({
@@ -169,12 +176,14 @@ describe('TradeTicket', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockUseWallet.connected = true
-    mockEpochState.epochState.epoch = { state: EpochState.Open }
+    mockEpochState.epochState.epoch = { state: EpochState.Open, epochId: BigInt(1) }
     mockEpochState.epochState.isFrozen = false
     mockEpochState.noEpochStatus = null
     mockTradeStore.direction = null
     mockTradeStore.amount = ''
     mockTradeStore.error = null
+    mockTradeStore.isValid = false
+    mockBuyPosition.isPending = false
   })
 
   describe('rendering', () => {

@@ -7,7 +7,7 @@ import { useWalletModal } from '@solana/wallet-adapter-react-ui'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { useEpoch, useUsdcBalance } from '@/hooks'
+import { useEpoch, useUsdcBalance, useBuyPosition } from '@/hooks'
 import { useTradeStore } from '@/stores/trade-store'
 import { EpochState } from '@/types/epoch'
 import type { Asset } from '@/types/assets'
@@ -23,6 +23,49 @@ interface TradeTicketProps {
   className?: string
 }
 
+interface TradeButtonState {
+  disabled: boolean
+  text: string
+}
+
+/**
+ * Compute trade button state (disabled status and text) based on current state
+ * Centralizes logic that was previously split between isTradeReady and button text
+ */
+function getTradeButtonState(params: {
+  isPending: boolean
+  isEpochOpen: boolean
+  direction: 'up' | 'down' | null
+  amount: string
+  error: string | null
+  isValid: boolean
+  connected: boolean
+}): TradeButtonState {
+  const { isPending, isEpochOpen, direction, amount, error, isValid, connected } = params
+
+  if (isPending) {
+    return { disabled: true, text: 'Confirming...' }
+  }
+
+  if (!connected || !isEpochOpen) {
+    return { disabled: true, text: 'Trading Unavailable' }
+  }
+
+  if (direction === null) {
+    return { disabled: true, text: 'Select Direction' }
+  }
+
+  if (!amount || parseFloat(amount) <= 0) {
+    return { disabled: true, text: 'Enter Amount' }
+  }
+
+  if (error || !isValid) {
+    return { disabled: true, text: 'Fix Errors to Continue' }
+  }
+
+  return { disabled: false, text: 'Place Trade' }
+}
+
 /**
  * Trade ticket container component combining all trade sub-components.
  * Layout: DirectionButtons (grid 2-col), BalanceDisplay, AmountInput, QuickAmountButtons
@@ -35,7 +78,7 @@ interface TradeTicketProps {
  */
 export function TradeTicket({ asset, className }: TradeTicketProps) {
   const metadata = ASSET_METADATA[asset]
-  const { connected } = useWallet()
+  const { connected, publicKey } = useWallet()
   const { setVisible: setWalletModalVisible } = useWalletModal()
 
   // Epoch state to determine if trading is enabled
@@ -48,15 +91,27 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
   const { direction, amount, error, setDirection, setAmount, validate, reset } =
     useTradeStore()
 
+  // Buy position mutation hook
+  const { mutate: buyPosition, isPending } = useBuyPosition()
+
   // Determine if trading is enabled
   const hasActiveEpoch = epochState.epoch !== null && !noEpochStatus
   const isEpochOpen = hasActiveEpoch && epochState.epoch?.state === EpochState.Open
   const isTradeEnabled = connected && isEpochOpen
 
   // Trade readiness state for AC #7 (FR6, FR7 foundation)
-  // This computed state validates all prerequisites for trade execution
   const { isValid } = useTradeStore()
-  const isTradeReady = isTradeEnabled && direction !== null && isValid
+
+  // Compute button state using helper
+  const tradeButtonState = getTradeButtonState({
+    isPending,
+    isEpochOpen,
+    direction,
+    amount,
+    error,
+    isValid,
+    connected,
+  })
 
   // Re-validate when balance changes
   useEffect(() => {
@@ -94,6 +149,29 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
   // Handle connect wallet button
   const handleConnectWallet = () => {
     setWalletModalVisible(true)
+  }
+
+  // Handle trade execution
+  const handleTrade = () => {
+    if (!direction || !amount || !epochState.epoch?.epochId || !publicKey) {
+      return
+    }
+
+    buyPosition(
+      {
+        asset,
+        direction,
+        amount,
+        epochId: epochState.epoch.epochId,
+        userPubkey: publicKey.toString(), // Pass pubkey string to avoid stale closure
+      },
+      {
+        onSuccess: () => {
+          // Reset trade store state on successful trade
+          reset()
+        },
+      }
+    )
   }
 
   // Get epoch state message
@@ -166,8 +244,7 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
           disabled={isInputDisabled}
         />
 
-        {/* Trade Preview Placeholder - Story 2.10 */}
-        {/* TODO: Add trade preview calculations here */}
+        {/* Trade Preview - Story 2.10 will add preview calculations here */}
 
         {/* Action Button */}
         {!connected ? (
@@ -182,18 +259,11 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
           <Button
             className="w-full mt-2"
             size="lg"
-            disabled={!isTradeReady} // Ready for Story 2.9 execution
-            data-trade-ready={isTradeReady}
+            disabled={tradeButtonState.disabled}
+            onClick={handleTrade}
+            data-trade-ready={!tradeButtonState.disabled}
           >
-            {!isEpochOpen
-              ? 'Trading Unavailable'
-              : direction === null
-              ? 'Select Direction'
-              : !amount || parseFloat(amount) <= 0
-              ? 'Enter Amount'
-              : error
-              ? 'Fix Errors to Continue'
-              : 'Place Trade'}
+            {tradeButtonState.text}
           </Button>
         )}
 

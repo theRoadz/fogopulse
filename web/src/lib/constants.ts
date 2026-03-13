@@ -133,3 +133,22 @@ export const PYTH_FEED_IDS = {
   SOL_USD: ASSET_METADATA.SOL.feedId,
   FOGO_USD: ASSET_METADATA.FOGO.feedId,
 } as const
+
+// =============================================================================
+// TANSTACK QUERY KEYS
+// =============================================================================
+
+export const QUERY_KEYS = {
+  epoch: (asset: Asset) => ['epoch', asset] as const,
+  pool: (asset: Asset) => ['pool', asset] as const,
+  positions: (userPubkey?: string) =>
+    userPubkey ? (['positions', userPubkey] as const) : (['positions'] as const),
+  usdcBalance: (userPubkey?: string) =>
+    userPubkey ? (['usdc-balance', userPubkey] as const) : (['usdc-balance'] as const),
+} as const
+
+// =============================================================================
+// FOGO EXPLORER URL
+// =============================================================================
+
+export const FOGO_EXPLORER_TX_URL = 'https://explorer.fogo.io/tx'
