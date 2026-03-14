@@ -1,0 +1,24 @@
+{
+  "name": "fogopulse-crank",
+  "version": "1.0.0",
+  "description": "Standalone crank bot for FogoPulse epoch lifecycle management",
+  "type": "module",
+  "scripts": {
+    "start": "tsx crank-bot.ts",
+    "start:watch": "tsx watch crank-bot.ts"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.98.4",
+    "dotenv": "^16.6.1",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/ws": "^8.5.10",
+    "tsx": "^4.7.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
