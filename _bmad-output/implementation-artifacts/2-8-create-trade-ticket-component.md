@@ -516,6 +516,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 
 - 2026-03-13: Implemented Story 2.8 - Trade Ticket Component with full test coverage
 - 2026-03-13: [Code Review] Fixed missing balance-display.test.tsx, added USDC icon, improved validation for disconnected wallets, added isTradeReady for AC #7
+- 2026-03-14: Fixed direction button selected state visibility - increased background opacity to 40% with !important to override base button hover styles
 
 ### File List
 

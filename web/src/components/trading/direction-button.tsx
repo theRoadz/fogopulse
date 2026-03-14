@@ -44,13 +44,13 @@ export function DirectionButton({
         // UP button styling
         isUp && [
           'border-green-500/50 text-green-500',
-          isSelected && 'border-green-500 bg-green-500/20',
+          isSelected && '!border-green-500 !bg-green-500/40 hover:!bg-green-500/50',
           !isSelected && !disabled && 'hover:bg-green-500/10',
         ],
         // DOWN button styling
         !isUp && [
           'border-red-500/50 text-red-500',
-          isSelected && 'border-red-500 bg-red-500/20',
+          isSelected && '!border-red-500 !bg-red-500/40 hover:!bg-red-500/50',
           !isSelected && !disabled && 'hover:bg-red-500/10',
         ]
       )}
