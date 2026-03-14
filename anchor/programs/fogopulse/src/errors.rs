@@ -107,4 +107,10 @@ pub enum FogoPulseError {
 
     #[msg("Invalid epoch state for this operation")]
     InvalidEpochState,
+
+    #[msg("Epoch has not reached end_time yet")]
+    EpochNotEnded,
+
+    #[msg("Epoch has not reached freeze_time yet")]
+    EpochNotFrozen,
 }

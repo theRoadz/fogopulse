@@ -42,6 +42,15 @@ pub enum Outcome {
     Refunded,
 }
 
+/// Reason for epoch refund (for event logging)
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace)]
+pub enum RefundReason {
+    /// Confidence bands overlap - outcome too uncertain
+    ConfidenceOverlap,
+    /// Settlement price exactly equals start price
+    Tie,
+}
+
 /// Epoch account - represents a time-bounded trading period within a pool
 #[account]
 #[derive(InitSpace)]

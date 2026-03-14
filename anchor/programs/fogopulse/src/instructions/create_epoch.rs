@@ -28,12 +28,13 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::sysvar::instructions as sysvar_instructions;
 
 use pyth_lazer_solana_contract::protocol::message::SolanaMessage;
-use pyth_lazer_solana_contract::protocol::payload::{PayloadData, PayloadPropertyValue};
+use pyth_lazer_solana_contract::protocol::payload::PayloadData;
 
 use crate::constants::{PYTH_PROGRAM_ID, PYTH_STORAGE_ID, PYTH_TREASURY_ID};
 use crate::errors::FogoPulseError;
 use crate::events::EpochCreated;
 use crate::state::{Epoch, EpochState, GlobalConfig, Pool};
+use crate::utils::oracle::extract_price_and_confidence;
 
 /// Create Epoch accounts - permissionless, no session needed
 #[derive(Accounts)]
@@ -161,13 +162,7 @@ pub fn handler(
     let payload_data = PayloadData::deserialize_slice_le(&solana_message.payload)
         .map_err(|_| FogoPulseError::OracleDataInvalid)?;
 
-    // Validate that we have at least one feed with properties
-    require!(
-        !payload_data.feeds.is_empty() && !payload_data.feeds[0].properties.is_empty(),
-        FogoPulseError::OraclePriceMissing
-    );
-
-    // Extract price from first feed's first property
+    // Extract price and confidence from payload (validation included in helper)
     let (start_price, start_confidence) = extract_price_and_confidence(&payload_data)?;
 
     // Extract timestamp (microseconds -> seconds)
@@ -250,58 +245,3 @@ pub fn handler(
 
     Ok(())
 }
-
-/// Extract price and confidence from Pyth Lazer payload data
-///
-/// # Pyth Lazer Property Ordering
-/// Pyth Lazer feed properties are ordered by the subscription request.
-/// FogoPulse subscribes with: `["price", "confidence"]`
-/// Therefore:
-/// - `properties[0]` = Price (required)
-/// - `properties[1]` = Confidence (optional, defaults to 0)
-///
-/// If Pyth changes this convention or we change subscription order,
-/// this function must be updated accordingly.
-fn extract_price_and_confidence(payload: &PayloadData) -> Result<(u64, u64)> {
-    let feed = &payload.feeds[0];
-
-    // Extract price from first property (index 0 = price per subscription order)
-    // Using into_inner().into() pattern from Pyth examples
-    let price = match &feed.properties[0] {
-        PayloadPropertyValue::Price(Some(p)) => {
-            let price_val: i64 = p.into_inner().into();
-            require!(price_val > 0, FogoPulseError::OraclePriceMissing);
-            // Safe cast: we've validated price_val > 0, so it fits in u64
-            u64::try_from(price_val).map_err(|_| FogoPulseError::Overflow)?
-        }
-        _ => return Err(FogoPulseError::OraclePriceMissing.into()),
-    };
-
-    // Extract confidence from second property (index 1 = confidence per subscription order)
-    // Confidence is optional - default to 0 if not present or negative
-    let confidence = if feed.properties.len() > 1 {
-        match &feed.properties[1] {
-            PayloadPropertyValue::Confidence(Some(c)) => {
-                let conf_val: i64 = c.into_inner().into();
-                if conf_val > 0 {
-                    u64::try_from(conf_val).unwrap_or(0)
-                } else {
-                    0
-                }
-            }
-            _ => 0,
-        }
-    } else {
-        0
-    };
-
-    Ok((price, confidence))
-}
-
-// Unit tests for extract_price_and_confidence removed:
-// pyth-lazer-protocol types (PayloadData, PayloadFeedData, etc.) are not
-// designed for manual construction in tests. The API changed between versions
-// and internal types like TimestampUs, Price are not easily constructible.
-//
-// Oracle price extraction is tested via integration tests with real Pyth
-// message payloads in the tests/ directory.

@@ -68,12 +68,13 @@ development_status:
   2-9-implement-trade-execution-flow: done
   2-10-add-trade-preview-calculations: done
   2-11-implement-epoch-auto-creation: done
+  2-11.4-implement-advance-epoch-instruction: done
   2-12-implement-admin-seed-liquidity: done
   epic-2-retrospective: optional
 
   # Epic 3: Settlement & Payouts
-  epic-3: backlog
-  3-1-implement-settle-epoch-instruction: backlog
+  epic-3: in-progress
+  3-1-implement-settle-epoch-instruction: done
   3-2-implement-confidence-aware-refund-logic: backlog
   3-3-implement-claim-payout-instruction: backlog
   3-4-implement-claim-refund-instruction: backlog

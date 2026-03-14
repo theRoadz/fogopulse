@@ -332,6 +332,131 @@
       ]
     },
     {
+      "name": "advance_epoch",
+      "docs": [
+        "Advance an epoch from Open to Frozen state",
+        "",
+        "Permissionless instruction - anyone can call to advance an epoch that",
+        "has reached its freeze_time. This stops trading during the freeze window.",
+        "",
+        "# Requirements",
+        "- Epoch must be in Open state",
+        "- Current time >= epoch.freeze_time",
+        "- Protocol and pool must not be frozen"
+      ],
+      "discriminator": [
+        93,
+        138,
+        234,
+        218,
+        241,
+        230,
+        132,
+        38
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "docs": [
+            "Anyone can call - permissionless for crank bots/keepers"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global_config",
+          "docs": [
+            "GlobalConfig - for freeze checks"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "Pool - must have this epoch as active"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.asset_mint",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "epoch",
+          "docs": [
+            "Epoch - must be in Open state"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  112,
+                  111,
+                  99,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "epoch.epoch_id",
+                "account": "Epoch"
+              }
+            ]
+          }
+        },
+        {
+          "name": "clock",
+          "docs": [
+            "Clock sysvar for timestamp"
+          ],
+          "address": "SysvarC1ock11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "buy_position",
       "docs": [
         "Buy a position in an epoch (STUB - returns NotImplemented)",
@@ -1321,6 +1446,192 @@
       ]
     },
     {
+      "name": "settle_epoch",
+      "docs": [
+        "Settle an epoch with verified Pyth Lazer oracle data",
+        "",
+        "Permissionless instruction - anyone can call to settle an epoch that",
+        "has reached its end_time and is in Frozen state.",
+        "",
+        "# Arguments",
+        "* `pyth_message` - Signed Pyth Lazer message bytes (Ed25519 format)",
+        "* `ed25519_instruction_index` - Index of Ed25519 verify instruction in transaction (typically 0)",
+        "* `signature_index` - Index of signature within Ed25519 instruction (typically 0)",
+        "",
+        "# Transaction Structure (client-side)",
+        "```text",
+        "Transaction:",
+        "[0] Ed25519 signature verification instruction (MUST be first)",
+        "[1] settle_epoch instruction (contains pyth_message)",
+        "```",
+        "",
+        "# Outcome Determination",
+        "- If confidence bands overlap: Refunded (uncertain outcome)",
+        "- If settlement_price == start_price: Refunded (tie)",
+        "- If settlement_price > start_price: Up wins",
+        "- If settlement_price < start_price: Down wins"
+      ],
+      "discriminator": [
+        148,
+        223,
+        178,
+        38,
+        201,
+        158,
+        167,
+        13
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "docs": [
+            "Anyone can call - permissionless for crank bots/keepers"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global_config",
+          "docs": [
+            "GlobalConfig - for oracle thresholds and freeze checks",
+            "IMPORTANT: Use Box<> to prevent stack overflow"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "Pool - must have this epoch as active",
+            "IMPORTANT: Use Box<> to prevent stack overflow"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.asset_mint",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "epoch",
+          "docs": [
+            "Epoch - must be in Frozen state and past end_time"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  112,
+                  111,
+                  99,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "epoch.epoch_id",
+                "account": "Epoch"
+              }
+            ]
+          }
+        },
+        {
+          "name": "clock",
+          "docs": [
+            "Clock sysvar for timestamp"
+          ],
+          "address": "SysvarC1ock11111111111111111111111111111111"
+        },
+        {
+          "name": "instructions_sysvar",
+          "docs": [
+            "Instructions sysvar for Ed25519 signature verification"
+          ],
+          "address": "Sysvar1nstructions1111111111111111111111111"
+        },
+        {
+          "name": "pyth_program",
+          "docs": [
+            "Pyth Lazer Program (FOGO-specific)"
+          ],
+          "address": "pytd2yyk641x7ak7mkaasSJVXh6YYZnC7wTmtgAyxPt"
+        },
+        {
+          "name": "pyth_storage",
+          "docs": [
+            "Pyth Storage account (contains registered signers)"
+          ],
+          "address": "3rdJbqfnagQ4yx9HXJViD4zc4xpiSqmFsKpPuSCQVyQL"
+        },
+        {
+          "name": "pyth_treasury",
+          "docs": [
+            "Pyth Treasury account (receives verification fees)"
+          ],
+          "writable": true,
+          "address": "upg8KLALUN7ByDHiBu4wEbMDTC6UnSVFSYfTyGfXuzr"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "pyth_message",
+          "type": "bytes"
+        },
+        {
+          "name": "ed25519_instruction_index",
+          "type": "u8"
+        },
+        {
+          "name": "signature_index",
+          "type": "u8"
+        }
+      ]
+    },
+    {
       "name": "update_config",
       "docs": [
         "Update protocol configuration (admin only)",
@@ -1483,6 +1794,45 @@
         253,
         235,
         34
+      ]
+    },
+    {
+      "name": "EpochFrozen",
+      "discriminator": [
+        221,
+        234,
+        36,
+        98,
+        46,
+        234,
+        245,
+        112
+      ]
+    },
+    {
+      "name": "EpochRefunded",
+      "discriminator": [
+        41,
+        219,
+        5,
+        106,
+        156,
+        16,
+        146,
+        75
+      ]
+    },
+    {
+      "name": "EpochSettled",
+      "discriminator": [
+        32,
+        219,
+        45,
+        156,
+        250,
+        115,
+        190,
+        255
       ]
     },
     {
@@ -1698,6 +2048,16 @@
       "code": 6031,
       "name": "InvalidEpochState",
       "msg": "Invalid epoch state for this operation"
+    },
+    {
+      "code": 6032,
+      "name": "EpochNotEnded",
+      "msg": "Epoch has not reached end_time yet"
+    },
+    {
+      "code": 6033,
+      "name": "EpochNotFrozen",
+      "msg": "Epoch has not reached freeze_time yet"
     }
   ],
   "types": [
@@ -1973,6 +2333,185 @@
               "Admin who force-closed the epoch"
             ],
             "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EpochFrozen",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "epoch",
+            "docs": [
+              "Epoch account pubkey"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "pool",
+            "docs": [
+              "Parent pool"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch_id",
+            "docs": [
+              "Sequential epoch identifier within pool"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "freeze_time",
+            "docs": [
+              "Timestamp when trading stopped"
+            ],
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EpochRefunded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "epoch",
+            "docs": [
+              "Epoch account pubkey"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "pool",
+            "docs": [
+              "Parent pool"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch_id",
+            "docs": [
+              "Sequential epoch identifier within pool"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "start_price",
+            "docs": [
+              "Oracle price at epoch creation"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "start_confidence",
+            "docs": [
+              "Oracle confidence at epoch creation"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "settlement_price",
+            "docs": [
+              "Oracle price at settlement"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "settlement_confidence",
+            "docs": [
+              "Oracle confidence at settlement"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "refund_reason",
+            "docs": [
+              "Reason for the refund"
+            ],
+            "type": {
+              "defined": {
+                "name": "RefundReason"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "EpochSettled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "epoch",
+            "docs": [
+              "Epoch account pubkey"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "pool",
+            "docs": [
+              "Parent pool"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch_id",
+            "docs": [
+              "Sequential epoch identifier within pool"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "start_price",
+            "docs": [
+              "Oracle price at epoch creation"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "start_confidence",
+            "docs": [
+              "Oracle confidence at epoch creation"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "settlement_price",
+            "docs": [
+              "Oracle price at settlement"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "settlement_confidence",
+            "docs": [
+              "Oracle confidence at settlement"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "settlement_publish_time",
+            "docs": [
+              "Oracle publish timestamp at settlement"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "outcome",
+            "docs": [
+              "Final outcome (Up, Down, or Refunded)"
+            ],
+            "type": {
+              "defined": {
+                "name": "Outcome"
+              }
+            }
           }
         ]
       }
@@ -2480,6 +3019,23 @@
               "Unix timestamp when position was opened"
             ],
             "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RefundReason",
+      "docs": [
+        "Reason for epoch refund (for event logging)"
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "ConfidenceOverlap"
+          },
+          {
+            "name": "Tie"
           }
         ]
       }

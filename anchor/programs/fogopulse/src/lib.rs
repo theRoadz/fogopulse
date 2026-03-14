@@ -86,6 +86,50 @@ pub mod fogopulse {
         instructions::create_epoch::handler(ctx, pyth_message, ed25519_instruction_index, signature_index)
     }
 
+    /// Advance an epoch from Open to Frozen state
+    ///
+    /// Permissionless instruction - anyone can call to advance an epoch that
+    /// has reached its freeze_time. This stops trading during the freeze window.
+    ///
+    /// # Requirements
+    /// - Epoch must be in Open state
+    /// - Current time >= epoch.freeze_time
+    /// - Protocol and pool must not be frozen
+    pub fn advance_epoch(ctx: Context<AdvanceEpoch>) -> Result<()> {
+        instructions::advance_epoch::handler(ctx)
+    }
+
+    /// Settle an epoch with verified Pyth Lazer oracle data
+    ///
+    /// Permissionless instruction - anyone can call to settle an epoch that
+    /// has reached its end_time and is in Frozen state.
+    ///
+    /// # Arguments
+    /// * `pyth_message` - Signed Pyth Lazer message bytes (Ed25519 format)
+    /// * `ed25519_instruction_index` - Index of Ed25519 verify instruction in transaction (typically 0)
+    /// * `signature_index` - Index of signature within Ed25519 instruction (typically 0)
+    ///
+    /// # Transaction Structure (client-side)
+    /// ```text
+    /// Transaction:
+    ///   [0] Ed25519 signature verification instruction (MUST be first)
+    ///   [1] settle_epoch instruction (contains pyth_message)
+    /// ```
+    ///
+    /// # Outcome Determination
+    /// - If confidence bands overlap: Refunded (uncertain outcome)
+    /// - If settlement_price == start_price: Refunded (tie)
+    /// - If settlement_price > start_price: Up wins
+    /// - If settlement_price < start_price: Down wins
+    pub fn settle_epoch(
+        ctx: Context<SettleEpoch>,
+        pyth_message: Vec<u8>,
+        ed25519_instruction_index: u8,
+        signature_index: u8,
+    ) -> Result<()> {
+        instructions::settle_epoch::handler(ctx, pyth_message, ed25519_instruction_index, signature_index)
+    }
+
     // =========================================================================
     // USER-FACING INSTRUCTIONS (with FOGO Sessions support)
     // =========================================================================

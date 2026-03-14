@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use crate::state::Direction;
+use crate::state::{Direction, Outcome, RefundReason};
 
 #[event]
 pub struct GlobalConfigInitialized {
@@ -114,4 +114,58 @@ pub struct LiquiditySeeded {
     pub yes_reserves_after: u64,
     /// NO reserves after seeding
     pub no_reserves_after: u64,
+}
+
+#[event]
+pub struct EpochSettled {
+    /// Epoch account pubkey
+    pub epoch: Pubkey,
+    /// Parent pool
+    pub pool: Pubkey,
+    /// Sequential epoch identifier within pool
+    pub epoch_id: u64,
+    /// Oracle price at epoch creation
+    pub start_price: u64,
+    /// Oracle confidence at epoch creation
+    pub start_confidence: u64,
+    /// Oracle price at settlement
+    pub settlement_price: u64,
+    /// Oracle confidence at settlement
+    pub settlement_confidence: u64,
+    /// Oracle publish timestamp at settlement
+    pub settlement_publish_time: i64,
+    /// Final outcome (Up, Down, or Refunded)
+    pub outcome: Outcome,
+}
+
+#[event]
+pub struct EpochRefunded {
+    /// Epoch account pubkey
+    pub epoch: Pubkey,
+    /// Parent pool
+    pub pool: Pubkey,
+    /// Sequential epoch identifier within pool
+    pub epoch_id: u64,
+    /// Oracle price at epoch creation
+    pub start_price: u64,
+    /// Oracle confidence at epoch creation
+    pub start_confidence: u64,
+    /// Oracle price at settlement
+    pub settlement_price: u64,
+    /// Oracle confidence at settlement
+    pub settlement_confidence: u64,
+    /// Reason for the refund
+    pub refund_reason: RefundReason,
+}
+
+#[event]
+pub struct EpochFrozen {
+    /// Epoch account pubkey
+    pub epoch: Pubkey,
+    /// Parent pool
+    pub pool: Pubkey,
+    /// Sequential epoch identifier within pool
+    pub epoch_id: u64,
+    /// Timestamp when trading stopped
+    pub freeze_time: i64,
 }
