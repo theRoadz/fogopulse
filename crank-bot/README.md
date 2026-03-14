@@ -24,8 +24,12 @@ cp .env.example .env
 # - PYTH_ACCESS_TOKEN (required)
 # - WALLET_PATH (optional, defaults to ~/.config/solana/fogo-testnet.json)
 
-# Run the bot
+# Run the bot (will prompt for epoch creation mode)
 npx tsx crank-bot.ts
+
+# Or use CLI flags to skip prompt
+npx tsx crank-bot.ts --epoch      # Enable epoch auto-creation
+npx tsx crank-bot.ts --no-epoch   # Disable epoch auto-creation
 ```
 
 ## Environment Variables
@@ -34,10 +38,21 @@ npx tsx crank-bot.ts
 |----------|----------|---------|-------------|
 | `PYTH_ACCESS_TOKEN` | Yes | - | Pyth Lazer API token. Get from https://pyth.network/developers |
 | `WALLET_PATH` | No | ~/.config/solana/fogo-testnet.json | Path to wallet keypair |
-| `POLL_INTERVAL_SECONDS` | No | 10 | How often to check pool state |
+| `POLL_INTERVAL_SECONDS` | No | 10 | How often to check pool state (Open) |
+| `IDLE_POLL_INTERVAL_SECONDS` | No | 180 | Poll interval when no epoch (3 min) |
 | `RPC_URL` | No | https://testnet.fogo.io | Solana RPC endpoint |
-| `POOL_ASSET` | No | BTC | Pool to monitor (BTC, ETH, SOL, FOGO) |
+| `POOL_ASSET` | No | BTC | Pool to monitor (BTC, ETH, SOL) |
 | `LOG_LEVEL` | No | info | Log verbosity (debug, info, warn, error) |
+| `AUTO_CREATE_EPOCH` | No | true | Auto-create epochs (set to 'false' to disable) |
+
+## CLI Flags
+
+| Flag | Description |
+|------|-------------|
+| `--epoch` | Enable epoch auto-creation (overrides env var, skips prompt) |
+| `--no-epoch` | Disable epoch auto-creation (overrides env var, skips prompt) |
+
+**Priority:** CLI flag > env var > interactive prompt
 
 ## Contabo Deployment (Linux VPS)
 
@@ -91,9 +106,9 @@ After=network.target
 
 [Service]
 Type=simple
-User=ubuntu
-WorkingDirectory=/home/ubuntu/fogopulse-crank
-EnvironmentFile=/home/ubuntu/fogopulse-crank/.env
+User=<your-username>
+WorkingDirectory=/home/<your-username>/fogopulse-crank
+EnvironmentFile=/home/<your-username>/fogopulse-crank/.env
 ExecStart=/usr/bin/npx tsx crank-bot.ts
 Restart=always
 RestartSec=10
@@ -171,9 +186,44 @@ The bot runs a continuous polling loop:
                         └──────────► REPEAT
 ```
 
+## Running with PM2 (Recommended for Development)
+
+PM2 provides auto-restart on crash, log management, and background daemon operation.
+
+```bash
+# Install PM2 globally
+npm install -g pm2
+
+# Start the bot (opens a node window briefly on Windows - this is normal)
+pm2 start ecosystem.config.cjs
+
+# Monitor logs
+pm2 logs fogopulse-crank
+pm2 logs fogopulse-crank --lines 50  # Last 50 lines
+
+# Check status
+pm2 status
+
+# Save process list (persists across terminal close)
+pm2 save
+
+# Stop the bot
+pm2 stop fogopulse-crank
+
+# Remove from PM2
+pm2 delete fogopulse-crank
+
+# Kill PM2 daemon entirely
+pm2 kill
+```
+
+**Note:** PM2 runs as a background daemon. You can close all terminals and the bot keeps running. Open a new terminal and run `pm2 status` to verify.
+
 ## Error Handling
 
+- **Crash resilience**: Main loop catches unhandled errors and continues
 - **Retry logic**: 3 attempts with exponential backoff (1s, 2s, 4s)
+- **Auto-restart**: PM2 (dev) or systemd (prod) restarts on crash
 - **Recoverable errors**: RPC/Pyth timeouts → retry next cycle
 - **Critical errors**: Insufficient balance, missing wallet → exit
 
