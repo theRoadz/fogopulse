@@ -75,6 +75,7 @@ development_status:
   # Epic 3: Settlement & Payouts
   epic-3: in-progress
   3-1-implement-settle-epoch-instruction: done
+  3-1.2-pool-auto-rebalancing-on-epoch-settlement: done
   3-2-implement-confidence-aware-refund-logic: backlog
   3-3-implement-claim-payout-instruction: backlog
   3-4-implement-claim-refund-instruction: backlog

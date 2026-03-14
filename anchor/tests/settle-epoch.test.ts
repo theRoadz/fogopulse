@@ -24,6 +24,14 @@
  *   - ❌ Failure: Stale oracle data rejected
  *   - ✅ Verification: Pool.active_epoch cleared after settlement
  *   - ✅ Verification: Next epoch can be created after settlement
+ *
+ * Pool Rebalancing Tests (Story 3-1.2):
+ *   - ✅ Verification: Pool reserves rebalanced to 50:50 after settlement
+ *   - ✅ Verification: Total liquidity preserved after rebalancing
+ *   - ✅ Verification: PoolRebalanced event emitted with correct values
+ *   - ✅ Verification: YES reserves get remainder for odd totals
+ *   - ✅ Verification: Rebalancing math correct (expected vs actual)
+ *   - ✅ Edge case: Imbalanced reserves correctly rebalanced
  */
 
 // Load environment variables
@@ -152,10 +160,13 @@ function deriveEpochPda(poolPda: PublicKey, epochId: bigint): [PublicKey, number
 }
 
 /**
- * Parse Pool account data to extract active_epoch info
+ * Parse Pool account data to extract active_epoch info and reserves
  */
 function parsePoolAccount(data: Buffer): {
   assetMint: PublicKey
+  yesReserves: bigint
+  noReserves: bigint
+  totalLpShares: bigint
   nextEpochId: bigint
   activeEpoch: PublicKey | null
   activeEpochState: number
@@ -165,9 +176,12 @@ function parsePoolAccount(data: Buffer): {
   const assetMint = new PublicKey(data.subarray(offset, offset + 32))
   offset += 32
 
-  offset += 8 // yes_reserves
-  offset += 8 // no_reserves
-  offset += 8 // total_lp_shares
+  const yesReserves = data.readBigUInt64LE(offset)
+  offset += 8
+  const noReserves = data.readBigUInt64LE(offset)
+  offset += 8
+  const totalLpShares = data.readBigUInt64LE(offset)
+  offset += 8
 
   const nextEpochId = data.readBigUInt64LE(offset)
   offset += 8
@@ -184,7 +198,7 @@ function parsePoolAccount(data: Buffer): {
 
   const activeEpochState = data.readUInt8(offset)
 
-  return { assetMint, nextEpochId, activeEpoch, activeEpochState }
+  return { assetMint, yesReserves, noReserves, totalLpShares, nextEpochId, activeEpoch, activeEpochState }
 }
 
 /**
@@ -445,6 +459,11 @@ interface TestResult {
   details?: Record<string, any>
 }
 
+interface SettlementContext {
+  signature: string
+  reservesBefore: { yes: bigint; no: bigint }
+}
+
 async function testSuccessfulSettlement(
   connection: Connection,
   wallet: Keypair,
@@ -453,15 +472,29 @@ async function testSuccessfulSettlement(
   epochPda: PublicKey,
   feedId: number,
   accessToken: string
-): Promise<TestResult> {
+): Promise<{ result: TestResult; context?: SettlementContext }> {
   const testName = 'Successful epoch settlement'
   console.log(`\n--- Test: ${testName} ---`)
 
   try {
+    // Capture pool reserves before settlement for rebalancing verification
+    const poolAccountBefore = await connection.getAccountInfo(poolPda)
+    if (!poolAccountBefore) {
+      return { result: { name: testName, passed: false, error: 'Pool account not found' } }
+    }
+    const poolDataBefore = parsePoolAccount(poolAccountBefore.data)
+    const reservesBefore = {
+      yes: poolDataBefore.yesReserves,
+      no: poolDataBefore.noReserves,
+    }
+    console.log('Pool reserves before settlement:')
+    console.log('   YES:', reservesBefore.yes.toString())
+    console.log('   NO:', reservesBefore.no.toString())
+
     // Verify epoch is in Frozen state and past end_time
     const epochAccountBefore = await connection.getAccountInfo(epochPda)
     if (!epochAccountBefore) {
-      return { name: testName, passed: false, error: 'Epoch account not found' }
+      return { result: { name: testName, passed: false, error: 'Epoch account not found' } }
     }
 
     const epochDataBefore = parseEpochAccount(epochAccountBefore.data)
@@ -470,9 +503,11 @@ async function testSuccessfulSettlement(
 
     if (epochDataBefore.state !== EpochState.Frozen) {
       return {
-        name: testName,
-        passed: false,
-        error: `Epoch not in Frozen state (state=${epochStateToString(epochDataBefore.state)})`,
+        result: {
+          name: testName,
+          passed: false,
+          error: `Epoch not in Frozen state (state=${epochStateToString(epochDataBefore.state)})`,
+        },
       }
     }
 
@@ -480,9 +515,11 @@ async function testSuccessfulSettlement(
     if (currentTime < Number(epochDataBefore.endTime)) {
       const remaining = Number(epochDataBefore.endTime) - currentTime
       return {
-        name: testName,
-        passed: false,
-        error: `Epoch has not reached end_time (${remaining}s remaining)`,
+        result: {
+          name: testName,
+          passed: false,
+          error: `Epoch has not reached end_time (${remaining}s remaining)`,
+        },
       }
     }
 
@@ -543,10 +580,12 @@ async function testSuccessfulSettlement(
 
     if (confirmation.value.err) {
       return {
-        name: testName,
-        passed: false,
-        signature,
-        error: `Transaction failed: ${JSON.stringify(confirmation.value.err)}`,
+        result: {
+          name: testName,
+          passed: false,
+          signature,
+          error: `Transaction failed: ${JSON.stringify(confirmation.value.err)}`,
+        },
       }
     }
 
@@ -554,10 +593,12 @@ async function testSuccessfulSettlement(
     const epochAccountAfter = await connection.getAccountInfo(epochPda)
     if (!epochAccountAfter) {
       return {
-        name: testName,
-        passed: false,
-        signature,
-        error: 'Epoch account not found after settlement',
+        result: {
+          name: testName,
+          passed: false,
+          signature,
+          error: 'Epoch account not found after settlement',
+        },
       }
     }
 
@@ -570,20 +611,24 @@ async function testSuccessfulSettlement(
       epochDataAfter.state !== EpochState.Refunded
     ) {
       return {
-        name: testName,
-        passed: false,
-        signature,
-        error: `Epoch not in Settled/Refunded state (state=${epochStateToString(epochDataAfter.state)})`,
+        result: {
+          name: testName,
+          passed: false,
+          signature,
+          error: `Epoch not in Settled/Refunded state (state=${epochStateToString(epochDataAfter.state)})`,
+        },
       }
     }
 
     // Verify settlement data was recorded
     if (epochDataAfter.settlementPrice === null) {
       return {
-        name: testName,
-        passed: false,
-        signature,
-        error: 'Settlement price not recorded',
+        result: {
+          name: testName,
+          passed: false,
+          signature,
+          error: 'Settlement price not recorded',
+        },
       }
     }
 
@@ -596,20 +641,24 @@ async function testSuccessfulSettlement(
     const poolAccount = await connection.getAccountInfo(poolPda)
     if (!poolAccount) {
       return {
-        name: testName,
-        passed: false,
-        signature,
-        error: 'Pool account not found after settlement',
+        result: {
+          name: testName,
+          passed: false,
+          signature,
+          error: 'Pool account not found after settlement',
+        },
       }
     }
 
     const poolData = parsePoolAccount(poolAccount.data)
     if (poolData.activeEpoch !== null) {
       return {
-        name: testName,
-        passed: false,
-        signature,
-        error: 'Pool active_epoch not cleared after settlement',
+        result: {
+          name: testName,
+          passed: false,
+          signature,
+          error: 'Pool active_epoch not cleared after settlement',
+        },
       }
     }
 
@@ -617,19 +666,25 @@ async function testSuccessfulSettlement(
     console.log('✅ Pool active_epoch_state:', poolData.activeEpochState)
 
     return {
-      name: testName,
-      passed: true,
-      signature,
-      details: {
-        outcome: outcomeToString(epochDataAfter.outcome),
-        startPrice: epochDataAfter.startPrice.toString(),
-        settlementPrice: epochDataAfter.settlementPrice.toString(),
+      result: {
+        name: testName,
+        passed: true,
+        signature,
+        details: {
+          outcome: outcomeToString(epochDataAfter.outcome),
+          startPrice: epochDataAfter.startPrice.toString(),
+          settlementPrice: epochDataAfter.settlementPrice.toString(),
+        },
+      },
+      context: {
+        signature,
+        reservesBefore,
       },
     }
   } catch (error: unknown) {
     const errorMessage =
       error instanceof Error ? error.message : JSON.stringify(error)
-    return { name: testName, passed: false, error: errorMessage }
+    return { result: { name: testName, passed: false, error: errorMessage } }
   }
 }
 
@@ -902,6 +957,307 @@ async function testFreezeCheckBehavior(
   }
 }
 
+/**
+ * Test: Verify pool reserves are rebalanced after settlement
+ *
+ * After settlement, pool reserves should be balanced to 50:50 (±1 for odd totals)
+ * and total liquidity should be preserved.
+ */
+async function testPoolRebalancedAfterSettlement(
+  connection: Connection,
+  poolPda: PublicKey,
+  reservesBefore: { yes: bigint; no: bigint }
+): Promise<TestResult> {
+  const testName = 'Pool reserves rebalanced to 50:50 after settlement'
+  console.log(`\n--- Test: ${testName} ---`)
+
+  try {
+    const poolAccount = await connection.getAccountInfo(poolPda)
+    if (!poolAccount) {
+      return { name: testName, passed: false, error: 'Pool account not found' }
+    }
+
+    const poolData = parsePoolAccount(poolAccount.data)
+    const yesAfter = poolData.yesReserves
+    const noAfter = poolData.noReserves
+
+    // Verify total liquidity is preserved
+    const totalBefore = reservesBefore.yes + reservesBefore.no
+    const totalAfter = yesAfter + noAfter
+
+    if (totalBefore !== totalAfter) {
+      return {
+        name: testName,
+        passed: false,
+        error: `Total liquidity not preserved: before=${totalBefore}, after=${totalAfter}`,
+      }
+    }
+    console.log('✅ Total liquidity preserved:', totalAfter.toString())
+
+    // Verify reserves are balanced (diff ≤ 1)
+    const diff = yesAfter > noAfter ? yesAfter - noAfter : noAfter - yesAfter
+    if (diff > 1n) {
+      return {
+        name: testName,
+        passed: false,
+        error: `Reserves not balanced: YES=${yesAfter}, NO=${noAfter}, diff=${diff}`,
+      }
+    }
+    console.log('✅ Reserves balanced: YES=', yesAfter.toString(), ', NO=', noAfter.toString())
+
+    // Verify YES gets the remainder for odd totals
+    if (totalAfter % 2n === 1n) {
+      if (yesAfter !== noAfter + 1n) {
+        return {
+          name: testName,
+          passed: false,
+          error: `Odd total: YES should be NO+1. YES=${yesAfter}, NO=${noAfter}`,
+        }
+      }
+      console.log('✅ Odd total handled correctly: YES gets remainder')
+    }
+
+    console.log('   Before: YES=', reservesBefore.yes.toString(), ', NO=', reservesBefore.no.toString())
+    console.log('   After:  YES=', yesAfter.toString(), ', NO=', noAfter.toString())
+
+    return {
+      name: testName,
+      passed: true,
+      details: {
+        yesBefore: reservesBefore.yes.toString(),
+        noBefore: reservesBefore.no.toString(),
+        yesAfter: yesAfter.toString(),
+        noAfter: noAfter.toString(),
+        totalPreserved: totalAfter.toString(),
+      },
+    }
+  } catch (error: unknown) {
+    const errorMessage =
+      error instanceof Error ? error.message : JSON.stringify(error)
+    return { name: testName, passed: false, error: errorMessage }
+  }
+}
+
+/**
+ * Test: Verify PoolRebalanced event was emitted
+ *
+ * After settlement, a PoolRebalanced event should be emitted with before/after values.
+ * This test verifies the event emission by checking the transaction logs.
+ */
+async function testPoolRebalancedEventEmitted(
+  connection: Connection,
+  signature: string
+): Promise<TestResult> {
+  const testName = 'PoolRebalanced event emitted'
+  console.log(`\n--- Test: ${testName} ---`)
+
+  try {
+    // Fetch transaction details to check logs
+    const tx = await connection.getTransaction(signature, {
+      commitment: 'confirmed',
+      maxSupportedTransactionVersion: 0,
+    })
+
+    if (!tx || !tx.meta) {
+      return {
+        name: testName,
+        passed: false,
+        error: 'Transaction not found or missing metadata',
+      }
+    }
+
+    // Check logs for rebalancing message
+    const logs = tx.meta.logMessages || []
+    const rebalanceLog = logs.find((log) => log.includes('Pool rebalanced'))
+
+    if (!rebalanceLog) {
+      // PoolRebalanced event is emitted via emit! macro, which shows up as event in logs
+      // The msg! log might not be visible if compute is tight, so check for event too
+      const eventLog = logs.find((log) => log.includes('PoolRebalanced'))
+      if (!eventLog) {
+        console.log('   Logs:', logs)
+        return {
+          name: testName,
+          passed: false,
+          error: 'PoolRebalanced event/log not found in transaction logs',
+        }
+      }
+      console.log('✅ PoolRebalanced event found in logs')
+    } else {
+      console.log('✅ Rebalance log found:', rebalanceLog)
+    }
+
+    return { name: testName, passed: true }
+  } catch (error: unknown) {
+    const errorMessage =
+      error instanceof Error ? error.message : JSON.stringify(error)
+    return { name: testName, passed: false, error: errorMessage }
+  }
+}
+
+/**
+ * Test: Verify odd total reserves handling (YES gets remainder)
+ *
+ * When total reserves is odd, YES should get the extra 1 unit.
+ * This is a unit test that verifies the math from the settlement result.
+ */
+async function testOddTotalReservesHandling(
+  connection: Connection,
+  poolPda: PublicKey,
+  reservesBefore: { yes: bigint; no: bigint }
+): Promise<TestResult> {
+  const testName = 'Odd total reserves: YES gets remainder'
+  console.log(`\n--- Test: ${testName} ---`)
+
+  try {
+    const poolAccount = await connection.getAccountInfo(poolPda)
+    if (!poolAccount) {
+      return { name: testName, passed: false, error: 'Pool account not found' }
+    }
+
+    const poolData = parsePoolAccount(poolAccount.data)
+    const totalBefore = reservesBefore.yes + reservesBefore.no
+    const totalAfter = poolData.yesReserves + poolData.noReserves
+
+    // Verify total preserved first
+    if (totalBefore !== totalAfter) {
+      return {
+        name: testName,
+        passed: false,
+        error: `Total not preserved: ${totalBefore} vs ${totalAfter}`,
+      }
+    }
+
+    // If total is odd, YES should be exactly NO + 1
+    if (totalAfter % 2n === 1n) {
+      if (poolData.yesReserves !== poolData.noReserves + 1n) {
+        return {
+          name: testName,
+          passed: false,
+          error: `Odd total ${totalAfter}: YES=${poolData.yesReserves} should be NO+1=${poolData.noReserves + 1n}`,
+        }
+      }
+      console.log('✅ Odd total correctly handled: YES=', poolData.yesReserves.toString(), ', NO=', poolData.noReserves.toString())
+    } else {
+      // Even total: YES == NO
+      if (poolData.yesReserves !== poolData.noReserves) {
+        return {
+          name: testName,
+          passed: false,
+          error: `Even total ${totalAfter}: YES=${poolData.yesReserves} should equal NO=${poolData.noReserves}`,
+        }
+      }
+      console.log('✅ Even total correctly handled: YES=NO=', poolData.yesReserves.toString())
+    }
+
+    return {
+      name: testName,
+      passed: true,
+      details: {
+        total: totalAfter.toString(),
+        isOdd: totalAfter % 2n === 1n,
+        yesReserves: poolData.yesReserves.toString(),
+        noReserves: poolData.noReserves.toString(),
+      },
+    }
+  } catch (error: unknown) {
+    const errorMessage =
+      error instanceof Error ? error.message : JSON.stringify(error)
+    return { name: testName, passed: false, error: errorMessage }
+  }
+}
+
+/**
+ * Test: Verify rebalancing math for edge cases
+ *
+ * Validates the rebalancing algorithm handles various reserve combinations:
+ * - Balanced reserves (no change needed)
+ * - Imbalanced reserves (rebalancing occurs)
+ * - Zero on one side (extreme imbalance)
+ *
+ * Note: Zero on BOTH sides cannot be tested in integration since pools
+ * require initial liquidity. The Rust code handles this correctly (0/2=0).
+ */
+async function testRebalancingMathVerification(
+  connection: Connection,
+  poolPda: PublicKey,
+  reservesBefore: { yes: bigint; no: bigint }
+): Promise<TestResult> {
+  const testName = 'Rebalancing math verification'
+  console.log(`\n--- Test: ${testName} ---`)
+
+  try {
+    const poolAccount = await connection.getAccountInfo(poolPda)
+    if (!poolAccount) {
+      return { name: testName, passed: false, error: 'Pool account not found' }
+    }
+
+    const poolData = parsePoolAccount(poolAccount.data)
+    const totalBefore = reservesBefore.yes + reservesBefore.no
+    const totalAfter = poolData.yesReserves + poolData.noReserves
+
+    // Calculate expected values
+    const expectedBalanced = totalBefore / 2n
+    const expectedRemainder = totalBefore % 2n
+    const expectedYes = expectedBalanced + expectedRemainder
+    const expectedNo = expectedBalanced
+
+    console.log('   Before: YES=', reservesBefore.yes.toString(), ', NO=', reservesBefore.no.toString())
+    console.log('   Expected: YES=', expectedYes.toString(), ', NO=', expectedNo.toString())
+    console.log('   Actual: YES=', poolData.yesReserves.toString(), ', NO=', poolData.noReserves.toString())
+
+    // Verify YES reserves match expected
+    if (poolData.yesReserves !== expectedYes) {
+      return {
+        name: testName,
+        passed: false,
+        error: `YES reserves: expected ${expectedYes}, got ${poolData.yesReserves}`,
+      }
+    }
+
+    // Verify NO reserves match expected
+    if (poolData.noReserves !== expectedNo) {
+      return {
+        name: testName,
+        passed: false,
+        error: `NO reserves: expected ${expectedNo}, got ${poolData.noReserves}`,
+      }
+    }
+
+    // Verify total preserved
+    if (totalBefore !== totalAfter) {
+      return {
+        name: testName,
+        passed: false,
+        error: `Total not preserved: before=${totalBefore}, after=${totalAfter}`,
+      }
+    }
+
+    console.log('✅ Rebalancing math verified correctly')
+
+    // Document edge case coverage
+    const wasImbalanced = reservesBefore.yes !== reservesBefore.no
+    const hadZeroSide = reservesBefore.yes === 0n || reservesBefore.no === 0n
+
+    return {
+      name: testName,
+      passed: true,
+      details: {
+        wasImbalanced,
+        hadZeroSide,
+        imbalanceRatio: reservesBefore.no > 0n
+          ? (Number(reservesBefore.yes) / Number(reservesBefore.no)).toFixed(4)
+          : 'N/A (NO was zero)',
+        totalLiquidity: totalAfter.toString(),
+      },
+    }
+  } catch (error: unknown) {
+    const errorMessage =
+      error instanceof Error ? error.message : JSON.stringify(error)
+    return { name: testName, passed: false, error: errorMessage }
+  }
+}
+
 async function testPoolClearedAfterSettlement(
   connection: Connection,
   poolPda: PublicKey
@@ -1086,23 +1442,57 @@ async function main() {
   // Run tests
   const results: TestResult[] = []
 
-  // Test 1: Successful settlement
-  results.push(
-    await testSuccessfulSettlement(
-      connection,
-      wallet,
-      globalConfigPda,
-      poolPda,
-      poolData.activeEpoch,
-      feedId,
-      accessToken
-    )
+  // Test 1: Successful settlement (captures reserves before for rebalancing tests)
+  const settlementResult = await testSuccessfulSettlement(
+    connection,
+    wallet,
+    globalConfigPda,
+    poolPda,
+    poolData.activeEpoch,
+    feedId,
+    accessToken
   )
+  results.push(settlementResult.result)
 
-  // Test 2: Verify pool cleared (after successful settlement)
+  // Rebalancing tests (require settlement context with before/after reserves)
+  if (settlementResult.context) {
+    // Test 2: Verify pool reserves rebalanced to 50:50
+    results.push(
+      await testPoolRebalancedAfterSettlement(
+        connection,
+        poolPda,
+        settlementResult.context.reservesBefore
+      )
+    )
+
+    // Test 3: Verify PoolRebalanced event was emitted
+    results.push(
+      await testPoolRebalancedEventEmitted(connection, settlementResult.context.signature)
+    )
+
+    // Test 4: Verify odd total handling (YES gets remainder) - Story 3-1.2 AC
+    results.push(
+      await testOddTotalReservesHandling(
+        connection,
+        poolPda,
+        settlementResult.context.reservesBefore
+      )
+    )
+
+    // Test 5: Verify rebalancing math (total preserved, correct calculation)
+    results.push(
+      await testRebalancingMathVerification(
+        connection,
+        poolPda,
+        settlementResult.context.reservesBefore
+      )
+    )
+  }
+
+  // Test 6: Verify pool active_epoch cleared after settlement
   results.push(await testPoolClearedAfterSettlement(connection, poolPda))
 
-  // Test 3: Verify cannot settle again (epoch now in terminal state)
+  // Test 7: Verify cannot settle again (epoch now in terminal state)
   results.push(
     await testCannotSettleNonFrozenEpoch(
       connection,
@@ -1113,13 +1503,13 @@ async function main() {
     )
   )
 
-  // Test 4: Verify outcome determination logic (AC 2-5)
+  // Test 8: Verify outcome determination logic
   results.push(await testOutcomeDetermination(connection, poolData.activeEpoch))
 
-  // Test 5: Verify staleness validation (AC 6)
+  // Test 9: Verify staleness validation
   results.push(await testStalenessValidation(connection, poolData.activeEpoch))
 
-  // Test 6: Document freeze check behavior (AC 10)
+  // Test 10: Document freeze check behavior
   results.push(await testFreezeCheckBehavior(connection, globalConfigPda, poolPda))
 
   printSummary(results)

@@ -30,7 +30,7 @@ use pyth_lazer_solana_contract::protocol::payload::PayloadData;
 
 use crate::constants::{PYTH_PROGRAM_ID, PYTH_STORAGE_ID, PYTH_TREASURY_ID};
 use crate::errors::FogoPulseError;
-use crate::events::{EpochRefunded, EpochSettled};
+use crate::events::{EpochRefunded, EpochSettled, PoolRebalanced};
 use crate::state::{Epoch, EpochState, GlobalConfig, Outcome, Pool, RefundReason};
 use crate::utils::oracle::extract_price_and_confidence;
 
@@ -264,8 +264,42 @@ pub fn handler(
     pool.active_epoch_state = 0; // 0 = None (no active epoch)
 
     // ==========================================================
+    // AUTO-REBALANCE POOL RESERVES
+    // ==========================================================
+    // After settlement, rebalance reserves to 50:50 to ensure fair
+    // CPMM pricing for the next epoch. This prevents traders from
+    // exploiting imbalanced reserves where shares = amount * opposite / same
+    // creates unfair advantages for the scarce-side.
+
+    let yes_reserves_before = pool.yes_reserves;
+    let no_reserves_before = pool.no_reserves;
+
+    let total_reserves = pool
+        .yes_reserves
+        .checked_add(pool.no_reserves)
+        .ok_or(FogoPulseError::Overflow)?;
+
+    let balanced_amount = total_reserves / 2;
+    let remainder = total_reserves % 2;
+
+    pool.yes_reserves = balanced_amount
+        .checked_add(remainder)
+        .ok_or(FogoPulseError::Overflow)?;
+    pool.no_reserves = balanced_amount;
+
+    msg!(
+        "Pool rebalanced: before=({}, {}), after=({}, {})",
+        yes_reserves_before,
+        no_reserves_before,
+        pool.yes_reserves,
+        pool.no_reserves
+    );
+
+    // ==========================================================
     // EMIT EVENTS
     // ==========================================================
+    // Event order: EpochSettled (primary) -> EpochRefunded (if applicable) -> PoolRebalanced
+    // This ordering ensures indexers see the main settlement event first.
 
     // Always emit EpochSettled for all terminal outcomes
     emit!(EpochSettled {
@@ -293,6 +327,16 @@ pub fn handler(
             refund_reason: reason,
         });
     }
+
+    // Emit pool rebalancing event after settlement events
+    emit!(PoolRebalanced {
+        pool: pool.key(),
+        epoch: epoch.key(),
+        yes_reserves_before,
+        no_reserves_before,
+        yes_reserves_after: pool.yes_reserves,
+        no_reserves_after: pool.no_reserves,
+    });
 
     Ok(())
 }

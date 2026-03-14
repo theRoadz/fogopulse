@@ -169,3 +169,19 @@ pub struct EpochFrozen {
     /// Timestamp when trading stopped
     pub freeze_time: i64,
 }
+
+#[event]
+pub struct PoolRebalanced {
+    /// Pool account pubkey
+    pub pool: Pubkey,
+    /// Epoch that triggered the rebalancing
+    pub epoch: Pubkey,
+    /// YES reserves before rebalancing
+    pub yes_reserves_before: u64,
+    /// NO reserves before rebalancing
+    pub no_reserves_before: u64,
+    /// YES reserves after rebalancing (gets remainder if odd total)
+    pub yes_reserves_after: u64,
+    /// NO reserves after rebalancing
+    pub no_reserves_after: u64,
+}

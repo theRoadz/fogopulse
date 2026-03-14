@@ -1875,6 +1875,19 @@
       ]
     },
     {
+      "name": "PoolRebalanced",
+      "discriminator": [
+        75,
+        223,
+        62,
+        177,
+        222,
+        42,
+        34,
+        141
+      ]
+    },
+    {
       "name": "PositionOpened",
       "discriminator": [
         237,
@@ -2958,6 +2971,56 @@
               "Max exposure per side in basis points (copied from GlobalConfig)"
             ],
             "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PoolRebalanced",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "docs": [
+              "Pool account pubkey"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch",
+            "docs": [
+              "Epoch that triggered the rebalancing"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "yes_reserves_before",
+            "docs": [
+              "YES reserves before rebalancing"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "no_reserves_before",
+            "docs": [
+              "NO reserves before rebalancing"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "yes_reserves_after",
+            "docs": [
+              "YES reserves after rebalancing (gets remainder if odd total)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "no_reserves_after",
+            "docs": [
+              "NO reserves after rebalancing"
+            ],
+            "type": "u64"
           }
         ]
       }
