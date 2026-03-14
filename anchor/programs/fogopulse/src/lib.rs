@@ -172,6 +172,15 @@ pub mod fogopulse {
         instructions::claim_payout::handler(ctx, user)
     }
 
+    /// Claim refund from a refunded epoch
+    ///
+    /// Supports FOGO Sessions for gasless claims.
+    /// Returns original stake when epoch outcome is Refunded (confidence bands
+    /// overlap or exact tie).
+    pub fn claim_refund(ctx: Context<ClaimRefund>, user: Pubkey) -> Result<()> {
+        instructions::claim_refund::handler(ctx, user)
+    }
+
     // =========================================================================
     // ADMIN INSTRUCTIONS
     // =========================================================================

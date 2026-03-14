@@ -185,3 +185,13 @@ pub struct PoolRebalanced {
     /// NO reserves after rebalancing
     pub no_reserves_after: u64,
 }
+
+#[event]
+pub struct RefundClaimed {
+    /// Epoch account pubkey
+    pub epoch: Pubkey,
+    /// User who claimed the refund
+    pub user: Pubkey,
+    /// Refund amount in USDC lamports
+    pub amount: u64,
+}
