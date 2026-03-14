@@ -20,18 +20,18 @@ export function TradingLayout({ onAssetChange }: TradingLayoutProps) {
         <AssetTabs onAssetChange={onAssetChange} />
       </div>
 
-      {/* Main trading area: 65% chart / 35% trade ticket on desktop */}
+      {/* Main trading area: 70% chart / 30% trade ticket on desktop */}
       <div className="flex flex-col lg:flex-row gap-4">
-        {/* Chart Area - 65% on desktop, full width on mobile/tablet */}
-        <div className="w-full lg:w-[65%]">
+        {/* Chart Area - 70% on desktop, full width on mobile/tablet */}
+        <div className="w-full lg:w-[70%]">
           <ChartArea
             asset={activeAsset}
-            className="min-h-[300px] md:min-h-[350px] lg:min-h-[400px]"
+            className="h-[280px] md:h-[300px]"
           />
         </div>
 
-        {/* Trade Ticket Area - 35% on desktop, full width on mobile/tablet */}
-        <div className="w-full lg:w-[35%]">
+        {/* Trade Ticket Area - 30% on desktop, full width on mobile/tablet */}
+        <div className="w-full lg:w-[30%]">
           <TradeTicketArea asset={activeAsset} />
         </div>
       </div>

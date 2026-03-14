@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTheme } from 'next-themes'
 import {
   createChart,
@@ -53,6 +53,9 @@ const DARK_COLORS = {
 // Price line color (same for both themes)
 const PRICE_LINE_COLOR = '#f7931a' // Orange/amber brand color
 
+// Time scale configuration
+const VISIBLE_RANGE_SECONDS = 60 // 1 minute visible window
+
 /**
  * Get chart options for the specified theme and asset
  */
@@ -78,12 +81,24 @@ function getChartOptions(isDark: boolean, asset: Asset) {
       borderColor: colors.borderColor,
       timeVisible: true,
       secondsVisible: true,
+      fixedRightEdge: true, // Keep right edge at latest data
+      tickMarkFormatter: (time: UTCTimestamp) => {
+        const date = new Date((time as number) * 1000)
+        const hours = date.getHours()
+        const minutes = date.getMinutes().toString().padStart(2, '0')
+        const seconds = date.getSeconds().toString().padStart(2, '0')
+        const period = hours >= 12 ? 'PM' : 'AM'
+        const displayHours = hours % 12 || 12
+        return `${displayHours}:${minutes}:${seconds} ${period}`
+      },
     },
     crosshair: {
       mode: 0 as const, // Normal mode
       vertLine: { color: colors.crosshairColor, width: 1 as const, style: 3 as const },
       horzLine: { color: colors.crosshairColor, width: 1 as const, style: 3 as const },
     },
+    handleScroll: false, // Disable manual scrolling
+    handleScale: false,  // Disable manual zoom
   }
 }
 
@@ -134,6 +149,18 @@ export function PriceChart({ asset, data, targetPrice, className }: PriceChartPr
 
   // Determine if dark mode (default to dark for SSR)
   const isDark = resolvedTheme !== 'light'
+
+  // Scroll chart to show latest 60 seconds of data
+  const scrollToRight = useCallback(() => {
+    if (!chartRef.current || data.length === 0) return
+    const timeScale = chartRef.current.timeScale()
+    const lastTime = data[data.length - 1].time as number
+    const rangeStart = lastTime - VISIBLE_RANGE_SECONDS
+    timeScale.setVisibleRange({
+      from: rangeStart as UTCTimestamp,
+      to: lastTime as UTCTimestamp,
+    })
+  }, [data])
 
   // Initialize chart on mount
   useEffect(() => {
@@ -215,14 +242,15 @@ export function PriceChart({ asset, data, targetPrice, className }: PriceChartPr
       const prevLength = dataLengthRef.current
 
       if (prevLength === 0) {
-        // Initial data load - use setData and fit content
+        // Initial data load - use setData and scroll to show 60-second window
         seriesRef.current.setData(data)
-        chartRef.current?.timeScale().fitContent()
+        scrollToRight()
       } else if (data.length > prevLength) {
         // New data point(s) added - use efficient update()
         const lastPoint = data[data.length - 1]
         if (lastPoint) {
           seriesRef.current.update(lastPoint)
+          scrollToRight() // Keep window scrolled to right
         }
       } else if (data.length === prevLength) {
         // Same length but possibly updated value (duplicate timestamp case)
@@ -237,7 +265,7 @@ export function PriceChart({ asset, data, targetPrice, className }: PriceChartPr
     } catch (error) {
       setChartError(error instanceof Error ? error.message : 'Failed to update chart data')
     }
-  }, [data])
+  }, [data, scrollToRight])
 
   // Update target line when targetPrice changes
   useEffect(() => {
