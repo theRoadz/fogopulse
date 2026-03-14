@@ -7,6 +7,7 @@ import {
   LineSeries,
   ColorType,
   LineStyle,
+  LineType,
   type IChartApi,
   type ISeriesApi,
   type LineData,
@@ -122,6 +123,7 @@ function getTargetLineOptions(isDark: boolean, price: number) {
 const SERIES_OPTIONS = {
   color: PRICE_LINE_COLOR,
   lineWidth: 2 as const,
+  lineType: LineType.Curved,
   lastValueVisible: false,
   priceLineVisible: false,
 }
