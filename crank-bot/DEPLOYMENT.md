@@ -107,6 +107,7 @@ User=fogopulse
 WorkingDirectory=/home/fogopulse/fogopulse-crank
 EnvironmentFile=/home/fogopulse/fogopulse-crank/.env
 ExecStart=/usr/bin/npx tsx crank-bot.ts --epoch
+# Use --epoch to auto-create epochs, or --no-epoch to only settle/close existing ones
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -142,6 +143,28 @@ sudo journalctl -u fogopulse-crank -f  # Live logs (Ctrl+C to exit)
 | Stop bot | `sudo systemctl stop fogopulse-crank` |
 | Restart bot | `sudo systemctl restart fogopulse-crank` |
 | Disable autostart | `sudo systemctl disable fogopulse-crank` |
+
+---
+
+## Switching Epoch Mode
+
+The crank bot supports two modes via CLI flags:
+
+| Flag | Behavior |
+|------|----------|
+| `--epoch` | Auto-create new epochs when none exist (default for production) |
+| `--no-epoch` | Only settle/close existing epochs, never create new ones |
+
+To switch modes, edit the service file:
+```bash
+sudo nano /etc/systemd/system/fogopulse-crank.service
+```
+
+Change the `ExecStart` line to use the desired flag, then reload:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart fogopulse-crank
+```
 
 ---
 

@@ -384,10 +384,24 @@ if global_config.paused || global_config.frozen || pool.is_paused || pool.is_fro
 
 ### Development Workflow
 
-1. Build program: `anchor build` (in WSL)
-2. Deploy to FOGO testnet: `solana program deploy target/deploy/fogopulse.so` (in WSL)
-3. Run scripts: `npx ts-node scripts/create-epoch.ts` (Windows or WSL)
-4. Frontend dev: `pnpm dev` (Windows)
+**Build Anchor Program (from Windows terminal):**
+```bash
+wsl -e bash -l -c "cd /mnt/d/dev/fogopulse/anchor && anchor build 2>&1"
+```
+
+**Deploy to FOGO Testnet (from Windows terminal):**
+```bash
+wsl -e bash -l -c "cd /mnt/d/dev/fogopulse/anchor && solana program deploy target/deploy/fogopulse.so --program-id D8htKqaQPp8g3VRpbwno1rCQcaBrMCbZZcaFVxSyDsX5"
+```
+
+**Copy IDL to Web Folder (required after build):**
+```bash
+wsl -e bash -l -c "cp /mnt/d/dev/fogopulse/anchor/target/idl/fogopulse.json /mnt/d/dev/fogopulse/web/src/lib/fogopulse.json && echo 'IDL copied successfully'"
+```
+
+**Other Commands:**
+- Run scripts: `npx ts-node scripts/create-epoch.ts` (Windows or WSL)
+- Frontend dev: `pnpm dev` (Windows)
 
 ### No Local Devnet
 
