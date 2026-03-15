@@ -1,10 +1,16 @@
 'use client'
 
 import { useMemo } from 'react'
-import { AlertTriangle, Check, TrendingUp, TrendingDown } from 'lucide-react'
+import { AlertTriangle, Check, TrendingUp, TrendingDown, Info } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { Separator } from '@/components/ui/separator'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { useTradePreview } from '@/hooks/use-trade-preview'
 import type { Asset } from '@/types/assets'
 
@@ -62,10 +68,13 @@ export function TradePreview({ asset, className }: TradePreviewProps) {
 
     const {
       direction,
+      amount,
+      netAmount,
       entryPrice,
       sharesDisplay,
       fee,
       feePercent,
+      feeSplit,
       potentialPayout,
       profitPercent,
       currentProbabilities,
@@ -101,8 +110,39 @@ export function TradePreview({ asset, className }: TradePreviewProps) {
           <span className="font-medium">{formatNumber(sharesDisplay, 2)} shares</span>
         </div>
 
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Fee ({feePercent}%)</span>
+        {/* Fee with breakdown tooltip */}
+        <div className="flex justify-between items-center">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-muted-foreground flex items-center gap-1 cursor-help">
+                  Fee ({feePercent}%)
+                  <Info className="h-3 w-3" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="text-xs">
+                <div className="space-y-1">
+                  <div className="font-medium mb-1">Fee Breakdown</div>
+                  <div className="flex justify-between gap-4">
+                    <span>LP (70%)</span>
+                    <span>{formatCurrency(feeSplit.lpFee)}</span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span>Treasury (20%)</span>
+                    <span>{formatCurrency(feeSplit.treasuryFee)}</span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span>Insurance (10%)</span>
+                    <span>{formatCurrency(feeSplit.insuranceFee)}</span>
+                  </div>
+                  <div className="border-t border-border mt-1 pt-1 flex justify-between gap-4 font-medium">
+                    <span>Net Trade</span>
+                    <span>{formatCurrency(netAmount)}</span>
+                  </div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <span className="font-medium text-muted-foreground">{formatCurrency(fee)}</span>
         </div>
 

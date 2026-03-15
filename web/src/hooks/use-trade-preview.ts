@@ -8,12 +8,13 @@ import { useTradeStore } from '@/stores/trade-store'
 import {
   calculateShares,
   calculateEntryPrice,
-  calculateFee,
+  calculateFeeSplit,
   calculateSlippage,
   calculatePotentialPayout,
   calculateProbabilityImpact,
   getReservesForDirection,
 } from '@/lib/trade-preview'
+import type { FeeSplit } from '@/lib/trade-preview'
 import { TRADING_FEE_BPS, USDC_DECIMALS } from '@/lib/constants'
 
 // =============================================================================
@@ -25,8 +26,10 @@ import { TRADING_FEE_BPS, USDC_DECIMALS } from '@/lib/constants'
  */
 export interface TradePreviewData {
   // Input values
-  /** Trade amount in USDC */
+  /** Gross trade amount in USDC (before fees) */
   amount: number
+  /** Net trade amount in USDC (after fees) - used for share calculation */
+  netAmount: number
   /** Trade direction */
   direction: 'up' | 'down'
 
@@ -37,23 +40,25 @@ export interface TradePreviewData {
   sharesDisplay: number
   /** Price per share in USDC (e.g., 0.52) */
   entryPrice: number
-  /** Fee in USDC (e.g., 1.80) - informational, collected at settlement */
+  /** Total fee in USDC (e.g., 1.80) - deducted upfront at trade time */
   fee: number
   /** Fee percentage (e.g., 1.8) */
   feePercent: number
+  /** Complete fee breakdown with LP/treasury/insurance split */
+  feeSplit: FeeSplit
   /** Slippage percentage (e.g., 0.3) */
   slippage: number
-  /** Max payout if prediction wins (USDC) */
+  /** Max payout if prediction wins (USDC) - based on net amount */
   potentialPayout: number
-  /** Potential profit (potentialPayout - amount) */
+  /** Potential profit (potentialPayout - net amount) */
   potentialProfit: number
-  /** Profit as percentage ((potentialProfit / amount) * 100) */
+  /** Profit as percentage based on gross amount ((potentialProfit / grossAmount) * 100) */
   profitPercent: number
 
   // Probability impact
   /** Current market probabilities */
   currentProbabilities: { pUp: number; pDown: number }
-  /** New market probabilities after trade */
+  /** New market probabilities after trade (based on net amount) */
   newProbabilities: { pUp: number; pDown: number }
   /** Absolute change in user's side probability */
   probabilityChange: number
@@ -98,14 +103,18 @@ export function useTradePreview(asset: Asset): TradePreviewData | null {
       return null
     }
 
-    // Parse and validate amount
-    const amountNum = parseFloat(amount)
-    if (isNaN(amountNum) || amountNum <= 0) {
+    // Parse and validate amount (gross amount before fees)
+    const grossAmount = parseFloat(amount)
+    if (isNaN(grossAmount) || grossAmount <= 0) {
       return null
     }
 
-    // Convert amount to lamports (BigInt for precision)
-    const amountLamports = BigInt(Math.floor(amountNum * 10 ** USDC_DECIMALS))
+    // Calculate fee split (fees are deducted upfront in the new implementation)
+    const feeSplit = calculateFeeSplit(grossAmount)
+
+    // Convert NET amount to lamports (BigInt for precision)
+    // Shares are calculated based on net amount after fees
+    const netAmountLamports = BigInt(Math.floor(feeSplit.netAmount * 10 ** USDC_DECIMALS))
 
     // Get pool reserves
     const { yesReserves, noReserves } = pool
@@ -117,8 +126,8 @@ export function useTradePreview(asset: Asset): TradePreviewData | null {
       noReserves
     )
 
-    // Calculate shares using CPMM formula
-    const shares = calculateShares(amountLamports, sameReserves, oppositeReserves)
+    // Calculate shares using CPMM formula with NET amount
+    const shares = calculateShares(netAmountLamports, sameReserves, oppositeReserves)
     const sharesDisplay = Number(shares) / 10 ** USDC_DECIMALS
 
     // Calculate entry price per share
@@ -126,28 +135,29 @@ export function useTradePreview(asset: Asset): TradePreviewData | null {
     if (shares === 0n) {
       return null
     }
-    const entryPrice = calculateEntryPrice(amountLamports, shares)
+    const entryPrice = calculateEntryPrice(netAmountLamports, shares)
 
-    // Calculate fee (informational - collected at settlement)
-    const fee = calculateFee(amountNum, TRADING_FEE_BPS)
+    // Fee is now calculated via feeSplit
+    const fee = feeSplit.totalFee
     const feePercent = TRADING_FEE_BPS / 100
 
-    // Calculate slippage
+    // Calculate slippage (using net amount)
     const slippage = calculateSlippage(
-      amountLamports,
+      netAmountLamports,
       shares,
       sameReserves,
       oppositeReserves
     )
 
-    // Calculate potential payout
+    // Calculate potential payout (based on shares from net amount)
     const potentialPayout = calculatePotentialPayout(shares)
-    const potentialProfit = potentialPayout - amountNum
-    const profitPercent = amountNum > 0 ? (potentialProfit / amountNum) * 100 : 0
+    // Profit calculation: payout minus gross amount (user spent gross amount)
+    const potentialProfit = potentialPayout - grossAmount
+    const profitPercent = grossAmount > 0 ? (potentialProfit / grossAmount) * 100 : 0
 
-    // Calculate probability impact
+    // Calculate probability impact (using net amount for reserves)
     const probImpact = calculateProbabilityImpact(
-      amountLamports,
+      netAmountLamports,
       direction,
       yesReserves,
       noReserves
@@ -165,13 +175,15 @@ export function useTradePreview(asset: Asset): TradePreviewData | null {
     const isNearCap = false
 
     return {
-      amount: amountNum,
+      amount: grossAmount,
+      netAmount: feeSplit.netAmount,
       direction,
       shares,
       sharesDisplay,
       entryPrice,
       fee,
       feePercent,
+      feeSplit,
       slippage,
       potentialPayout,
       potentialProfit,

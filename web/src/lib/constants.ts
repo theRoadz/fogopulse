@@ -59,6 +59,20 @@ export const TREASURY_FEE_SHARE_BPS = 2000 // 20%
 export const INSURANCE_FEE_SHARE_BPS = 1000 // 10%
 
 // =============================================================================
+// TREASURY AND INSURANCE ACCOUNTS
+// =============================================================================
+
+// Treasury wallet address from GlobalConfig
+export const TREASURY_WALLET = new PublicKey('HkSz5Avhwn29eeK1fkBGeCtfo1L7uTwct4Wgu5bbfy9U')
+// Treasury USDC ATA (derived from treasury wallet)
+export const TREASURY_USDC_ATA = new PublicKey('68e7Z3e9K5BT9dPwV8BySWW5pycVC1vUuM1UrUNNJvMY')
+
+// Insurance wallet address from GlobalConfig
+export const INSURANCE_WALLET = new PublicKey('2GJ2pajUMv2ZXVxNUgVme9i2pHoM51jzYyAzdEa1BTww')
+// Insurance USDC ATA (derived from insurance wallet)
+export const INSURANCE_USDC_ATA = new PublicKey('FgRrdTur4cKC1r4frdaj4j754QoP4BZD6NW75hP6oDuv')
+
+// =============================================================================
 // PDA SEEDS
 // =============================================================================
 

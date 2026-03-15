@@ -207,3 +207,23 @@ pub struct PayoutClaimed {
     /// Direction of the winning position
     pub direction: Direction,
 }
+
+#[event]
+pub struct FeesCollected {
+    /// Epoch where fees were collected
+    pub epoch: Pubkey,
+    /// User who paid the fees (trader)
+    pub user: Pubkey,
+    /// Original trade amount before fees
+    pub gross_amount: u64,
+    /// Amount after fees (used for share calculation)
+    pub net_amount: u64,
+    /// Total fee charged (trading_fee_bps of gross amount)
+    pub total_fee: u64,
+    /// LP portion of fee (stays in pool USDC, auto-compounds)
+    pub lp_fee: u64,
+    /// Treasury portion of fee (transferred to treasury)
+    pub treasury_fee: u64,
+    /// Insurance portion of fee (transferred to insurance)
+    pub insurance_fee: u64,
+}

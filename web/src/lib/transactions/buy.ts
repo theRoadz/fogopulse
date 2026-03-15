@@ -8,6 +8,8 @@ import {
   POOL_USDC_ATAS,
   GLOBAL_CONFIG_PDA,
   USDC_MINT,
+  TREASURY_USDC_ATA,
+  INSURANCE_USDC_ATA,
 } from '@/lib/constants'
 import { deriveEpochPda, derivePositionPda, deriveUserUsdcAta } from '@/lib/pda'
 import idl from '@/lib/fogopulse.json'
@@ -90,10 +92,12 @@ function usdcToLamports(amount: string): BN {
  * 5. position - UserPosition PDA (init_if_needed)
  * 6. user_usdc - User's USDC ATA (mut)
  * 7. pool_usdc - Pool's USDC ATA (mut)
- * 8. usdc_mint - USDC Mint
- * 9. token_program - TOKEN_PROGRAM_ID
- * 10. associated_token_program - ASSOCIATED_TOKEN_PROGRAM_ID
- * 11. system_program - SystemProgram.programId
+ * 8. treasury_usdc - Treasury's USDC ATA (mut) - receives 20% of fees
+ * 9. insurance_usdc - Insurance's USDC ATA (mut) - receives 10% of fees
+ * 10. usdc_mint - USDC Mint
+ * 11. token_program - TOKEN_PROGRAM_ID
+ * 12. associated_token_program - ASSOCIATED_TOKEN_PROGRAM_ID
+ * 13. system_program - SystemProgram.programId
  */
 export async function buildBuyPositionInstruction(
   params: BuildBuyPositionParams
@@ -121,7 +125,10 @@ export async function buildBuyPositionInstruction(
 
   // Build instruction using Anchor's IDL
   // Instruction args: user (Pubkey), direction (enum), amount (u64)
-  const instruction = await program.methods
+  // NOTE: Type assertion used due to TypeScript limitation with deeply nested Anchor IDL types
+  // The accounts structure matches buy_position.rs exactly
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const methodBuilder = (program.methods as any)
     .buyPosition(userPubkey, directionEnum, amountLamports)
     .accounts({
       signerOrSession: userPubkey,
@@ -131,12 +138,15 @@ export async function buildBuyPositionInstruction(
       position: positionPda,
       userUsdc: userUsdcAta,
       poolUsdc: poolUsdcAta,
+      treasuryUsdc: TREASURY_USDC_ATA,
+      insuranceUsdc: INSURANCE_USDC_ATA,
       usdcMint: USDC_MINT,
       tokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     })
-    .instruction()
+
+  const instruction: TransactionInstruction = await methodBuilder.instruction()
 
   return instruction
 }

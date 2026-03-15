@@ -34,10 +34,12 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 use crate::constants::{MIN_TRADE_AMOUNT, USDC_MINT};
 use crate::errors::FogoPulseError;
-use crate::events::PositionOpened;
+use crate::events::{FeesCollected, PositionOpened};
 use crate::session::extract_user;
 use crate::state::{Direction, Epoch, EpochState, GlobalConfig, Pool, UserPosition};
-use crate::utils::{calculate_entry_price, calculate_shares, check_side_cap, check_wallet_cap};
+use crate::utils::{
+    calculate_entry_price, calculate_fee_split, calculate_shares, check_side_cap, check_wallet_cap,
+};
 
 /// Buy Position accounts
 ///
@@ -45,6 +47,9 @@ use crate::utils::{calculate_entry_price, calculate_shares, check_side_cap, chec
 /// Token accounts use ATA pattern with pool PDA as owner for pool_usdc.
 ///
 /// CRITICAL: Uses Box<> for large accounts to prevent stack overflow.
+///
+/// Fee distribution accounts (treasury_usdc, insurance_usdc) are included to enable
+/// fee splitting during trade execution.
 #[derive(Accounts)]
 #[instruction(user: Pubkey)]
 pub struct BuyPosition<'info> {
@@ -55,7 +60,7 @@ pub struct BuyPosition<'info> {
     pub signer_or_session: Signer<'info>,
 
     /// Global protocol configuration
-    /// Used to check: paused, frozen, allow_hedging
+    /// Used to check: paused, frozen, allow_hedging, fee parameters
     #[account(
         seeds = [b"global_config"],
         bump = config.bump,
@@ -106,12 +111,31 @@ pub struct BuyPosition<'info> {
     pub user_usdc: Box<Account<'info, TokenAccount>>,
 
     /// Pool's USDC ATA - owned by pool PDA
+    /// Receives net_amount + lp_fee (trading exposure + auto-compounding LP fee)
     #[account(
         mut,
         associated_token::mint = usdc_mint,
         associated_token::authority = pool,
     )]
     pub pool_usdc: Box<Account<'info, TokenAccount>>,
+
+    /// Treasury USDC token account - receives 20% of fees
+    /// Must be ATA of config.treasury
+    #[account(
+        mut,
+        associated_token::mint = usdc_mint,
+        associated_token::authority = config.treasury,
+    )]
+    pub treasury_usdc: Box<Account<'info, TokenAccount>>,
+
+    /// Insurance USDC token account - receives 10% of fees
+    /// Must be ATA of config.insurance
+    #[account(
+        mut,
+        associated_token::mint = usdc_mint,
+        associated_token::authority = config.insurance,
+    )]
+    pub insurance_usdc: Box<Account<'info, TokenAccount>>,
 
     /// USDC mint - verified against constant
     #[account(address = USDC_MINT)]
@@ -127,7 +151,7 @@ pub struct BuyPosition<'info> {
 /// # Arguments
 /// * `user` - The actual user wallet pubkey (validated against extract_user)
 /// * `direction` - Up or Down prediction
-/// * `amount` - USDC amount in lamports (6 decimals)
+/// * `amount` - USDC amount in lamports (6 decimals) - GROSS amount before fees
 ///
 /// # Flow
 /// 1. Extract and validate user
@@ -135,12 +159,16 @@ pub struct BuyPosition<'info> {
 /// 3. Check protocol and pool are not paused/frozen
 /// 4. Validate amount > 0
 /// 5. Check hedging rules if position exists
-/// 6. Calculate CPMM shares
-/// 7. Validate caps (per-wallet, per-side)
-/// 8. Transfer USDC from user to pool
-/// 9. Update pool reserves
-/// 10. Initialize/update UserPosition
-/// 11. Emit PositionOpened event
+/// 6. Calculate fee split (total_fee, lp_fee, treasury_fee, insurance_fee)
+/// 7. Calculate CPMM shares using NET amount (after fees)
+/// 8. Validate caps (per-wallet, per-side) using NET amount
+/// 9. Transfer treasury_fee from user to treasury
+/// 10. Transfer insurance_fee from user to insurance
+/// 11. Transfer net_amount + lp_fee to pool
+/// 12. Update pool reserves with NET amount only (lp_fee auto-compounds in pool USDC)
+/// 13. Initialize/update UserPosition with NET amount
+/// 14. Emit FeesCollected event
+/// 15. Emit PositionOpened event
 pub fn handler(
     ctx: Context<BuyPosition>,
     user: Pubkey,
@@ -190,22 +218,35 @@ pub fn handler(
         );
     }
 
-    // 6. Calculate shares using CPMM formula
+    // 6. Calculate fee split
+    let fee_split = calculate_fee_split(amount, config)?;
+
+    msg!(
+        "FeeSplit: gross={}, net={}, total_fee={}, lp={}, treasury={}, insurance={}",
+        amount,
+        fee_split.net_amount,
+        fee_split.total_fee,
+        fee_split.lp_fee,
+        fee_split.treasury_fee,
+        fee_split.insurance_fee
+    );
+
+    // 7. Calculate shares using CPMM formula with NET amount (after fees)
     let (same_reserves, opposite_reserves) = match direction {
         Direction::Up => (pool.yes_reserves, pool.no_reserves),
         Direction::Down => (pool.no_reserves, pool.yes_reserves),
     };
 
-    let shares = calculate_shares(amount, same_reserves, opposite_reserves)?;
-    let entry_price = calculate_entry_price(amount, shares)?;
+    let shares = calculate_shares(fee_split.net_amount, same_reserves, opposite_reserves)?;
+    let entry_price = calculate_entry_price(fee_split.net_amount, shares)?;
 
-    // 7. Calculate new totals and validate caps
+    // 8. Calculate new totals and validate caps using NET amount
     let new_user_amount = if is_new_position {
-        amount
+        fee_split.net_amount
     } else {
         position
             .amount
-            .checked_add(amount)
+            .checked_add(fee_split.net_amount)
             .ok_or(FogoPulseError::Overflow)?
     };
 
@@ -220,21 +261,58 @@ pub fn handler(
     // When pool_total == 0 (first trade), check is skipped
     check_wallet_cap(new_user_amount, pool_total, pool.wallet_cap_bps)?;
 
-    // Check per-side cap against current pool total
+    // Check per-side cap against current pool total using NET amount
     // When pool_total == 0 (first trade), check is skipped
     let new_side_total = match direction {
         Direction::Up => pool
             .yes_reserves
-            .checked_add(amount)
+            .checked_add(fee_split.net_amount)
             .ok_or(FogoPulseError::Overflow)?,
         Direction::Down => pool
             .no_reserves
-            .checked_add(amount)
+            .checked_add(fee_split.net_amount)
             .ok_or(FogoPulseError::Overflow)?,
     };
     check_side_cap(new_side_total, pool_total, pool.side_cap_bps)?;
 
-    // 8. Transfer USDC from user to pool
+    // 9. Transfer treasury fee from user to treasury
+    if fee_split.treasury_fee > 0 {
+        token::transfer(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.user_usdc.to_account_info(),
+                    to: ctx.accounts.treasury_usdc.to_account_info(),
+                    authority: ctx.accounts.signer_or_session.to_account_info(),
+                },
+            ),
+            fee_split.treasury_fee,
+        )?;
+    }
+
+    // 10. Transfer insurance fee from user to insurance
+    if fee_split.insurance_fee > 0 {
+        token::transfer(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.user_usdc.to_account_info(),
+                    to: ctx.accounts.insurance_usdc.to_account_info(),
+                    authority: ctx.accounts.signer_or_session.to_account_info(),
+                },
+            ),
+            fee_split.insurance_fee,
+        )?;
+    }
+
+    // 11. Transfer net_amount + lp_fee to pool
+    // The lp_fee stays in pool_usdc but is NOT added to reserves
+    // This creates "surplus" in pool_usdc that increases LP share value (auto-compounding)
+    let pool_transfer_amount = fee_split
+        .net_amount
+        .checked_add(fee_split.lp_fee)
+        .ok_or(FogoPulseError::Overflow)?;
+
     token::transfer(
         CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
@@ -244,32 +322,33 @@ pub fn handler(
                 authority: ctx.accounts.signer_or_session.to_account_info(),
             },
         ),
-        amount,
+        pool_transfer_amount,
     )?;
 
-    // 9. Update pool reserves
+    // 12. Update pool reserves with NET amount only (trading exposure)
+    // The lp_fee stays in pool_usdc but is NOT added to reserves
     match direction {
         Direction::Up => {
             pool.yes_reserves = pool
                 .yes_reserves
-                .checked_add(amount)
+                .checked_add(fee_split.net_amount)
                 .ok_or(FogoPulseError::Overflow)?
         }
         Direction::Down => {
             pool.no_reserves = pool
                 .no_reserves
-                .checked_add(amount)
+                .checked_add(fee_split.net_amount)
                 .ok_or(FogoPulseError::Overflow)?
         }
     }
 
-    // 10. Update position
+    // 13. Update position with NET amount
     if is_new_position {
         // Initialize new position
         position.user = user;
         position.epoch = ctx.accounts.epoch.key();
         position.direction = direction;
-        position.amount = amount;
+        position.amount = fee_split.net_amount; // NET amount, not gross
         position.shares = shares;
         position.entry_price = entry_price;
         position.claimed = false;
@@ -278,7 +357,7 @@ pub fn handler(
         // Add to existing position - recalculate weighted average entry price
         let total_amount = position
             .amount
-            .checked_add(amount)
+            .checked_add(fee_split.net_amount)
             .ok_or(FogoPulseError::Overflow)?;
         let total_shares = position
             .shares
@@ -289,23 +368,36 @@ pub fn handler(
         position.shares = total_shares;
     }
 
-    // 11. Emit event
+    // 14. Emit FeesCollected event
+    emit!(FeesCollected {
+        epoch: ctx.accounts.epoch.key(),
+        user,
+        gross_amount: amount,
+        net_amount: fee_split.net_amount,
+        total_fee: fee_split.total_fee,
+        lp_fee: fee_split.lp_fee,
+        treasury_fee: fee_split.treasury_fee,
+        insurance_fee: fee_split.insurance_fee,
+    });
+
+    // 15. Emit PositionOpened event
     let clock = Clock::get()?;
     emit!(PositionOpened {
         epoch: ctx.accounts.epoch.key(),
         user,
         direction,
-        amount,
+        amount: fee_split.net_amount, // Report NET amount in position
         shares,
         entry_price,
         timestamp: clock.unix_timestamp,
     });
 
     msg!(
-        "PositionOpened: user={}, direction={:?}, amount={}, shares={}",
+        "PositionOpened: user={}, direction={:?}, gross={}, net={}, shares={}",
         user,
         direction,
         amount,
+        fee_split.net_amount,
         shares
     );
 

@@ -49,6 +49,7 @@ next-env.d.ts
 # Anchor
 /anchor/.anchor
 /anchor/target/
+/anchor/keys/
 test-ledger
 **/*.rs.bk
 # npm lock files (project uses pnpm)

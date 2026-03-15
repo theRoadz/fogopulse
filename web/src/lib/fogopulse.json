@@ -489,7 +489,7 @@
           "name": "config",
           "docs": [
             "Global protocol configuration",
-            "Used to check: paused, frozen, allow_hedging"
+            "Used to check: paused, frozen, allow_hedging, fee parameters"
           ],
           "pda": {
             "seeds": [
@@ -618,7 +618,8 @@
         {
           "name": "pool_usdc",
           "docs": [
-            "Pool's USDC ATA - owned by pool PDA"
+            "Pool's USDC ATA - owned by pool PDA",
+            "Receives net_amount + lp_fee (trading exposure + auto-compounding LP fee)"
           ],
           "writable": true,
           "pda": {
@@ -626,6 +627,196 @@
               {
                 "kind": "account",
                 "path": "pool"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "treasury_usdc",
+          "docs": [
+            "Treasury USDC token account - receives 20% of fees",
+            "Must be ATA of config.treasury"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "config.treasury",
+                "account": "GlobalConfig"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "insurance_usdc",
+          "docs": [
+            "Insurance USDC token account - receives 10% of fees",
+            "Must be ATA of config.insurance"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "config.insurance",
+                "account": "GlobalConfig"
               },
               {
                 "kind": "const",
@@ -2222,6 +2413,19 @@
       ]
     },
     {
+      "name": "FeesCollected",
+      "discriminator": [
+        233,
+        23,
+        117,
+        225,
+        107,
+        178,
+        254,
+        8
+      ]
+    },
+    {
       "name": "GlobalConfigInitialized",
       "discriminator": [
         5,
@@ -2986,6 +3190,70 @@
           },
           {
             "name": "Refunded"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FeesCollected",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "epoch",
+            "docs": [
+              "Epoch where fees were collected"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "user",
+            "docs": [
+              "User who paid the fees (trader)"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "gross_amount",
+            "docs": [
+              "Original trade amount before fees"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "net_amount",
+            "docs": [
+              "Amount after fees (used for share calculation)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_fee",
+            "docs": [
+              "Total fee charged (trading_fee_bps of gross amount)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "lp_fee",
+            "docs": [
+              "LP portion of fee (stays in pool USDC, auto-compounds)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "treasury_fee",
+            "docs": [
+              "Treasury portion of fee (transferred to treasury)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "insurance_fee",
+            "docs": [
+              "Insurance portion of fee (transferred to insurance)"
+            ],
+            "type": "u64"
           }
         ]
       }

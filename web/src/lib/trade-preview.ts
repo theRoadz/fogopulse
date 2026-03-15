@@ -7,7 +7,13 @@
  * @see anchor/programs/fogopulse/src/utils/cpmm.rs for on-chain implementation
  */
 
-import { TRADING_FEE_BPS, USDC_DECIMALS } from './constants'
+import {
+  TRADING_FEE_BPS,
+  USDC_DECIMALS,
+  LP_FEE_SHARE_BPS,
+  TREASURY_FEE_SHARE_BPS,
+  INSURANCE_FEE_SHARE_BPS,
+} from './constants'
 
 // =============================================================================
 // CPMM SHARES CALCULATION
@@ -70,12 +76,33 @@ export function calculateEntryPrice(amount: bigint, shares: bigint): number {
 // =============================================================================
 
 /**
+ * Fee breakdown result showing the split between LP, treasury, and insurance.
+ */
+export interface FeeSplit {
+  /** Total fee amount in USDC */
+  totalFee: number
+  /** LP portion (70% by default) - stays in pool for auto-compounding */
+  lpFee: number
+  /** Treasury portion (20% by default) - transferred to treasury */
+  treasuryFee: number
+  /** Insurance portion (10% by default) - transferred to insurance */
+  insuranceFee: number
+  /** Net amount after fees - used for share calculation */
+  netAmount: number
+}
+
+/**
  * Calculate trading fee in USDC.
  *
- * IMPORTANT: Fees are collected at settlement, NOT deducted upfront from trade amount.
- * For preview, this is informational - the full amount enters pool reserves.
+ * Fees are now deducted UPFRONT at trade time:
+ * - Total fee is deducted from the gross trade amount
+ * - Net amount (after fees) is used for share calculation
+ * - Fees are distributed: 70% LP (auto-compounds in pool), 20% treasury, 10% insurance
  *
- * @param amount - Trade amount in USDC display units
+ * Uses ceiling division for total fee (favors protocol) and floor division for
+ * fee splits (LP gets remainder to prevent dust).
+ *
+ * @param amount - Trade amount in USDC display units (gross amount before fees)
  * @param feeBps - Fee in basis points (default: TRADING_FEE_BPS = 180 = 1.8%)
  * @returns Fee in USDC display units
  */
@@ -83,7 +110,55 @@ export function calculateFee(
   amount: number,
   feeBps: number = TRADING_FEE_BPS
 ): number {
-  return (amount * feeBps) / 10000
+  // Ceiling division matches on-chain logic for consistency
+  return Math.ceil((amount * feeBps) / 10000 * 1000000) / 1000000
+}
+
+/**
+ * Calculate complete fee breakdown with LP/treasury/insurance split.
+ *
+ * Matches on-chain calculate_fee_split() logic:
+ * - Total fee uses ceiling division (favors protocol)
+ * - Treasury and insurance use floor division
+ * - LP gets remainder (no dust loss)
+ *
+ * @param grossAmount - Trade amount in USDC display units (before fees)
+ * @returns Complete fee breakdown and net amount
+ */
+export function calculateFeeSplit(grossAmount: number): FeeSplit {
+  if (grossAmount <= 0) {
+    return {
+      totalFee: 0,
+      lpFee: 0,
+      treasuryFee: 0,
+      insuranceFee: 0,
+      netAmount: 0,
+    }
+  }
+
+  // Convert to lamports for precision (6 decimals)
+  const grossLamports = Math.floor(grossAmount * 1_000_000)
+
+  // Total fee with ceiling division (matches on-chain)
+  const totalFeeLamports = Math.ceil((grossLamports * TRADING_FEE_BPS) / 10_000)
+
+  // Net amount after fees
+  const netLamports = grossLamports - totalFeeLamports
+
+  // Fee splits with floor division (matches on-chain)
+  const treasuryLamports = Math.floor((totalFeeLamports * TREASURY_FEE_SHARE_BPS) / 10_000)
+  const insuranceLamports = Math.floor((totalFeeLamports * INSURANCE_FEE_SHARE_BPS) / 10_000)
+  // LP gets remainder (no dust)
+  const lpLamports = totalFeeLamports - treasuryLamports - insuranceLamports
+
+  // Convert back to display units
+  return {
+    totalFee: totalFeeLamports / 1_000_000,
+    lpFee: lpLamports / 1_000_000,
+    treasuryFee: treasuryLamports / 1_000_000,
+    insuranceFee: insuranceLamports / 1_000_000,
+    netAmount: netLamports / 1_000_000,
+  }
 }
 
 // =============================================================================
