@@ -16,33 +16,35 @@
 //! PDA seeds: ["position", epoch, user_wallet]  // NOT signer_or_session
 //! ```
 //!
-//! # Full Implementation (Epic 3)
+//! # Payout Calculation
 //!
-//! The complete implementation will:
-//! 1. Extract user pubkey via session or direct signer
-//! 2. Validate passed `user` matches extracted user (prevents PDA spoofing)
-//! 3. Validate epoch is Settled with outcome (Up/Down, not Refunded)
-//! 4. Validate user's position direction matches outcome
-//! 5. Calculate payout amount from shares
-//! 6. Transfer USDC from pool to user
-//! 7. Mark position as claimed
-//! 8. Emit PayoutClaimed event
+//! Winners receive their original stake plus proportional share of the losing pool:
+//! `payout = position.amount + (position.amount / winner_total) * loser_total`
+//!
+//! Settlement totals are captured in the Epoch struct before pool rebalancing to
+//! enable accurate calculations.
 //!
 //! # Refund Case
 //!
 //! If epoch.outcome == Refunded (confidence bands overlap), use claim_refund instead.
 //! claim_payout only handles winning positions.
+//!
+//! # Freeze vs Pause Behavior
+//!
+//! - Paused: Claims are ALLOWED (existing commitments must be honored)
+//! - Frozen: Claims are BLOCKED (emergency halt)
 
 use anchor_lang::prelude::*;
+use anchor_spl::associated_token::AssociatedToken;
+use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
+use crate::constants::USDC_MINT;
 use crate::errors::FogoPulseError;
+use crate::events::PayoutClaimed;
 use crate::session::extract_user;
-use crate::state::{Epoch, GlobalConfig, Pool, UserPosition};
+use crate::state::{Direction, Epoch, EpochState, GlobalConfig, Outcome, Pool, UserPosition};
 
 /// Claim Payout accounts
-///
-/// Note: Token accounts for USDC transfer will be added in Epic 3.
-/// This skeleton establishes the session extraction pattern.
 ///
 /// # PDA Derivation
 ///
@@ -57,29 +59,31 @@ pub struct ClaimPayout<'info> {
     #[account(mut)]
     pub signer_or_session: Signer<'info>,
 
-    /// Global protocol configuration
+    /// Global protocol configuration - for freeze checks
     #[account(
         seeds = [b"global_config"],
         bump = config.bump,
+        constraint = !config.frozen @ FogoPulseError::ProtocolFrozen,
     )]
-    pub config: Account<'info, GlobalConfig>,
+    pub config: Box<Account<'info, GlobalConfig>>,
 
-    /// The pool containing the epoch
+    /// The pool - for freeze checks and token transfer authority
+    /// Note: Not marked `mut` as pool state is not modified by claim_payout
     #[account(
-        mut,
         seeds = [b"pool", pool.asset_mint.as_ref()],
         bump = pool.bump,
+        constraint = !pool.is_frozen @ FogoPulseError::PoolFrozen,
     )]
-    pub pool: Account<'info, Pool>,
+    pub pool: Box<Account<'info, Pool>>,
 
-    /// The settled epoch
-    /// Must be in Settled state with Up or Down outcome
+    /// The settled epoch - must be in Settled state
     #[account(
         seeds = [b"epoch", pool.key().as_ref(), &epoch.epoch_id.to_le_bytes()],
         bump = epoch.bump,
         constraint = epoch.pool == pool.key() @ FogoPulseError::InvalidEpoch,
+        constraint = epoch.state == EpochState::Settled @ FogoPulseError::InvalidEpochState,
     )]
-    pub epoch: Account<'info, Epoch>,
+    pub epoch: Box<Account<'info, Epoch>>,
 
     /// User's position to claim - derived from USER wallet, not session
     /// Must match outcome direction and not be already claimed
@@ -89,37 +93,141 @@ pub struct ClaimPayout<'info> {
         bump = position.bump,
         constraint = !position.claimed @ FogoPulseError::AlreadyClaimed,
     )]
-    pub position: Account<'info, UserPosition>,
+    pub position: Box<Account<'info, UserPosition>>,
 
+    /// Pool's USDC token account (source of payout)
+    #[account(
+        mut,
+        associated_token::mint = usdc_mint,
+        associated_token::authority = pool,
+    )]
+    pub pool_usdc: Box<Account<'info, TokenAccount>>,
+
+    /// User's USDC token account (payout destination)
+    #[account(
+        mut,
+        constraint = user_usdc.owner == user @ FogoPulseError::TokenOwnerMismatch,
+        constraint = user_usdc.mint == USDC_MINT @ FogoPulseError::InvalidMint,
+    )]
+    pub user_usdc: Box<Account<'info, TokenAccount>>,
+
+    /// USDC mint - verified against constant
+    #[account(address = USDC_MINT)]
+    pub usdc_mint: Account<'info, Mint>,
+
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }
 
-/// Handler stub - full implementation in Epic 3
+/// Claim Payout handler
 ///
 /// # Arguments
 /// * `user` - The actual user wallet pubkey (validated against extract_user)
+///
+/// # Flow
+/// 1. Extract and validate user via FOGO Sessions pattern
+/// 2. Validate epoch outcome is Up or Down (not Refunded)
+/// 3. Validate position direction matches winning outcome
+/// 4. Calculate payout amount using proportional formula
+/// 5. Transfer USDC from pool to user using PDA seeds
+/// 6. Mark position as claimed
+/// 7. Emit PayoutClaimed event
 pub fn handler(ctx: Context<ClaimPayout>, user: Pubkey) -> Result<()> {
-    // Extract user pubkey - works with both direct signers and session accounts
-    // This is the core FOGO Sessions pattern for user-facing instructions
+    // 1. Extract and validate user via FOGO Sessions pattern
     let extracted_user = extract_user(&ctx.accounts.signer_or_session)?;
+    require!(user == extracted_user, FogoPulseError::Unauthorized);
 
-    // CRITICAL: Validate that the passed `user` matches the extracted user
-    // This prevents attackers from passing arbitrary PDAs
+    // 2. Validate epoch outcome is Up or Down (not Refunded)
+    let epoch = &ctx.accounts.epoch;
+    let outcome = epoch.outcome.ok_or(FogoPulseError::InvalidEpochState)?;
     require!(
-        user == extracted_user,
-        FogoPulseError::Unauthorized
+        outcome != Outcome::Refunded,
+        FogoPulseError::InvalidEpochState
     );
 
-    msg!("ClaimPayout: user={}", user);
+    // 3. Validate position direction matches winning outcome
+    let position = &mut ctx.accounts.position;
+    let is_winner = match outcome {
+        Outcome::Up => position.direction == Direction::Up,
+        Outcome::Down => position.direction == Direction::Down,
+        Outcome::Refunded => false,
+    };
+    require!(is_winner, FogoPulseError::PositionNotWinner);
 
-    // TODO (Epic 3): Full implementation
-    // 1. Validate epoch state is Settled
-    // 2. Validate outcome is Up or Down (not Refunded)
-    // 3. Validate position direction matches outcome
-    // 4. Calculate payout amount
+    // 4. Calculate payout amount using proportional formula
+    // Get settlement totals (captured before pool rebalancing)
+    let yes_total = epoch
+        .yes_total_at_settlement
+        .ok_or(FogoPulseError::InvalidEpochState)?;
+    let no_total = epoch
+        .no_total_at_settlement
+        .ok_or(FogoPulseError::InvalidEpochState)?;
+
+    // Determine winner/loser totals based on outcome
+    let (winner_total, loser_total) = match outcome {
+        Outcome::Up => (yes_total, no_total),
+        Outcome::Down => (no_total, yes_total),
+        _ => return Err(FogoPulseError::InvalidEpochState.into()),
+    };
+
+    // Guard against invalid state: winner_total must be > 0
+    // (if user has a position, there must be at least their stake in winner pool)
+    require!(winner_total > 0, FogoPulseError::InvalidEpochState);
+
+    // Calculate payout: original stake + proportional share of losing pool
+    // winnings = (position.amount / winner_total) * loser_total
+    // Using u128 to prevent overflow
+    let payout_amount = if loser_total == 0 {
+        // Edge case: no losers, just return original stake
+        position.amount
+    } else {
+        let winnings = (position.amount as u128)
+            .checked_mul(loser_total as u128)
+            .ok_or(FogoPulseError::Overflow)?
+            .checked_div(winner_total as u128)
+            .ok_or(FogoPulseError::Overflow)? as u64;
+
+        position
+            .amount
+            .checked_add(winnings)
+            .ok_or(FogoPulseError::Overflow)?
+    };
+
     // 5. Transfer USDC from pool to user
-    // 6. Mark position as claimed
-    // 7. Emit PayoutClaimed event
+    let pool = &ctx.accounts.pool;
+    let pool_seeds = &[b"pool".as_ref(), pool.asset_mint.as_ref(), &[pool.bump]];
 
-    Err(FogoPulseError::NotImplemented.into())
+    token::transfer(
+        CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            Transfer {
+                from: ctx.accounts.pool_usdc.to_account_info(),
+                to: ctx.accounts.user_usdc.to_account_info(),
+                authority: ctx.accounts.pool.to_account_info(),
+            },
+            &[pool_seeds],
+        ),
+        payout_amount,
+    )?;
+
+    // 6. Mark position as claimed (idempotent - constraint prevents double-claim)
+    position.claimed = true;
+
+    // 7. Emit event
+    emit!(PayoutClaimed {
+        epoch: ctx.accounts.epoch.key(),
+        user,
+        amount: payout_amount,
+        direction: position.direction,
+    });
+
+    msg!(
+        "PayoutClaimed: user={}, amount={}, direction={:?}",
+        user,
+        payout_amount,
+        position.direction
+    );
+
+    Ok(())
 }

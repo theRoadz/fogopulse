@@ -264,6 +264,14 @@ pub fn handler(
     pool.active_epoch_state = 0; // 0 = None (no active epoch)
 
     // ==========================================================
+    // CAPTURE SETTLEMENT TOTALS (before rebalancing)
+    // ==========================================================
+    // These are needed for accurate payout calculations in claim_payout
+    // Must be captured BEFORE rebalancing to preserve original pool state
+    epoch.yes_total_at_settlement = Some(pool.yes_reserves);
+    epoch.no_total_at_settlement = Some(pool.no_reserves);
+
+    // ==========================================================
     // AUTO-REBALANCE POOL RESERVES
     // ==========================================================
     // After settlement, rebalance reserves to 50:50 to ensure fair

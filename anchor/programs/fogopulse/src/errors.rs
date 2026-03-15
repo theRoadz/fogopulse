@@ -113,4 +113,8 @@ pub enum FogoPulseError {
 
     #[msg("Epoch has not reached freeze_time yet")]
     EpochNotFrozen,
+
+    // Payout errors
+    #[msg("Position is not on the winning side")]
+    PositionNotWinner,
 }

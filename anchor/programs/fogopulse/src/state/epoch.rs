@@ -94,6 +94,12 @@ pub struct Epoch {
     /// Final outcome (Up, Down, or Refunded)
     pub outcome: Option<Outcome>,
 
+    /// YES side total at settlement (before rebalance) - for payout calculation
+    pub yes_total_at_settlement: Option<u64>,
+
+    /// NO side total at settlement (before rebalance) - for payout calculation
+    pub no_total_at_settlement: Option<u64>,
+
     /// PDA bump seed
     pub bump: u8,
 }

@@ -195,3 +195,15 @@ pub struct RefundClaimed {
     /// Refund amount in USDC lamports
     pub amount: u64,
 }
+
+#[event]
+pub struct PayoutClaimed {
+    /// Epoch account pubkey
+    pub epoch: Pubkey,
+    /// User who claimed the payout
+    pub user: Pubkey,
+    /// Payout amount in USDC lamports (original stake + winnings)
+    pub amount: u64,
+    /// Direction of the winning position
+    pub direction: Direction,
+}

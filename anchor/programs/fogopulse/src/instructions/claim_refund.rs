@@ -62,8 +62,8 @@ pub struct ClaimRefund<'info> {
     pub config: Box<Account<'info, GlobalConfig>>,
 
     /// The pool - for freeze checks and token transfer authority
+    /// Note: Not marked `mut` as pool state is not modified by claim_refund
     #[account(
-        mut,
         seeds = [b"pool", pool.asset_mint.as_ref()],
         bump = pool.bump,
         constraint = !pool.is_frozen @ FogoPulseError::PoolFrozen,

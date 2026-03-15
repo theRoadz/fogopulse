@@ -779,7 +779,7 @@
         {
           "name": "config",
           "docs": [
-            "Global protocol configuration"
+            "Global protocol configuration - for freeze checks"
           ],
           "pda": {
             "seeds": [
@@ -807,9 +807,9 @@
         {
           "name": "pool",
           "docs": [
-            "The pool containing the epoch"
+            "The pool - for freeze checks and token transfer authority",
+            "Note: Not marked `mut` as pool state is not modified by claim_payout"
           ],
-          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -832,8 +832,7 @@
         {
           "name": "epoch",
           "docs": [
-            "The settled epoch",
-            "Must be in Settled state with Up or Down outcome"
+            "The settled epoch - must be in Settled state"
           ],
           "pda": {
             "seeds": [
@@ -891,6 +890,121 @@
               }
             ]
           }
+        },
+        {
+          "name": "pool_usdc",
+          "docs": [
+            "Pool's USDC token account (source of payout)"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "user_usdc",
+          "docs": [
+            "User's USDC token account (payout destination)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "usdc_mint",
+          "docs": [
+            "USDC mint - verified against constant"
+          ],
+          "address": "6jzddTQNDh2RPuav88r19gdSGmGnbH6EWa2NXgLV8cAy"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
         },
         {
           "name": "system_program",
@@ -965,9 +1079,9 @@
         {
           "name": "pool",
           "docs": [
-            "The pool - for freeze checks and token transfer authority"
+            "The pool - for freeze checks and token transfer authority",
+            "Note: Not marked `mut` as pool state is not modified by claim_refund"
           ],
-          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -2134,6 +2248,19 @@
       ]
     },
     {
+      "name": "PayoutClaimed",
+      "discriminator": [
+        200,
+        39,
+        105,
+        112,
+        116,
+        63,
+        58,
+        149
+      ]
+    },
+    {
       "name": "PoolCreated",
       "discriminator": [
         202,
@@ -2356,6 +2483,11 @@
       "code": 6033,
       "name": "EpochNotFrozen",
       "msg": "Epoch has not reached freeze_time yet"
+    },
+    {
+      "code": 6034,
+      "name": "PositionNotWinner",
+      "msg": "Position is not on the winning side"
     }
   ],
   "types": [
@@ -2523,6 +2655,24 @@
                   "name": "Outcome"
                 }
               }
+            }
+          },
+          {
+            "name": "yes_total_at_settlement",
+            "docs": [
+              "YES side total at settlement (before rebalance) - for payout calculation"
+            ],
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "no_total_at_settlement",
+            "docs": [
+              "NO side total at settlement (before rebalance) - for payout calculation"
+            ],
+            "type": {
+              "option": "u64"
             }
           },
           {
@@ -3126,6 +3276,46 @@
           },
           {
             "name": "Refunded"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PayoutClaimed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "epoch",
+            "docs": [
+              "Epoch account pubkey"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "user",
+            "docs": [
+              "User who claimed the payout"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "docs": [
+              "Payout amount in USDC lamports (original stake + winnings)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "direction",
+            "docs": [
+              "Direction of the winning position"
+            ],
+            "type": {
+              "defined": {
+                "name": "Direction"
+              }
+            }
           }
         ]
       }
