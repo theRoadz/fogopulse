@@ -155,12 +155,23 @@ The crank bot supports two modes via CLI flags:
 | `--epoch` | Auto-create new epochs when none exist (default for production) |
 | `--no-epoch` | Only settle/close existing epochs, never create new ones |
 
+**Note:** These flags are passed to `crank-bot.ts`, not to `systemctl`. You cannot use `systemctl start fogopulse-crank --epoch`.
+
 To switch modes, edit the service file:
 ```bash
 sudo nano /etc/systemd/system/fogopulse-crank.service
 ```
 
-Change the `ExecStart` line to use the desired flag, then reload:
+Change the `ExecStart` line to use the desired flag:
+```bash
+# With epoch creation:
+ExecStart=/usr/bin/npx tsx crank-bot.ts --epoch
+
+# Without epoch creation:
+ExecStart=/usr/bin/npx tsx crank-bot.ts --no-epoch
+```
+
+Then reload and restart:
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl restart fogopulse-crank
