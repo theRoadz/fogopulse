@@ -2,6 +2,7 @@
 
 import type { Asset } from '@/types/assets'
 import { PoolStateDisplay } from './pool-state-display'
+import { YourPosition } from './your-position'
 import { TradeTicket } from './trade-ticket'
 
 interface TradeTicketAreaProps {
@@ -19,6 +20,9 @@ export function TradeTicketArea({ asset }: TradeTicketAreaProps) {
     <div className="flex flex-col gap-4 h-full">
       {/* Pool State Display - shows market sentiment */}
       <PoolStateDisplay asset={asset} />
+
+      {/* Active Position Card */}
+      <YourPosition asset={asset} />
 
       {/* Trade Ticket */}
       <TradeTicket asset={asset} className="flex-1" />

@@ -89,7 +89,7 @@ development_status:
   # Epic 4: Position Management & History
   epic-4: in-progress
   4-1-implement-sell-position-instruction: done
-  4-2-create-active-positions-panel: backlog
+  4-2-create-active-positions-panel: done
   4-3-implement-position-pnl-calculations: backlog
   4-4-create-multi-asset-position-view: backlog
   4-5-implement-early-exit-ui: backlog
