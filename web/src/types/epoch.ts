@@ -48,7 +48,7 @@ export enum Outcome {
   Up = 'Up',
   /** Settlement price < Start price */
   Down = 'Down',
-  /** Confidence bands overlap or prices tied - all refunded */
+  /** Exact price tie - all refunded */
   Refunded = 'Refunded',
 }
 

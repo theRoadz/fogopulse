@@ -79,13 +79,13 @@ describe('RefundExplanation', () => {
     expect(screen.getByTestId('collapsible-content')).toBeInTheDocument()
   })
 
-  it('should display explanation text about confidence bands', () => {
+  it('should display explanation text about exact tie refund', () => {
     render(<RefundExplanation {...defaultProps} />)
     expect(
-      screen.getByText(/The settlement price was too close to the start price/i)
+      screen.getByText(/The settlement price exactly matched the start price/i)
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/Oracle confidence bands overlapped/i)
+      screen.getByText(/resulting in a tie/i)
     ).toBeInTheDocument()
   })
 

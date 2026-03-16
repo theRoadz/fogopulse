@@ -26,7 +26,7 @@
 //!
 //! # Refund Case
 //!
-//! If epoch.outcome == Refunded (confidence bands overlap), use claim_refund instead.
+//! If epoch.outcome == Refunded (exact tie), use claim_refund instead.
 //! claim_payout only handles winning positions.
 //!
 //! # Freeze vs Pause Behavior

@@ -34,7 +34,7 @@ changelog:
 
 ## Executive Summary
 
-FOGO Pulse is a short-duration binary prediction market built on FOGO chain, enabling users to trade the directional movement of crypto assets over configurable time windows (1, 5, or 15 minutes). Users take UP or DOWN positions on price direction, with continuous trading and early exit enabled by a constant-product AMM (CPMM). Settlement uses Pyth Lazer oracles with confidence-aware resolution - if oracle uncertainty overlaps the decision threshold, the epoch refunds rather than forcing a potentially unfair outcome.
+FOGO Pulse is a short-duration binary prediction market built on FOGO chain, enabling users to trade the directional movement of crypto assets over configurable time windows (1, 5, or 15 minutes). Users take UP or DOWN positions on price direction, with continuous trading and early exit enabled by a constant-product AMM (CPMM). Settlement uses Pyth Lazer oracles with confidence-aware resolution - settlement uses BPS-based confidence thresholds to reject untrustworthy oracle data; exact price ties result in refunds.
 
 **Target users:** Retail crypto traders seeking fast trading loops, DeFi-native users comfortable with AMM mechanics, and early FOGO ecosystem participants.
 
@@ -44,7 +44,7 @@ FOGO Pulse is a short-duration binary prediction market built on FOGO chain, ena
 
 ### What Makes This Special
 
-**Trust-first settlement:** The confidence-aware refund mechanism is a deliberate trade-off - we'd rather refund than resolve unfairly. In a space where prediction markets have reputation problems, this signals credibility.
+**Trust-first settlement:** The confidence-gated settlement mechanism ensures oracle data quality before determining outcomes - we reject untrustworthy oracle data rather than resolving on it. In a space where prediction markets have reputation problems, this signals credibility.
 
 **Informed trading, not blind betting:** The product surfaces enough context (price, probability, pool depth, confidence indicators) for users to make actual trading decisions rather than gambling.
 
@@ -165,11 +165,11 @@ Marcus is a DeFi-native trader active in the FOGO ecosystem. He sees an announce
 
 ### Journey 2: Refund Experience (Marcus continued)
 
-Marcus has been trading for a few days. An epoch he's in gets refunded due to confidence overlap.
+Marcus has been trading for a few days. An epoch he's in gets refunded due to an exact price tie.
 
-**Opening Scene:** Marcus is in a position, watching the countdown. Epoch freezes, settles... but instead of WIN/LOSE, he sees "REFUNDED - Oracle Confidence Overlap."
+**Opening Scene:** Marcus is in a position, watching the countdown. Epoch freezes, settles... but instead of WIN/LOSE, he sees "REFUNDED - Exact Tie."
 
-**Rising Action:** He clicks "Why?" and sees the explanation: start price, end price, confidence bands, visual showing the overlap. The system explains: "Settlement was uncertain - we refunded rather than guess."
+**Rising Action:** He clicks "Why?" and sees the explanation: start price, end price, start price, end price, confidence values. The system explains: "The settlement price exactly matched the start price - we refunded since there's no clear winner."
 
 **Climax:** His principal is back in his wallet. Fees were still taken (he knew this from the rules).
 
@@ -277,7 +277,7 @@ Derek is a DeFi yield farmer looking for new opportunities on FOGO. He's got USD
 
 | Risk | Mitigation |
 |------|------------|
-| Oracle manipulation | Confidence-aware settlement, refund on uncertainty |
+| Oracle manipulation | BPS-based confidence gate rejects untrustworthy oracle data |
 | MEV/last-second sniping | ~15 second freeze window |
 | Whale dominance | Per-wallet caps (5% of pool) |
 | One-sided exposure | Per-side caps (30% of pool) |
@@ -494,7 +494,6 @@ Epoch N+1:                                           |-------Open-------|--Froze
 | Confidence OK + settlement_price > start_price | UP wins |
 | Confidence OK + settlement_price < start_price | DOWN wins |
 | Confidence OK + settlement_price = start_price | Refund (tie) |
-| Confidence bands overlap threshold | Refund (uncertain) |
 
 **State Definitions:**
 
@@ -649,7 +648,7 @@ Transaction:
 | Check | Start Snapshot | Settlement Snapshot |
 |-------|----------------|---------------------|
 | Freshness | ≤ 3 seconds | ≤ 10 seconds |
-| Confidence ratio | < 0.25% | < 0.8% (else refund) |
+| Confidence ratio | < 0.25% | < 0.8% (else reject settlement) |
 
 **Detailed Integration Guide:** See `docs/pyth-lazer-ed25519-integration.md`
 
@@ -677,7 +676,7 @@ Transaction:
 
 1. Settlement with pending LP withdrawals
 2. Settlement when pool is heavily imbalanced
-3. Refund scenario (confidence overlap)
+3. Refund scenario (exact tie)
 4. User with positions in all 4 assets settling near-simultaneously
 5. LP in one asset + trader in another (same user)
 
@@ -813,7 +812,7 @@ No local devnet. No mock oracles. All development and testing happens on FOGO te
 - **FR22:** Trader can view settlement price and publish time after epoch closes
 - **FR23:** Trader can view confidence values for start and end snapshots
 - **FR24:** Trader can view settlement outcome (UP won / DOWN won / Refunded)
-- **FR25:** Trader can view detailed refund explanation when confidence overlap occurs
+- **FR25:** Trader can view detailed refund explanation when an exact tie occurs
 - **FR26:** Trader can view confidence band visualization for refund scenarios
 - **FR27:** Trader can view epoch history with outcomes
 
@@ -857,7 +856,7 @@ No local devnet. No mock oracles. All development and testing happens on FOGO te
 - **FR54:** System enforces freeze window (no trading in final ~15 seconds)
 - **FR55:** System captures settlement price snapshot with confidence at epoch end
 - **FR56:** System determines outcome using confidence-aware resolution
-- **FR57:** System processes refund when confidence bands overlap
+- **FR57:** System processes refund when settlement price exactly equals start price
 - **FR58:** System enforces per-wallet position caps
 - **FR59:** System enforces per-side exposure caps
 - **FR60:** System distributes fees (70% LP, 20% treasury, 10% insurance)
@@ -887,7 +886,7 @@ No local devnet. No mock oracles. All development and testing happens on FOGO te
 
 - **NFR13:** System operates 24/7 with continuous epoch creation
 - **NFR14:** Oracle staleness triggers automatic refund (≤30 second wait, then refund)
-- **NFR15:** Oracle confidence threshold breach triggers automatic refund
+- **NFR15:** Oracle confidence threshold breach rejects settlement attempt (crank retries)
 - **NFR16:** Settlement state machine prevents stuck/inconsistent states
 - **NFR17:** Failed transactions do not corrupt pool or position state (atomic operations)
 - **NFR18:** System recovers gracefully from RPC provider issues

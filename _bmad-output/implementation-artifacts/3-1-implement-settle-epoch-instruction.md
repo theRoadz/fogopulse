@@ -6,7 +6,7 @@ Status: done
 
 - **2026-03-14 (review)**: Code review completed. Fixed unreachable Tie refund branch (reordered outcome checks), added missing test coverage (outcome determination, staleness validation, freeze behavior), improved FOGO feed ID comments, fixed silent error swallowing in tests.
 - **2026-03-14 (fix)**: Fixed staleness check to anchor settlement price against `epoch.end_time` instead of current clock time. Settlement oracle `publish_time` must now be within 5 seconds of `epoch.end_time` (not just fresh relative to settlement moment).
-- **2026-03-14**: Implemented settle_epoch instruction with Pyth Lazer Ed25519 verification, outcome determination (Up/Down/Refunded based on confidence overlap), and deployed to FOGO testnet. Created settlement script and integration tests.
+- **2026-03-14**: Implemented settle_epoch instruction with Pyth Lazer Ed25519 verification, outcome determination (Up/Down/Tie), and deployed to FOGO testnet. Created settlement script and integration tests.
 
 ## Story
 
@@ -27,7 +27,7 @@ This is the **first story in Epic 3: Settlement & Payouts**. The settle_epoch in
 **What This Enables:**
 - Epochs can be settled permissionlessly by anyone after end_time
 - Outcome is determined by comparing settlement_price vs start_price
-- Confidence-aware refund logic protects users from uncertain outcomes
+- Exact tie detection ensures fair refunds
 - Foundation for Story 3.3 (claim_payout) and Story 3.4 (claim_refund)
 
 **Epic 3 Story Dependencies:**
@@ -71,13 +71,7 @@ This story does NOT implement (deferred to later stories):
    **And** pool.active_epoch is cleared (set to None)
    **And** pool.active_epoch_state is set to 0
 
-5. **Given** a verified oracle price where confidence bands overlap
-   (confidence overlap: `|settlement_price - start_price| <= (settlement_confidence + start_confidence)`)
-   **Then** outcome is set to `Refunded` (uncertain outcome)
-   **And** epoch state transitions to `Refunded`
-   **And** pool.active_epoch is cleared (set to None)
-   **And** pool.active_epoch_state is set to 0
-   **And** an `EpochRefunded` event is emitted with confidence details
+5. **Given** a verified oracle price that passes the BPS confidence threshold **Then** outcome is determined by price comparison only (no confidence overlap check)
 
 6. **Given** an oracle message older than `oracle_staleness_threshold_settle` (configurable, typically 60 seconds)
    **When** `settle_epoch` is called
@@ -131,7 +125,7 @@ This story does NOT implement (deferred to later stories):
   - [x] 3.6: Implement confidence threshold validation (AC: 7)
   - [x] 3.7: Implement Settling state transition (transient)
   - [x] 3.8: Implement outcome determination logic (Up/Down/Refunded)
-  - [x] 3.9: Implement confidence overlap check for refund condition (AC: 5)
+  - [x] 3.9: ~~Implement confidence overlap check~~ (REMOVED - BPS threshold is sufficient)
   - [x] 3.10: Update epoch state and settlement fields
   - [x] 3.11: Clear pool.active_epoch and pool.active_epoch_state
   - [x] 3.12: Emit EpochSettled event (always)
@@ -316,23 +310,12 @@ If settle_epoch is called twice concurrently:
 5. Extract price/confidence from payload
 6. Check oracle staleness → reject if stale
 7. Check confidence ratio → reject if too wide
-8. Check confidence overlap → Refund if `price_diff <= confidence_sum`
-9. Check exact tie → Refund if settlement_price == start_price
-10. Determine winner → Up if settlement > start, Down otherwise
-11. Transition to final state (Settled or Refunded)
-12. Clear pool.active_epoch
+8. Check exact tie → Refund if settlement_price == start_price
+9. Determine winner → Up if settlement > start, Down otherwise
+10. Transition to final state (Settled or Refunded)
+11. Clear pool.active_epoch
 
-**Confidence Overlap Check:**
-```rust
-// Confidence bands overlap if the difference between prices
-// is LESS THAN OR EQUAL TO the sum of confidence intervals
-// Using <= ensures boundary contact triggers refund (conservative)
-let price_diff = settlement_price.abs_diff(start_price);
-let confidence_sum = settlement_confidence.saturating_add(start_confidence);
-
-// If price difference is within combined confidence bands, outcome is uncertain
-let should_refund = price_diff <= confidence_sum;
-```
+**Note:** Confidence overlap check was removed. The BPS-based confidence threshold (lines 194-205) already gates oracle data quality. Outcome is determined by price comparison only.
 
 **Visual Example:**
 ```
@@ -592,7 +575,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 - Added `RefundReason` enum with `ConfidenceOverlap` and `Tie` variants for detailed refund logging
 - Added `EpochNotEnded` error for timing validation
 - Added `EpochSettled` and `EpochRefunded` events for settlement outcome logging
-- Implemented confidence overlap check: `price_diff <= confidence_sum` triggers refund
+- Confidence overlap check removed — BPS threshold is sufficient for oracle data quality
 - Implemented Settling state transition to prevent race conditions in concurrent settlement attempts
 - Settlement script supports `--pool BTC|ETH|SOL|FOGO` CLI argument
 - Integration tests cover successful settlement, state validation, and pool clearing verification
@@ -613,9 +596,8 @@ require!(time_from_end <= config.oracle_staleness_threshold_settle as u64, ...);
 
 **Result:** Settlement oracle `publish_time` must now be within 5 seconds of `epoch.end_time`, ensuring the settlement price reflects the actual epoch end moment.
 
-**Two-tier confidence validation retained:**
+**Confidence validation:**
 1. **Oracle data quality check (lines 194-205):** Rejects settlement if `settlement_confidence > price * 0.8%` (unreliable oracle data)
-2. **Outcome determination (lines 227-248):** Refunds if confidence bands overlap between start and settlement prices (uncertain outcome)
 
 ### File List
 
@@ -658,7 +640,7 @@ require!(time_from_end <= config.oracle_staleness_threshold_settle as u64, ...);
 
 - Pyth Lazer Ed25519 integration correctly follows create_epoch.rs pattern
 - Staleness check correctly anchors against `epoch.end_time` (bug fix 2026-03-14)
-- Confidence overlap logic is mathematically correct
+- Confidence overlap logic removed (BPS threshold is sufficient)
 - Event emission covers all outcomes appropriately
 - Pool state clearing allows next epoch creation
 

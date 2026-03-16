@@ -16,7 +16,7 @@
  * Test Coverage:
  *   - ✅ Success: Settlement with Up outcome (price went up)
  *   - ✅ Success: Settlement with Down outcome (price went down)
- *   - ✅ Success: Settlement with Refunded outcome (confidence overlap)
+ *   - ✅ Success: Settlement with Refunded outcome (exact tie)
  *   - ❌ Failure: Cannot settle epoch not in Frozen state
  *   - ❌ Failure: Cannot settle epoch before end_time
  *   - ❌ Failure: Cannot settle when protocol frozen
@@ -816,16 +816,6 @@ async function testOutcomeDetermination(
         }
       }
       console.log('✅ Correct: Exact tie resulted in Refunded')
-    } else if (priceDiff <= confidenceSum) {
-      // Should be Refunded (ConfidenceOverlap)
-      if (epochData.outcome !== Outcome.Refunded) {
-        return {
-          name: testName,
-          passed: false,
-          error: 'Confidence overlap should result in Refunded outcome',
-        }
-      }
-      console.log('✅ Correct: Confidence overlap resulted in Refunded')
     } else {
       // Should be Up or Down
       if (epochData.outcome === Outcome.Refunded) {

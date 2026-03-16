@@ -18,7 +18,7 @@
 //!
 //! # Refund vs Payout
 //!
-//! - claim_refund: For epochs in Refunded state (confidence bands overlap or tie)
+//! - claim_refund: For epochs in Refunded state (exact tie)
 //!   Returns full original stake to ALL position holders
 //! - claim_payout: For epochs in Settled state (Up or Down outcome)
 //!   Returns proportional share only to WINNING position holders

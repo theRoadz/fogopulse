@@ -117,10 +117,13 @@ pub mod fogopulse {
     /// ```
     ///
     /// # Outcome Determination
-    /// - If confidence bands overlap: Refunded (uncertain outcome)
     /// - If settlement_price == start_price: Refunded (tie)
     /// - If settlement_price > start_price: Up wins
     /// - If settlement_price < start_price: Down wins
+    ///
+    /// Note: Oracle data quality is gated by the BPS-based confidence threshold
+    /// check. If settlement confidence is too wide, the instruction rejects
+    /// (epoch stays in Settling state for crank retry).
     pub fn settle_epoch(
         ctx: Context<SettleEpoch>,
         pyth_message: Vec<u8>,
@@ -175,8 +178,7 @@ pub mod fogopulse {
     /// Claim refund from a refunded epoch
     ///
     /// Supports FOGO Sessions for gasless claims.
-    /// Returns original stake when epoch outcome is Refunded (confidence bands
-    /// overlap or exact tie).
+    /// Returns original stake when epoch outcome is Refunded (exact tie).
     pub fn claim_refund(ctx: Context<ClaimRefund>, user: Pubkey) -> Result<()> {
         instructions::claim_refund::handler(ctx, user)
     }

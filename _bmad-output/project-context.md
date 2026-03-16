@@ -456,7 +456,7 @@ LP LAYER [REQUIRES: Pool]
 
 1. Settlement with pending LP withdrawals
 2. Settlement when pool is heavily imbalanced
-3. Refund scenario (confidence overlap)
+3. Refund scenario (exact tie)
 4. User with positions in all 4 assets settling near-simultaneously
 5. LP in one asset + trader in another (same user)
 
@@ -490,7 +490,7 @@ Always check shadcn MCP for component implementations before coding. Use shadcn/
 - `EpochCountdown` - MM:SS with freeze warning
 - `ProbabilityBar` - UP/DOWN probability visualization
 - `TradeTicket` - Direction + amount + preview + confirm
-- `SettlementExplainer` - Refund explanation with confidence bands
+- `SettlementExplainer` - Settlement outcome explanation; confidence bands shown for transparency only
 
 ---
 

@@ -49,7 +49,7 @@ This document provides the complete epic and story breakdown for FOGO Pulse, dec
 - FR22: Trader can view settlement price and publish time after epoch closes
 - FR23: Trader can view confidence values for start and end snapshots
 - FR24: Trader can view settlement outcome (UP won / DOWN won / Refunded)
-- FR25: Trader can view detailed refund explanation when confidence overlap occurs
+- FR25: Trader can view detailed refund explanation when an exact tie occurs
 - FR26: Trader can view confidence band visualization for refund scenarios
 - FR27: Trader can view epoch history with outcomes
 
@@ -89,7 +89,7 @@ This document provides the complete epic and story breakdown for FOGO Pulse, dec
 - FR54: System enforces freeze window (no trading in final ~15 seconds)
 - FR55: System captures settlement price snapshot with confidence at epoch end
 - FR56: System determines outcome using confidence-aware resolution
-- FR57: System processes refund when confidence bands overlap
+- FR57: System processes refund when settlement price exactly equals start price
 - FR58: System enforces per-wallet position caps
 - FR59: System enforces per-side exposure caps
 - FR60: System distributes fees (70% LP, 20% treasury, 10% insurance)
@@ -116,7 +116,7 @@ This document provides the complete epic and story breakdown for FOGO Pulse, dec
 **Reliability (NFR13-NFR18)**
 - NFR13: System operates 24/7 with continuous epoch creation
 - NFR14: Oracle staleness triggers automatic refund (≤30 second wait, then refund)
-- NFR15: Oracle confidence threshold breach triggers automatic refund
+- NFR15: Oracle confidence threshold breach rejects settlement attempt (crank retries)
 - NFR16: Settlement state machine prevents stuck/inconsistent states
 - NFR17: Failed transactions do not corrupt pool or position state (atomic operations)
 - NFR18: System recovers gracefully from RPC provider issues
@@ -225,7 +225,7 @@ This document provides the complete epic and story breakdown for FOGO Pulse, dec
 - FR26: View confidence band visualization
 - FR55: System captures settlement price snapshot
 - FR56: System determines outcome using confidence-aware resolution
-- FR57: System processes refund when confidence bands overlap
+- FR57: System processes refund when settlement price exactly equals start price
 - FR60: System distributes fees (70% LP, 20% treasury, 10% insurance)
 
 **Epic 4: Position Management & History**
@@ -286,7 +286,7 @@ This document provides the complete epic and story breakdown for FOGO Pulse, dec
 ---
 
 ### Epic 3: Settlement & Payouts
-**Goal:** Complete the trading loop with transparent settlement, confidence-aware refunds, and payout claiming.
+**Goal:** Complete the trading loop with transparent settlement, confidence-gated settlement, and payout claiming.
 
 **User Outcome:** Traders see exactly what happened when an epoch settles, understand why they won/lost/got refunded with full price and confidence transparency, and can claim their payouts.
 
@@ -755,7 +755,7 @@ So that trading can continue seamlessly.
 
 ## Epic 3: Settlement & Payouts
 
-Complete the trading loop with transparent settlement, confidence-aware refunds, and payout claiming.
+Complete the trading loop with transparent settlement, confidence-gated settlement, and payout claiming.
 
 ### Story 3.1: Implement settle_epoch Instruction
 
@@ -778,7 +778,7 @@ So that outcomes are determined fairly and transparently.
 
 ---
 
-### Story 3.2: Implement Confidence-Aware Refund Logic
+### Story 3.2: Implement Claim Refund Instruction
 
 As a trader,
 I want automatic refunds when price confidence is uncertain,
@@ -787,8 +787,8 @@ So that I'm protected from unfair outcomes in ambiguous situations.
 **Acceptance Criteria:**
 
 **Given** an epoch being settled
-**When** the confidence bands of start and settlement prices overlap
-**Then** the outcome is set to Refunded instead of Up/Down
+**When** the settlement price exactly equals the start price (tie)
+**Then** the outcome is set to Refunded
 **And** epoch state transitions to Refunded
 **And** all positions become eligible for full refund (original amount)
 **And** a `EpochRefunded` event is emitted with confidence details

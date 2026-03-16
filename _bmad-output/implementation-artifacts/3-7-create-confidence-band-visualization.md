@@ -16,9 +16,9 @@ so that I understand why an epoch was refunded instead of settled with a winner.
 
 2. **Given** a refunded epoch, **when** I view the confidence band visualization, **then** the settlement price with its confidence band is overlaid as a second horizontal range/rectangle, visually distinct from the start band.
 
-3. **Given** overlapping confidence bands, **when** the visualization renders, **then** the overlap region is clearly highlighted with a distinct color/pattern so the user can see why the outcome was uncertain.
+3. **Given** overlapping confidence bands, **when** the visualization renders, **then** the overlap region is shown with a distinct color/pattern for informational purposes (overlap no longer triggers refunds).
 
-4. **Given** the confidence band visualization, **when** displayed, **then** text explains: "Because the confidence ranges overlap, we couldn't determine a fair winner. Your funds have been returned. This protects you from unfair outcomes." (from UX spec).
+4. **Given** the confidence band visualization, **when** displayed, **then** text explains: "The confidence bands show the oracle's measurement uncertainty at each price point. Your funds have been returned because the settlement price exactly matched the start price." (from UX spec).
 
 5. **Given** the visualization, **when** rendered, **then** exact confidence values and prices are shown alongside the visual (start price +/- confidence, settlement price +/- confidence).
 
@@ -43,7 +43,7 @@ so that I understand why an epoch was refunded instead of settled with a winner.
     ```
   - [x] 1.2: Render start price band as a colored rectangle using band boundary math (see Dev Notes)
   - [x] 1.3: Render settlement price band as a second colored rectangle
-  - [x] 1.4: Calculate and highlight the overlap region with distinct styling
+  - [x] 1.4: Calculate and highlight the overlap region with distinct styling (informational, no longer triggers refunds)
   - [x] 1.5: Add price labels (formatted USD) at band edges and center price markers
   - [x] 1.6: Use SVG `viewBox` with `preserveAspectRatio="xMidYMid meet"` for responsive sizing (no ResizeObserver)
   - [x] 1.7: Add `data-testid` attributes: `confidence-band-chart`, `start-band`, `settlement-band`, `overlap-region`
@@ -52,7 +52,7 @@ so that I understand why an epoch was refunded instead of settled with a winner.
 - [x] Task 2: Integrate inline expansion in RefundExplanation (AC: #4, #6)
   - [x] 2.1: Replace disabled "View Confidence Bands" button with a toggle button that expands to show the visualization inline
   - [x] 2.2: Expand within the existing CollapsibleContent (no Dialog/modal needed)
-  - [x] 2.3: Include UX-spec copy: "Because the confidence ranges overlap, we couldn't determine a fair winner. Your funds have been returned. This protects you from unfair outcomes."
+  - [x] 2.3: Include UX-spec copy: "The confidence bands show the oracle's measurement uncertainty at each price point. Your funds have been returned because the settlement price exactly matched the start price."
   - [x] 2.4: Render ConfidenceBandChart component with the existing bigint props
   - [x] 2.5: Include formatted price range details below the chart
 
@@ -69,7 +69,7 @@ so that I understand why an epoch was refunded instead of settled with a winner.
 - [x] Task 5: Update existing tests + write new tests (AC: all)
   - [x] 5.1: **Update `refund-explanation.test.tsx`** - Change assertions from disabled button with "(Coming in Story 3.7)" text to enabled toggle button that shows visualization
   - [x] 5.2: Test ConfidenceBandChart renders with valid data (check for start-band, settlement-band data-testid elements)
-  - [x] 5.3: Test overlap region is highlighted when bands overlap (overlap-region data-testid present)
+  - [x] 5.3: Test overlap region is highlighted when bands overlap (overlap-region data-testid present; overlap is informational, no longer triggers refunds)
   - [x] 5.4: Test no overlap region rendered when bands don't overlap (edge case)
   - [x] 5.5: Test RefundExplanation button toggles visualization visibility
   - [x] 5.6: Test accessibility (aria-label on SVG, role="img")
@@ -272,11 +272,11 @@ None required - clean implementation with no debugging needed.
 
 ### Completion Notes List
 
-- Created `ConfidenceBandChart` SVG-based visualization component with horizontal bands for start and settlement price ranges, overlap highlighting, price labels, center markers, and legend
+- Created `ConfidenceBandChart` SVG-based visualization component with horizontal bands for start and settlement price ranges, overlap highlighting (informational, no longer triggers refunds), price labels, center markers, and legend
 - Replaced disabled "View Confidence Bands" placeholder button in `RefundExplanation` with functional toggle that expands inline to show the chart and UX-spec explanation text
 - Data flow uses existing bigint props from `RefundExplanation` directly into `ConfidenceBandChart`; `scalePrice()` converts to float for SVG coordinates inside the chart component
 - Band boundary math follows Dev Notes formulas exactly (price +/- confidence for each band, overlap = max of lows to min of highs)
-- Styling uses CSS custom properties via inline SVG styles: `var(--primary)` for start band, `var(--warning)` for settlement band, `var(--destructive)` for overlap
+- Styling uses CSS custom properties via inline SVG styles: `var(--primary)` for start band, `var(--warning)` for settlement band, `var(--destructive)` for overlap (informational, no longer triggers refunds)
 - Responsive via SVG `viewBox` with `preserveAspectRatio="xMidYMid meet"` - no ResizeObserver needed
 - 10 new tests for ConfidenceBandChart (rendering, overlap/no-overlap, accessibility, responsive attributes)
 - 9 updated tests for RefundExplanation (enabled toggle button, visualization toggle, UX-spec copy display)

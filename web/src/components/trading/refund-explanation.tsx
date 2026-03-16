@@ -29,7 +29,7 @@ interface RefundExplanationProps {
  * Collapsible "Why?" section explaining why an epoch was refunded.
  *
  * Displays:
- * - Explanation text about confidence bands overlapping
+ * - Explanation text about why the epoch was refunded (exact tie or oracle uncertainty)
  * - Actual start and settlement price with confidence ranges
  * - Confidence band visualization (inline SVG chart)
  */
@@ -77,8 +77,8 @@ export function RefundExplanation({
       <CollapsibleContent className="mt-3 space-y-3">
         <div className="rounded-lg border border-warning/30 bg-warning/5 p-4 text-sm">
           <p className="text-muted-foreground leading-relaxed">
-            The settlement price was too close to the start price. Oracle confidence bands
-            overlapped, meaning the outcome cannot be reliably determined.
+            The settlement price exactly matched the start price, resulting in a tie.
+            Since there is no clear winner, your funds have been returned.
           </p>
 
           <div className="mt-4 space-y-2 font-mono text-xs">

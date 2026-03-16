@@ -476,7 +476,7 @@ Epoch account stores final settlement state:
 |---------------|-------------|
 | Up | UP won - settlement_price > start_price |
 | Down | DOWN won - settlement_price < start_price |
-| Refunded | Oracle confidence overlap or exact tie |
+| Refunded | Exact price tie |
 
 **Settlement Outcomes (determined by Pyth confidence):**
 
@@ -485,7 +485,6 @@ Epoch account stores final settlement state:
 | Confidence OK + settlement_price > start_price | UP wins |
 | Confidence OK + settlement_price < start_price | DOWN wins |
 | Confidence OK + settlement_price = start_price | Refund (tie) |
-| Confidence bands overlap threshold | Refund (uncertain) |
 
 **How to Check Current Epoch Status (Single Fetch):**
 
@@ -841,7 +840,7 @@ const tx = new VersionedTransaction(
 | Check | Start Snapshot | Settlement Snapshot |
 |-------|----------------|---------------------|
 | Freshness | ≤ 3 seconds | ≤ 10 seconds |
-| Confidence ratio | < 0.25% | < 0.8% (else refund) |
+| Confidence ratio | < 0.25% | < 0.8% (else reject settlement) |
 
 **Detailed Integration Guide:** See `docs/pyth-lazer-ed25519-integration.md`
 
@@ -916,7 +915,7 @@ async function withRetry<T>(
 **Critical Test Scenarios (from PRD):**
 1. Settlement with pending LP withdrawals
 2. Settlement when pool is heavily imbalanced
-3. Refund scenario (confidence overlap)
+3. Refund scenario (exact tie)
 4. User with positions in all 4 assets settling near-simultaneously
 5. LP in one asset + trader in another (same user)
 

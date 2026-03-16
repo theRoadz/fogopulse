@@ -1,4 +1,4 @@
-# Story 3.2: Implement Confidence-Aware Refund Logic
+# Story 3.2: Implement Claim Refund Instruction
 
 Status: done
 
@@ -10,11 +10,11 @@ So that I'm protected from unfair outcomes in ambiguous situations.
 
 ## Context
 
-This story completes the confidence-aware refund flow that was partially implemented in Story 3.1. The settlement logic already determines when an epoch should be refunded (confidence bands overlap or exact tie), but users currently cannot claim their refunds because there is no `claim_refund` instruction yet.
+This story completes the confidence-aware refund flow that was partially implemented in Story 3.1. The settlement logic already determines when an epoch should be refunded (exact tie), but users currently cannot claim their refunds because there is no `claim_refund` instruction yet.
 
 **What Already Exists (from Story 3.1):**
-- `settle_epoch.rs` determines outcome as `Refunded` when confidence bands overlap (lines 220-248)
-- `RefundReason` enum with `ConfidenceOverlap` and `Tie` variants
+- `settle_epoch.rs` determines outcome as `Refunded` when there is an exact price tie
+- `RefundReason` enum with `Tie` variant (plus legacy `ConfidenceOverlap`)
 - `EpochRefunded` event with confidence details
 - Epoch state transitions to `Refunded` state
 - `claim_payout.rs` exists as a skeleton (pattern reference for FOGO Sessions)
@@ -331,13 +331,13 @@ pub use claim_refund::*;
 
 **Creating a Refunded Epoch for Testing:**
 
-Since confidence overlap depends on real oracle data, the easiest test approach is:
+Since exact ties depend on real oracle data, the easiest test approach is:
 1. Use `admin_force_close_epoch` which sets outcome to `Refunded`
 2. Or mock the settlement with a confidence overlap scenario
 
 **Test Sequence:**
 1. Create epoch, add positions
-2. Force-close or settle with confidence overlap
+2. Force-close or settle with exact tie
 3. Verify epoch state is `Refunded`
 4. Call `claim_refund` - should succeed
 5. Verify USDC transferred, position.claimed = true
@@ -369,7 +369,7 @@ From commit `bbb709c` (Story 3-1.1):
 
 - [Source: anchor/programs/fogopulse/src/instructions/claim_payout.rs] - FOGO Sessions pattern reference (skeleton)
 - [Source: anchor/programs/fogopulse/src/instructions/buy_position.rs] - Complete token transfer and user validation patterns
-- [Source: anchor/programs/fogopulse/src/instructions/settle_epoch.rs:220-248] - Confidence overlap refund logic
+- [Source: anchor/programs/fogopulse/src/instructions/settle_epoch.rs:220-248] - Tie refund logic
 - [Source: anchor/programs/fogopulse/src/instructions/mod.rs] - Module registration pattern
 - [Source: anchor/programs/fogopulse/src/lib.rs:167-173] - Instruction entry point pattern (claim_payout)
 - [Source: anchor/programs/fogopulse/src/state/epoch.rs] - EpochState::Refunded, RefundReason enum

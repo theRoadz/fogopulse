@@ -215,30 +215,20 @@ pub fn handler(
     // DETERMINE OUTCOME
     // ==========================================================
     // Priority order:
-    // 1. Check confidence overlap → Refund if uncertain
-    // 2. Check exact tie → Refund if equal
-    // 3. Determine winner (Up or Down)
+    // 1. Exact tie (settlement_price == start_price) → Refund with Tie reason
+    // 2. Clear winner → Up or Down
+    //
+    // Note: Oracle data quality is already gated by the BPS-based confidence
+    // threshold check above (lines 194-205). If settlement confidence passes
+    // that threshold, the price is trustworthy for outcome determination.
 
     let start_price = epoch.start_price;
     let start_confidence = epoch.start_confidence;
 
-    // Determine outcome based on price comparison and confidence bands
-    // Priority order:
-    // 1. Exact tie (price_diff == 0) → Refund with Tie reason
-    // 2. Confidence overlap (price_diff <= confidence_sum) → Refund with ConfidenceOverlap reason
-    // 3. Clear winner → Up or Down
-    let price_diff = settlement_price.abs_diff(start_price);
-    let confidence_sum = settlement_confidence.saturating_add(start_confidence);
-
-    // Determine outcome and refund reason (if applicable)
     let (outcome, refund_reason): (Outcome, Option<RefundReason>) =
         if settlement_price == start_price {
             // Exact tie - settlement equals start price
             (Outcome::Refunded, Some(RefundReason::Tie))
-        } else if price_diff <= confidence_sum {
-            // Confidence bands overlap - outcome too uncertain
-            // Using <= ensures boundary contact triggers refund (conservative)
-            (Outcome::Refunded, Some(RefundReason::ConfidenceOverlap))
         } else if settlement_price > start_price {
             // UP wins - settlement price higher than start
             (Outcome::Up, None)

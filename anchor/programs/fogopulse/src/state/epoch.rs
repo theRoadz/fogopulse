@@ -38,14 +38,16 @@ pub enum Outcome {
     Up,
     /// Settlement price < Start price
     Down,
-    /// Confidence bands overlap or prices tied - all refunded
+    /// Exact price tie - all refunded
     Refunded,
 }
 
 /// Reason for epoch refund (for event logging)
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace)]
 pub enum RefundReason {
-    /// Confidence bands overlap - outcome too uncertain
+    /// Legacy: was used when confidence bands overlapped. Kept for backwards
+    /// compatibility with already-refunded epochs on-chain. New settlements
+    /// no longer produce this variant.
     ConfidenceOverlap,
     /// Settlement price exactly equals start price
     Tie,
