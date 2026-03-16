@@ -173,6 +173,7 @@ export const QUERY_KEYS = {
   epoch: (asset: Asset) => ['epoch', asset] as const,
   pool: (asset: Asset) => ['pool', asset] as const,
   lastSettledEpoch: (asset: Asset) => ['lastSettledEpoch', asset] as const,
+  settlementHistory: (asset: Asset) => ['settlementHistory', asset] as const,
   positions: (userPubkey?: string) =>
     userPubkey ? (['positions', userPubkey] as const) : (['positions'] as const),
   usdcBalance: (userPubkey?: string) =>

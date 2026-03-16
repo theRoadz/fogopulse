@@ -36,9 +36,9 @@ export interface UserPositionData {
 }
 
 /**
- * Parse direction from Anchor enum format
+ * Parse direction from Anchor enum format { up: {} } / { down: {} }
  */
-function parseDirection(direction: unknown): PositionDirection {
+export function parseDirection(direction: unknown): PositionDirection {
   if (!direction || typeof direction !== 'object') return 'up'
   const keys = Object.keys(direction)
   if (keys.length === 0) return 'up'

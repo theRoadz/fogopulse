@@ -197,6 +197,7 @@ export function EpochStatusDisplay({ asset, className }: EpochStatusDisplayProps
           isOpen={isLastSettlementOpen}
           onOpenChange={setIsLastSettlementOpen}
         />
+
       </div>
     )
   }
@@ -248,6 +249,7 @@ export function EpochStatusDisplay({ asset, className }: EpochStatusDisplayProps
         isOpen={isLastSettlementOpen}
         onOpenChange={setIsLastSettlementOpen}
       />
+
     </div>
   )
 }
