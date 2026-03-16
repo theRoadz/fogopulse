@@ -61,6 +61,12 @@ jest.mock('@/hooks', () => ({
   usePythPrice: (...args: unknown[]) => mockUsePythPrice(...args),
   useWalletConnection: () => mockUseWalletConnection(),
   useEpochCreation: (...args: unknown[]) => mockUseEpochCreation(...args),
+  useLastSettledEpoch: () => ({
+    lastSettledEpoch: null,
+    isLoading: false,
+    error: null,
+    refetch: jest.fn(),
+  }),
 }))
 
 // Mock child components
@@ -84,6 +90,18 @@ jest.mock('./price-to-beat', () => ({
   ),
 }))
 
+jest.mock('./settlement-status-panel', () => ({
+  SettlementStatusPanel: () => <div data-testid="settlement-status-panel" />,
+}))
+
+// Mock lucide-react icons
+jest.mock('lucide-react', () => ({
+  ChevronDown: () => <span data-testid="icon-chevron-down" />,
+  ChevronRight: () => <span data-testid="icon-chevron-right" />,
+  Loader2: ({ className }: { className?: string }) => <span data-testid="icon-loader" className={className} />,
+  Plus: () => <span data-testid="icon-plus" />,
+}))
+
 // Mock Skeleton
 jest.mock('@/components/ui/skeleton', () => ({
   Skeleton: ({ className }: { className?: string }) => (
@@ -98,6 +116,13 @@ jest.mock('@/components/ui/button', () => ({
       {children}
     </button>
   ),
+}))
+
+// Mock Collapsible
+jest.mock('@/components/ui/collapsible', () => ({
+  Collapsible: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  CollapsibleTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  CollapsibleContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
 
 describe('EpochStatusDisplay', () => {
@@ -182,6 +207,8 @@ describe('EpochStatusDisplay', () => {
         settlementConfidence: null,
         settlementPublishTime: null,
         outcome: null,
+        yesTotalAtSettlement: null,
+        noTotalAtSettlement: null,
         bump: 255,
       },
       timeRemaining: 240,

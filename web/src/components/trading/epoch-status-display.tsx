@@ -51,6 +51,7 @@ function getCreationStateLabel(
  * Props for the LastSettlementSection component
  */
 interface LastSettlementSectionProps {
+  asset: Asset
   lastSettledEpoch: ReturnType<typeof useLastSettledEpoch>['lastSettledEpoch']
   isLoading: boolean
   isOpen: boolean
@@ -61,6 +62,7 @@ interface LastSettlementSectionProps {
  * Collapsible section showing the last settled epoch's result
  */
 function LastSettlementSection({
+  asset,
   lastSettledEpoch,
   isLoading,
   isOpen,
@@ -99,6 +101,7 @@ function LastSettlementSection({
           <Skeleton className="h-48 w-full rounded-lg" />
         ) : lastSettledEpoch ? (
           <SettlementStatusPanel
+            asset={asset}
             settlementData={lastSettledEpoch}
             title={`Last Settlement (Epoch #${lastSettledEpoch.epochId.toString()})`}
           />
@@ -188,6 +191,7 @@ export function EpochStatusDisplay({ asset, className }: EpochStatusDisplayProps
 
         {/* Last settlement section (collapsible) */}
         <LastSettlementSection
+          asset={asset}
           lastSettledEpoch={lastSettledEpoch}
           isLoading={isLastSettledLoading}
           isOpen={isLastSettlementOpen}
@@ -238,6 +242,7 @@ export function EpochStatusDisplay({ asset, className }: EpochStatusDisplayProps
 
       {/* Last settlement section (collapsible) */}
       <LastSettlementSection
+        asset={asset}
         lastSettledEpoch={lastSettledEpoch}
         isLoading={isLastSettledLoading}
         isOpen={isLastSettlementOpen}

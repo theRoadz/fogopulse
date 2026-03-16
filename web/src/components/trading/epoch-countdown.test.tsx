@@ -31,6 +31,8 @@ describe('EpochCountdown', () => {
       settlementConfidence: null,
       settlementPublishTime: null,
       outcome: null,
+      yesTotalAtSettlement: null,
+      noTotalAtSettlement: null,
       bump: 255,
     },
     timeRemaining: 240,

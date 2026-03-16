@@ -7,7 +7,7 @@ import { Program, AnchorProvider, BN } from '@coral-xyz/anchor'
 import { useConnection } from '@solana/wallet-adapter-react'
 
 import type { Asset } from '@/types/assets'
-import { EpochState, Outcome } from '@/types/epoch'
+import { EpochState, Outcome, parseEpochState, parseOutcome } from '@/types/epoch'
 import type { EpochData, EpochUIState, NoEpochStatus } from '@/types/epoch'
 import { PROGRAM_ID, POOL_PDAS, SEEDS, FOGO_TESTNET_RPC } from '@/lib/constants'
 
@@ -16,50 +16,6 @@ import idl from '@/lib/fogopulse.json'
 
 // Pyth exponent for USD pairs (typically -8)
 const PYTH_PRICE_EXPONENT = -8
-
-/**
- * Convert on-chain epoch state enum to our EpochState type
- */
-function parseEpochState(state: unknown): EpochState {
-  if (!state || typeof state !== 'object') return EpochState.Open
-  const keys = Object.keys(state)
-  if (keys.length === 0) return EpochState.Open
-  const variant = keys[0]
-  switch (variant) {
-    case 'open':
-      return EpochState.Open
-    case 'frozen':
-      return EpochState.Frozen
-    case 'settling':
-      return EpochState.Settling
-    case 'settled':
-      return EpochState.Settled
-    case 'refunded':
-      return EpochState.Refunded
-    default:
-      return EpochState.Open
-  }
-}
-
-/**
- * Parse outcome from Anchor enum format
- */
-function parseOutcome(outcome: unknown): Outcome | null {
-  if (!outcome || typeof outcome !== 'object') return null
-  const keys = Object.keys(outcome)
-  if (keys.length === 0) return null
-  const variant = keys[0]
-  switch (variant) {
-    case 'up':
-      return Outcome.Up
-    case 'down':
-      return Outcome.Down
-    case 'refunded':
-      return Outcome.Refunded
-    default:
-      return null
-  }
-}
 
 /**
  * Convert scaled u64 price to human-readable price
@@ -164,6 +120,12 @@ export function useEpoch(asset: Asset): UseEpochResult {
           : null,
         settlementPublishTime: epochAccount.settlementPublishTime?.toNumber() ?? null,
         outcome: parseOutcome(epochAccount.outcome),
+        yesTotalAtSettlement: epochAccount.yesTotalAtSettlement
+          ? BigInt(epochAccount.yesTotalAtSettlement.toString())
+          : null,
+        noTotalAtSettlement: epochAccount.noTotalAtSettlement
+          ? BigInt(epochAccount.noTotalAtSettlement.toString())
+          : null,
         bump: epochAccount.bump,
       }
 

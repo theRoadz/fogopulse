@@ -7,7 +7,8 @@ import { Program, AnchorProvider } from '@coral-xyz/anchor'
 import { useConnection } from '@solana/wallet-adapter-react'
 
 import type { Asset } from '@/types/assets'
-import { EpochState, Outcome } from '@/types/epoch'
+import { EpochState, Outcome, parseEpochState, parseOutcome } from '@/types/epoch'
+import type { EpochData } from '@/types/epoch'
 import { usePool } from './use-pool'
 import { PROGRAM_ID, POOL_PDAS, FOGO_TESTNET_RPC } from '@/lib/constants'
 import { scalePrice, formatConfidencePercent } from '@/lib/utils'
@@ -49,6 +50,12 @@ export interface LastSettledEpochData {
   startConfidenceRaw: bigint
   /** Raw settlement confidence for RefundExplanation */
   settlementConfidenceRaw: bigint
+  /** YES side total at settlement (for payout calculation) */
+  yesTotalAtSettlement: bigint | null
+  /** NO side total at settlement (for payout calculation) */
+  noTotalAtSettlement: bigint | null
+  /** Full EpochData for ClaimButton consumption */
+  rawEpochData: EpochData
 }
 
 interface UseLastSettledEpochResult {
@@ -60,50 +67,6 @@ interface UseLastSettledEpochResult {
   error: Error | null
   /** Refresh the data */
   refetch: () => void
-}
-
-/**
- * Parse on-chain epoch state enum to EpochState
- */
-function parseEpochState(state: unknown): EpochState {
-  if (!state || typeof state !== 'object') return EpochState.Open
-  const keys = Object.keys(state)
-  if (keys.length === 0) return EpochState.Open
-  const variant = keys[0]
-  switch (variant) {
-    case 'open':
-      return EpochState.Open
-    case 'frozen':
-      return EpochState.Frozen
-    case 'settling':
-      return EpochState.Settling
-    case 'settled':
-      return EpochState.Settled
-    case 'refunded':
-      return EpochState.Refunded
-    default:
-      return EpochState.Open
-  }
-}
-
-/**
- * Parse outcome from Anchor enum format
- */
-function parseOutcome(outcome: unknown): Outcome | null {
-  if (!outcome || typeof outcome !== 'object') return null
-  const keys = Object.keys(outcome)
-  if (keys.length === 0) return null
-  const variant = keys[0]
-  switch (variant) {
-    case 'up':
-      return Outcome.Up
-    case 'down':
-      return Outcome.Down
-    case 'refunded':
-      return Outcome.Refunded
-    default:
-      return null
-  }
 }
 
 /**
@@ -201,11 +164,38 @@ export function useLastSettledEpoch(asset: Asset): UseLastSettledEpochResult {
       const startPrice = BigInt(epochAccount.startPrice.toString())
       const startConfidence = BigInt(epochAccount.startConfidence.toString())
 
+      const yesTotalAtSettlement = epochAccount.yesTotalAtSettlement
+        ? BigInt(epochAccount.yesTotalAtSettlement.toString())
+        : null
+      const noTotalAtSettlement = epochAccount.noTotalAtSettlement
+        ? BigInt(epochAccount.noTotalAtSettlement.toString())
+        : null
+
       const startPriceUsd = scalePrice(startPrice)
       const settlementPriceUsd = scalePrice(settlementPrice)
       const priceDelta = settlementPriceUsd - startPriceUsd
       const deltaPercent = (priceDelta / startPriceUsd) * 100
       const sign = deltaPercent >= 0 ? '+' : ''
+
+      // Build full EpochData for ClaimButton
+      const rawEpochData: EpochData = {
+        pool: poolPda,
+        epochId,
+        state,
+        startTime: epochAccount.startTime?.toNumber() ?? 0,
+        endTime: epochAccount.endTime?.toNumber() ?? 0,
+        freezeTime: epochAccount.freezeTime?.toNumber() ?? 0,
+        startPrice,
+        startConfidence,
+        startPublishTime: epochAccount.startPublishTime.toNumber(),
+        settlementPrice,
+        settlementConfidence,
+        settlementPublishTime,
+        outcome,
+        yesTotalAtSettlement,
+        noTotalAtSettlement,
+        bump: epochAccount.bump ?? 0,
+      }
 
       return {
         epochId,
@@ -222,6 +212,9 @@ export function useLastSettledEpoch(asset: Asset): UseLastSettledEpochResult {
         priceDeltaPercent: `${sign}${deltaPercent.toFixed(2)}%`,
         startConfidenceRaw: startConfidence,
         settlementConfidenceRaw: settlementConfidence,
+        yesTotalAtSettlement,
+        noTotalAtSettlement,
+        rawEpochData,
       }
     } catch {
       return null

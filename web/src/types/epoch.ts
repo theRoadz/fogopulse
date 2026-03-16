@@ -82,6 +82,10 @@ export interface EpochData {
   settlementPublishTime: number | null
   /** Final outcome (Up, Down, or Refunded) */
   outcome: Outcome | null
+  /** YES side total at settlement (before rebalance) - for payout calculation */
+  yesTotalAtSettlement: bigint | null
+  /** NO side total at settlement (before rebalance) - for payout calculation */
+  noTotalAtSettlement: bigint | null
   /** PDA bump seed */
   bump: number
 }
@@ -110,3 +114,47 @@ export interface EpochUIState {
  * Status when no epoch is active
  */
 export type NoEpochStatus = 'no-pool' | 'no-epoch' | 'next-epoch-soon'
+
+/**
+ * Parse on-chain epoch state from Anchor enum format (e.g., { open: {} })
+ */
+export function parseEpochState(state: unknown): EpochState {
+  if (!state || typeof state !== 'object') return EpochState.Open
+  const keys = Object.keys(state)
+  if (keys.length === 0) return EpochState.Open
+  const variant = keys[0]
+  switch (variant) {
+    case 'open':
+      return EpochState.Open
+    case 'frozen':
+      return EpochState.Frozen
+    case 'settling':
+      return EpochState.Settling
+    case 'settled':
+      return EpochState.Settled
+    case 'refunded':
+      return EpochState.Refunded
+    default:
+      return EpochState.Open
+  }
+}
+
+/**
+ * Parse outcome from Anchor enum format (e.g., { up: {} })
+ */
+export function parseOutcome(outcome: unknown): Outcome | null {
+  if (!outcome || typeof outcome !== 'object') return null
+  const keys = Object.keys(outcome)
+  if (keys.length === 0) return null
+  const variant = keys[0]
+  switch (variant) {
+    case 'up':
+      return Outcome.Up
+    case 'down':
+      return Outcome.Down
+    case 'refunded':
+      return Outcome.Refunded
+    default:
+      return null
+  }
+}

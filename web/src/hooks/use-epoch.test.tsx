@@ -155,6 +155,8 @@ describe('useEpoch', () => {
       settlementConfidence: null,
       settlementPublishTime: null,
       outcome: null,
+      yesTotalAtSettlement: null,
+      noTotalAtSettlement: null,
       bump: 255,
     }
 
@@ -331,6 +333,8 @@ describe('useEpoch', () => {
       settlementConfidence: null,
       settlementPublishTime: null,
       outcome: null,
+      yesTotalAtSettlement: null,
+      noTotalAtSettlement: null,
       bump: 255,
     }
 

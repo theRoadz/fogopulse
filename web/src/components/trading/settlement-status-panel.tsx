@@ -10,11 +10,16 @@ import { useSettlementDisplay } from '@/hooks/use-settlement-display'
 import type { SettlementDisplayData } from '@/hooks/use-settlement-display'
 import type { LastSettledEpochData } from '@/hooks/use-last-settled-epoch'
 import type { Asset } from '@/types/assets'
+import type { EpochData } from '@/types/epoch'
 import { Outcome } from '@/types/epoch'
+
+import { useEpoch } from '@/hooks/use-epoch'
+import { usePool } from '@/hooks/use-pool'
 
 import { OutcomeBadge } from './outcome-badge'
 import { RefundExplanation } from './refund-explanation'
 import { VerificationLinks } from './verification-links'
+import { ClaimButton } from './claim-button'
 
 /**
  * Common settlement data shape used by both hooks
@@ -26,6 +31,13 @@ type SettlementData = SettlementDisplayData | LastSettledEpochData
  */
 function isSettlementDisplayData(data: SettlementData): data is SettlementDisplayData {
   return 'isSettled' in data
+}
+
+/**
+ * Type guard to check if data is from LastSettledEpochData (has rawEpochData)
+ */
+function isLastSettledEpochData(data: SettlementData): data is LastSettledEpochData {
+  return 'rawEpochData' in data
 }
 
 /**
@@ -166,6 +178,18 @@ export function SettlementStatusPanel({
   // Use provided data if available, otherwise use fetched data
   const settlementData = providedData !== undefined ? providedData : fetchedData
 
+  // Fetch raw epoch data and pool data for ClaimButton (hooks must be called unconditionally)
+  // When providedData has rawEpochData (Last Settlement path), we use that instead of useEpoch
+  // because useEpoch fetches the *active* epoch, not the settled one we're displaying.
+  const { epochState } = useEpoch(asset ?? 'BTC')
+  const { pool } = usePool(asset ?? 'BTC')
+
+  // Determine the correct epoch data for ClaimButton
+  const epochDataForClaim: EpochData | null =
+    providedData && isLastSettledEpochData(providedData)
+      ? providedData.rawEpochData
+      : epochState.epoch
+
   // Loading state - show skeleton
   if (!settlementData) {
     return <SettlementPanelSkeleton />
@@ -247,6 +271,16 @@ export function SettlementStatusPanel({
               />
             )}
         </div>
+
+        {/* Claim button - only when asset is provided */}
+        {asset && settlementData.epochPda && (
+          <ClaimButton
+            asset={asset}
+            epoch={epochDataForClaim}
+            epochPda={settlementData.epochPda}
+            pool={pool}
+          />
+        )}
 
         {/* Verification links */}
         {settlementData.epochPda && (

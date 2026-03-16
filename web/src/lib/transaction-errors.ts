@@ -39,6 +39,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   PositionNotFound: 'Position not found.',
   PositionAlreadyExists: 'You already have a position in this epoch.',
   NoPosition: 'No position to claim.',
+
+  // Claim errors
+  AlreadyClaimed: 'This position has already been claimed.',
+  PositionNotWinner: 'This position did not win the epoch.',
 }
 
 /**

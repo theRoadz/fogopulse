@@ -92,7 +92,33 @@ jest.mock('lucide-react', () => ({
   ChevronUp: () => <span data-testid="chevron-up-icon" />,
 }))
 
+// Mock hooks added for ClaimButton integration
+jest.mock('@/hooks/use-epoch', () => ({
+  useEpoch: () => ({
+    epochState: { epoch: null },
+    isLoading: false,
+    error: null,
+    noEpochStatus: null,
+    refetch: jest.fn(),
+  }),
+}))
+
+jest.mock('@/hooks/use-pool', () => ({
+  usePool: () => ({
+    pool: null,
+    poolState: { probabilities: { pUp: 50, pDown: 50 }, totalLiquidity: 0, isLoading: false, error: null },
+    isLoading: false,
+    error: null,
+    isRealtimeConnected: false,
+    refetch: jest.fn(),
+  }),
+}))
+
 // Mock child components
+jest.mock('./claim-button', () => ({
+  ClaimButton: () => null,
+}))
+
 jest.mock('./outcome-badge', () => ({
   OutcomeBadge: ({ outcome, priceDeltaText }: { outcome: Outcome; priceDeltaText?: string }) => (
     <div data-testid="outcome-badge" data-outcome={outcome}>
