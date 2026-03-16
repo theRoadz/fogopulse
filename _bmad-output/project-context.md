@@ -533,6 +533,11 @@ Always check shadcn MCP for component implementations before coding. Use shadcn/
 - Use FOGO addresses, never Solana addresses
 - Use Ed25519 format for Pyth, never ECDSA
 - Update this file if new patterns emerge during implementation
+- **Story Document Sync (CRITICAL):** When fixing a bug or making changes to code that was implemented as part of a story, you MUST update the corresponding story document in `_bmad-output/implementation-artifacts/`. This keeps story docs in-line with the actual code. Specifically:
+  - Add a dated entry to the **Change Log** section describing the fix
+  - Update the **File List** section if files were added or modified
+  - Correct any **Tasks / Subtasks** details that were wrong (e.g., incorrect query keys, wrong prop names)
+  - To find the right story file, check which story originally created/modified the affected files (look at the story's File List or git blame)
 
 **For Humans:**
 
@@ -544,4 +549,4 @@ Always check shadcn MCP for component implementations before coding. Use shadcn/
 
 ---
 
-_Last Updated: 2026-03-11_
+_Last Updated: 2026-03-16_
