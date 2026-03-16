@@ -513,6 +513,12 @@ None - implementation completed without issues.
 
 ### Change Log
 
+- 2026-03-16: **Bug Fix** - Settlement UI not visible when next epoch is running:
+  - **Root cause:** `advance_epoch` atomically settles epoch N AND creates epoch N+1, so `pool.nextEpochId` becomes N+2. The old code computed `lastEpochId = nextEpochId - 1 = N+1`, which pointed to the new active (Open) epoch, not the settled one. The fetch hit the `state !== Settled` guard and returned `null`.
+  - **Fix in `use-last-settled-epoch.ts`:** Extracted `tryFetchSettledEpoch` helper. `fetchLastSettledEpoch` now tries `nextEpochId - 1` first; if that epoch isn't settled (it's the active epoch), falls back to `nextEpochId - 2` (the actual settled epoch).
+  - **Fix in `use-epoch.ts`:** WebSocket handler now calls `queryClient.invalidateQueries({ queryKey: ['lastSettledEpoch', asset] })` after setting epoch data, so settlement refetches immediately on pool change.
+  - **Fix in `constants.ts`:** Added `lastSettledEpoch` query key to `QUERY_KEYS`.
+  - **Query options tuned:** `staleTime` reduced from 30s to 5s, `refetchOnWindowFocus: true`, added `placeholderData` to prevent null flash during query key transitions.
 - 2026-03-16: **Code Review** - Fixed 6 issues: eliminated duplicated utils, hardcoded constants, float precision loss. Added shared `scalePrice`/`PYTH_PRICE_EXPONENT` to utils.ts. Added raw bigint price fields to SettlementDisplayData.
 - 2026-03-15: Implemented Story 3.6 - Settlement Status UI with all 10 tasks complete
 - 2026-03-15: **Enhancement** - Added "Last Settlement" feature to fix UX gap:

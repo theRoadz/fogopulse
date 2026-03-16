@@ -204,6 +204,8 @@ export function useEpoch(asset: Asset): UseEpochResult {
             try {
               const epochResult = await fetchPoolAndEpoch()
               queryClient.setQueryData(['epoch', asset], epochResult)
+              // Invalidate lastSettledEpoch so it refetches with updated pool data
+              queryClient.invalidateQueries({ queryKey: ['lastSettledEpoch', asset] })
             } catch (err) {
               console.warn('Error updating epoch from WebSocket:', err)
             }

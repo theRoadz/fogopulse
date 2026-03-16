@@ -149,12 +149,22 @@ export const PYTH_FEED_IDS = {
 } as const
 
 // =============================================================================
+// FAUCET CONSTANTS
+// =============================================================================
+
+/** Amount of USDC to mint per faucet request (display units) */
+export const FAUCET_MINT_AMOUNT = 100
+/** Maximum USDC balance allowed to use faucet (display units) */
+export const FAUCET_BALANCE_CAP = 500
+
+// =============================================================================
 // TANSTACK QUERY KEYS
 // =============================================================================
 
 export const QUERY_KEYS = {
   epoch: (asset: Asset) => ['epoch', asset] as const,
   pool: (asset: Asset) => ['pool', asset] as const,
+  lastSettledEpoch: (asset: Asset) => ['lastSettledEpoch', asset] as const,
   positions: (userPubkey?: string) =>
     userPubkey ? (['positions', userPubkey] as const) : (['positions'] as const),
   usdcBalance: (userPubkey?: string) =>

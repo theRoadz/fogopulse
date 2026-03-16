@@ -162,20 +162,17 @@ export function useLastSettledEpoch(asset: Asset): UseLastSettledEpochResult {
     return new Program(idl as any, dummyProvider)
   }, [sharedConnection])
 
-  // Calculate last epoch ID
-  const lastEpochId = useMemo(() => {
+  // Calculate the nextEpochId from pool (used as search starting point)
+  const nextEpochId = useMemo(() => {
     if (!pool || pool.nextEpochId <= BigInt(0)) return null
-    return pool.nextEpochId - BigInt(1)
+    return pool.nextEpochId
   }, [pool])
 
-  // Fetch last epoch data
-  const fetchLastSettledEpoch = useCallback(async (): Promise<LastSettledEpochData | null> => {
-    if (lastEpochId === null) return null
-
+  // Try to fetch and parse a single epoch as settlement data
+  const tryFetchSettledEpoch = useCallback(async (epochId: bigint): Promise<LastSettledEpochData | null> => {
     try {
-      const epochPda = deriveEpochPda(poolPda, lastEpochId)
+      const epochPda = deriveEpochPda(poolPda, epochId)
 
-      // Fetch epoch account
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const epochAccount = await (program.account as any).epoch.fetch(epochPda)
 
@@ -189,7 +186,6 @@ export function useLastSettledEpoch(asset: Asset): UseLastSettledEpochResult {
       const outcome = parseOutcome(epochAccount.outcome)
       if (!outcome) return null
 
-      // Parse settlement fields
       const settlementPrice = epochAccount.settlementPrice
         ? BigInt(epochAccount.settlementPrice.toString())
         : null
@@ -212,7 +208,7 @@ export function useLastSettledEpoch(asset: Asset): UseLastSettledEpochResult {
       const sign = deltaPercent >= 0 ? '+' : ''
 
       return {
-        epochId: lastEpochId,
+        epochId,
         epochPda,
         state,
         outcome,
@@ -227,11 +223,30 @@ export function useLastSettledEpoch(asset: Asset): UseLastSettledEpochResult {
         startConfidenceRaw: startConfidence,
         settlementConfidenceRaw: settlementConfidence,
       }
-    } catch (err) {
-      console.warn('Error fetching last settled epoch:', err)
+    } catch {
       return null
     }
-  }, [lastEpochId, poolPda, program])
+  }, [poolPda, program])
+
+  // Fetch last settled epoch, searching backwards from nextEpochId
+  // advance_epoch atomically settles epoch N and creates N+1, so
+  // nextEpochId - 1 may be the new active (Open) epoch, not the settled one.
+  const fetchLastSettledEpoch = useCallback(async (): Promise<LastSettledEpochData | null> => {
+    if (nextEpochId === null) return null
+
+    // Try nextEpochId - 1 first (most common: no active epoch, last one is settled)
+    const candidateId = nextEpochId - BigInt(1)
+    const result = await tryFetchSettledEpoch(candidateId)
+    if (result) return result
+
+    // If nextEpochId - 1 is not settled (it's the active epoch),
+    // try nextEpochId - 2 (the previously settled epoch)
+    if (candidateId > BigInt(0)) {
+      return tryFetchSettledEpoch(candidateId - BigInt(1))
+    }
+
+    return null
+  }, [nextEpochId, tryFetchSettledEpoch])
 
   // TanStack Query
   const {
@@ -240,11 +255,12 @@ export function useLastSettledEpoch(asset: Asset): UseLastSettledEpochResult {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['lastSettledEpoch', asset, lastEpochId?.toString()],
+    queryKey: ['lastSettledEpoch', asset, nextEpochId?.toString()],
     queryFn: fetchLastSettledEpoch,
-    enabled: lastEpochId !== null,
-    staleTime: 30000, // Cache for 30 seconds (settled epochs don't change)
-    refetchOnWindowFocus: false,
+    enabled: nextEpochId !== null,
+    staleTime: 5000,
+    refetchOnWindowFocus: true,
+    placeholderData: (previousData: LastSettledEpochData | null | undefined) => previousData,
   })
 
   return {
