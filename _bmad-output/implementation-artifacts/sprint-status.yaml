@@ -92,7 +92,7 @@ development_status:
   4-2-create-active-positions-panel: done
   4-3-implement-position-pnl-calculations: done
   4-4-create-multi-asset-position-view: done
-  4-5-implement-early-exit-ui: backlog
+  4-5-implement-early-exit-ui: done
   4-6-add-cap-warning-indicators: backlog
   4-7-create-trading-history-view: backlog
   epic-4-retrospective: optional

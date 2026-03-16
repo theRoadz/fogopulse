@@ -1,20 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { Loader2 } from 'lucide-react'
 
 import type { Asset } from '@/types/assets'
 import { EpochState } from '@/types/epoch'
-import { TRADING_FEE_BPS } from '@/lib/constants'
+import { ASSET_METADATA } from '@/lib/constants'
+import { calculateSellReturn } from '@/lib/trade-preview'
 import { useEpoch } from '@/hooks/use-epoch'
 import { usePool } from '@/hooks/use-pool'
 import { useUserPosition } from '@/hooks/use-user-position'
 import { useClaimableAmount, formatUsdcAmount } from '@/hooks/use-claimable-amount'
 import { useSellPosition } from '@/hooks/use-sell-position'
 import { useClaimPosition } from '@/hooks/use-claim-position'
+import { useUIStore } from '@/stores/ui-store'
 
 import { PnLDisplay } from '@/components/trading/pnl-display'
+import { SellPreview } from '@/components/trading/sell-preview'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -23,36 +26,13 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
 
 interface YourPositionProps {
   asset: Asset
   className?: string
-}
-
-/**
- * Estimate return from selling shares using CPMM inverse formula.
- * Uses BigInt arithmetic to match on-chain precision.
- */
-function estimateSellReturn(
-  shares: bigint,
-  direction: 'up' | 'down',
-  yesReserves: bigint,
-  noReserves: bigint
-): { gross: bigint; fee: bigint; net: bigint } {
-  const sameReserves = direction === 'up' ? yesReserves : noReserves
-  const oppositeReserves = direction === 'up' ? noReserves : yesReserves
-
-  if (oppositeReserves === 0n) {
-    return { gross: 0n, fee: 0n, net: 0n }
-  }
-
-  const gross = (shares * sameReserves) / oppositeReserves
-  const fee = (gross * BigInt(TRADING_FEE_BPS)) / 10000n
-  const net = gross - fee
-
-  return { gross, fee, net }
 }
 
 export function YourPosition({ asset, className }: YourPositionProps) {
@@ -71,6 +51,15 @@ export function YourPosition({ asset, className }: YourPositionProps) {
   const claimMutation = useClaimPosition()
 
   const [showSellDialog, setShowSellDialog] = useState(false)
+
+  // Listen for sell trigger from multi-asset panel
+  const pendingSellAsset = useUIStore((s) => s.pendingSellAsset)
+  useEffect(() => {
+    if (pendingSellAsset === asset && position && position.shares > 0n) {
+      setShowSellDialog(true)
+      useUIStore.setState({ pendingSellAsset: null })
+    }
+  }, [pendingSellAsset, asset, position])
 
   // Don't render if wallet not connected
   if (!publicKey) return null
@@ -91,16 +80,20 @@ export function YourPosition({ asset, className }: YourPositionProps) {
   // Check if position is fully sold (shares === 0)
   const isFullySold = position.shares === 0n
 
-  // Calculate sell preview
-  const sellPreview =
-    pool && position.shares > 0n
-      ? estimateSellReturn(
-          position.shares,
-          direction,
-          pool.yesReserves,
-          pool.noReserves
-        )
-      : null
+  // Calculate sell return using shared library
+  const sellReturn = useMemo(
+    () =>
+      pool && position.shares > 0n
+        ? calculateSellReturn(
+            position.shares,
+            position.amount,
+            direction,
+            pool.yesReserves,
+            pool.noReserves
+          )
+        : null,
+    [position.shares, position.amount, direction, pool?.yesReserves, pool?.noReserves]
+  )
 
   function handleSellClick() {
     setShowSellDialog(true)
@@ -108,7 +101,6 @@ export function YourPosition({ asset, className }: YourPositionProps) {
 
   async function handleSellConfirm() {
     if (!epochPda || !publicKey || !position) return
-    setShowSellDialog(false)
     try {
       await sellMutation.mutateAsync({
         asset,
@@ -117,8 +109,10 @@ export function YourPosition({ asset, className }: YourPositionProps) {
         userPubkey: publicKey.toString(),
         isFullExit: true,
       })
+      setShowSellDialog(false)
     } catch {
       // Error handling (toast) is done inside the useSellPosition hook
+      // Dialog stays open on error so user can retry
     }
   }
 
@@ -262,27 +256,40 @@ export function YourPosition({ asset, className }: YourPositionProps) {
       </Card>
 
       {/* Sell confirmation dialog */}
-      <Dialog open={showSellDialog} onOpenChange={setShowSellDialog}>
-        <DialogContent>
+      <Dialog open={showSellDialog} onOpenChange={(open) => { if (!sellMutation.isPending) setShowSellDialog(open) }}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Sell Position</DialogTitle>
+            <DialogTitle>Sell {direction.toUpperCase()} Position</DialogTitle>
+            <DialogDescription>
+              Exit your {ASSET_METADATA[asset].label} position
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 text-sm">
-            <p>
-              Sell all <strong>{position.shares.toString()}</strong> shares?
+          {sellReturn && (
+            <SellPreview
+              sellReturn={sellReturn}
+              shares={position.shares}
+              entryAmount={position.amount}
+            />
+          )}
+          {epochState.isFrozen && (
+            <p className="text-sm text-yellow-500 font-medium" data-testid="epoch-frozen-message">
+              Epoch frozen — selling unavailable
             </p>
-            {sellPreview && (
-              <p className="text-muted-foreground">
-                Estimated return: ~
-                {formatUsdcAmount(sellPreview.net)} USDC (after 1.8% fee)
-              </p>
-            )}
-          </div>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSellDialog(false)}>
+            <Button variant="outline" onClick={() => setShowSellDialog(false)} disabled={sellMutation.isPending}>
               Cancel
             </Button>
-            <Button onClick={handleSellConfirm}>Confirm Sell</Button>
+            <Button
+              onClick={handleSellConfirm}
+              disabled={sellMutation.isPending || epochState.isFrozen}
+            >
+              {sellMutation.isPending ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Selling...</>
+              ) : (
+                'Confirm Sell'
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

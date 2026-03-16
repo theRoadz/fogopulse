@@ -14,11 +14,13 @@ import { Button } from '@/components/ui/button'
 interface AssetPositionRowProps {
   assetPosition: AssetPositionInfo
   onNavigateToAsset: (asset: Asset) => void
+  onSellPosition?: (asset: Asset) => void
 }
 
 export function AssetPositionRow({
   assetPosition,
   onNavigateToAsset,
+  onSellPosition,
 }: AssetPositionRowProps) {
   const { asset, position, pnl } = assetPosition
   const metadata = ASSET_METADATA[asset]
@@ -83,8 +85,17 @@ export function AssetPositionRow({
             </div>
           </div>
 
-          {/* Navigate button */}
-          <div className="flex justify-end">
+          {/* Action buttons */}
+          <div className="flex justify-end gap-2">
+            {onSellPosition && position.shares > 0n && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onSellPosition(asset)}
+              >
+                Sell Position
+              </Button>
+            )}
             <Button
               size="sm"
               variant="outline"

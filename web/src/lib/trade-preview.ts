@@ -364,6 +364,124 @@ export function calculatePositionPnL(
 }
 
 // =============================================================================
+// SELL RETURN CALCULATION
+// =============================================================================
+
+/**
+ * Sell return result showing gross, fees, net, fee split, realized PnL, and price impact.
+ */
+export interface SellReturn {
+  /** Gross return before fees: shares * sameReserves / oppositeReserves */
+  gross: bigint
+  /** Total fee amount (ceiling division to match on-chain) */
+  fee: bigint
+  /** Net return after fees: gross - fee */
+  net: bigint
+  /** Fee split between LP, treasury, and insurance */
+  feeSplit: {
+    lpFee: bigint
+    treasuryFee: bigint
+    insuranceFee: bigint
+  }
+  /** Realized PnL: net - entryAmount */
+  realizedPnl: bigint
+  /** Realized PnL as percentage */
+  realizedPnlPercent: number
+  /** Price impact percentage (probability shift from this sell) */
+  priceImpact: number
+}
+
+/**
+ * Calculate sell return using inverse CPMM formula.
+ * MUST match on-chain implementation in cpmm.rs::calculate_refund.
+ *
+ * Uses ceiling division for total fee and floor division for fee splits,
+ * matching on-chain calculate_fee_split() exactly.
+ *
+ * @param shares - Position shares to sell
+ * @param entryAmount - Original entry amount in USDC lamports
+ * @param direction - Trade direction ('up' or 'down')
+ * @param yesReserves - Pool's YES reserves
+ * @param noReserves - Pool's NO reserves
+ * @returns Complete sell return breakdown
+ */
+export function calculateSellReturn(
+  shares: bigint,
+  entryAmount: bigint,
+  direction: 'up' | 'down',
+  yesReserves: bigint,
+  noReserves: bigint
+): SellReturn {
+  const [sameReserves, oppositeReserves] = getReservesForDirection(
+    direction,
+    yesReserves,
+    noReserves
+  )
+
+  // Edge case: no opposite reserves — on-chain calculate_refund returns shares (1:1 refund)
+  if (oppositeReserves === 0n) {
+    const gross = shares
+    const fee = (gross * BigInt(TRADING_FEE_BPS) + 9999n) / 10000n
+    const net = gross - fee
+    const lpFee = (fee * BigInt(LP_FEE_SHARE_BPS)) / 10000n
+    const treasuryFee = (fee * BigInt(TREASURY_FEE_SHARE_BPS)) / 10000n
+    const insuranceFee = fee - lpFee - treasuryFee
+    const realizedPnl = net - entryAmount
+    return {
+      gross,
+      fee,
+      net,
+      feeSplit: { lpFee, treasuryFee, insuranceFee },
+      realizedPnl,
+      realizedPnlPercent: entryAmount === 0n ? 0 : (Number(realizedPnl) / Number(entryAmount)) * 100,
+      priceImpact: 0,
+    }
+  }
+
+  // Gross return: inverse CPMM formula
+  const gross = (shares * sameReserves) / oppositeReserves
+
+  // CRITICAL: Ceiling division for total fee (matches on-chain)
+  const fee = (gross * BigInt(TRADING_FEE_BPS) + 9999n) / 10000n
+  const net = gross - fee
+
+  // Fee splits: floor division for treasury/insurance, remainder to LP
+  const lpFee = (fee * BigInt(LP_FEE_SHARE_BPS)) / 10000n
+  const treasuryFee = (fee * BigInt(TREASURY_FEE_SHARE_BPS)) / 10000n
+  const insuranceFee = fee - lpFee - treasuryFee
+
+  // Realized PnL
+  const realizedPnl = net - entryAmount
+  const realizedPnlPercent =
+    entryAmount === 0n ? 0 : (Number(realizedPnl) / Number(entryAmount)) * 100
+
+  // Price impact: probability shift if this sell were executed
+  // Current probability = sameReserves / (sameReserves + oppositeReserves)
+  const totalBefore = sameReserves + oppositeReserves
+  const probBefore = Number(sameReserves) / Number(totalBefore)
+
+  // After sell, sameReserves decreases by net (user removes value from same side)
+  const newSameReserves = sameReserves - gross + fee // gross removed, fee stays in pool split
+  const newTotalReserves = newSameReserves + oppositeReserves
+  const probAfter =
+    newTotalReserves === 0n
+      ? 0
+      : Number(newSameReserves) / Number(newTotalReserves)
+
+  const priceImpact = Math.abs((probAfter - probBefore) * 100)
+
+  return {
+    gross,
+    fee,
+    net,
+    feeSplit: { lpFee, treasuryFee, insuranceFee },
+    realizedPnl,
+    realizedPnlPercent,
+    priceImpact,
+  }
+}
+
+// =============================================================================
 // DIRECTION TO RESERVES HELPER
 // =============================================================================
 

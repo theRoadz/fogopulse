@@ -6,6 +6,8 @@ import type { Asset } from '@/types/assets'
 interface UIState {
   activeAsset: Asset
   setActiveAsset: (asset: Asset) => void
+  pendingSellAsset: Asset | null
+  setPendingSellAsset: (asset: Asset | null) => void
 }
 
 export const useUIStore = create<UIState>()(
@@ -14,6 +16,11 @@ export const useUIStore = create<UIState>()(
     setActiveAsset: (asset) =>
       set((state) => {
         state.activeAsset = asset
+      }),
+    pendingSellAsset: null,
+    setPendingSellAsset: (asset) =>
+      set((state) => {
+        state.pendingSellAsset = asset
       }),
   }))
 )

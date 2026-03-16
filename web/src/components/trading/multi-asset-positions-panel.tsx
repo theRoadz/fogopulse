@@ -24,6 +24,10 @@ export function MultiAssetPositionsPanel() {
     useUIStore.setState({ activeAsset: asset })
   }
 
+  const handleSellPosition = (asset: Asset) => {
+    useUIStore.setState({ activeAsset: asset, pendingSellAsset: asset })
+  }
+
   // Don't render if wallet not connected
   if (!publicKey) return null
 
@@ -59,6 +63,7 @@ export function MultiAssetPositionsPanel() {
           key={ap.asset}
           assetPosition={ap}
           onNavigateToAsset={handleNavigateToAsset}
+          onSellPosition={handleSellPosition}
         />
       ))}
     </div>

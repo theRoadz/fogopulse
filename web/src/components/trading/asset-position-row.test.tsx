@@ -113,4 +113,61 @@ describe('AssetPositionRow', () => {
     const directionEl = screen.getByText(/DOWN/)
     expect(directionEl.className).toContain('text-red-500')
   })
+
+  describe('sell button', () => {
+    it('"Sell Position" button visible when shares > 0 and onSellPosition provided', () => {
+      const ap = createAssetPosition()
+      const onSell = jest.fn()
+      render(
+        <AssetPositionRow
+          assetPosition={ap}
+          onNavigateToAsset={jest.fn()}
+          onSellPosition={onSell}
+        />
+      )
+
+      // Expand
+      const trigger = screen.getByRole('button', { name: /BTC/i })
+      fireEvent.click(trigger)
+
+      expect(screen.getByRole('button', { name: /Sell Position/ })).toBeInTheDocument()
+    })
+
+    it('clicking sell button calls onSellPosition callback', () => {
+      const ap = createAssetPosition()
+      const onSell = jest.fn()
+      render(
+        <AssetPositionRow
+          assetPosition={ap}
+          onNavigateToAsset={jest.fn()}
+          onSellPosition={onSell}
+        />
+      )
+
+      // Expand
+      const trigger = screen.getByRole('button', { name: /BTC/i })
+      fireEvent.click(trigger)
+
+      const sellButton = screen.getByRole('button', { name: /Sell Position/ })
+      fireEvent.click(sellButton)
+
+      expect(onSell).toHaveBeenCalledWith('BTC')
+    })
+
+    it('does not show sell button when onSellPosition is not provided', () => {
+      const ap = createAssetPosition()
+      render(
+        <AssetPositionRow
+          assetPosition={ap}
+          onNavigateToAsset={jest.fn()}
+        />
+      )
+
+      // Expand
+      const trigger = screen.getByRole('button', { name: /BTC/i })
+      fireEvent.click(trigger)
+
+      expect(screen.queryByRole('button', { name: /Sell Position/ })).not.toBeInTheDocument()
+    })
+  })
 })

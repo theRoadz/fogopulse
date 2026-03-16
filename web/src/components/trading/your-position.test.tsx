@@ -90,8 +90,8 @@ jest.mock('@/components/ui/badge', () => ({
 jest.mock('@/components/ui/dialog', () => ({
   Dialog: ({ children, open }: { children: React.ReactNode; open: boolean; onOpenChange: (v: boolean) => void }) =>
     open ? <div data-testid="dialog">{children}</div> : null,
-  DialogContent: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="dialog-content">{children}</div>
+  DialogContent: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <div data-testid="dialog-content" className={className}>{children}</div>
   ),
   DialogHeader: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="dialog-header">{children}</div>
@@ -99,10 +99,33 @@ jest.mock('@/components/ui/dialog', () => ({
   DialogTitle: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="dialog-title">{children}</div>
   ),
+  DialogDescription: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="dialog-description">{children}</div>
+  ),
   DialogFooter: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="dialog-footer">{children}</div>
   ),
 }))
+
+jest.mock('@/components/trading/sell-preview', () => ({
+  SellPreview: ({ sellReturn }: { sellReturn: unknown }) => (
+    <div data-testid="sell-preview">Sell Preview Mock</div>
+  ),
+}))
+
+// Mock ui-store — using a global to avoid hoisting issues
+const mockPendingSellAsset = { current: null as string | null }
+jest.mock('@/stores/ui-store', () => {
+  const fn = (selector: (s: Record<string, unknown>) => unknown) => {
+    const state = {
+      pendingSellAsset: mockPendingSellAsset.current,
+      setPendingSellAsset: jest.fn(),
+    }
+    return selector(state)
+  }
+  fn.setState = jest.fn()
+  return { useUIStore: fn }
+})
 
 jest.mock('@/components/trading/pnl-display', () => ({
   PnLDisplay: ({ shares, entryAmount, direction, yesReserves, noReserves }: {
@@ -120,6 +143,15 @@ jest.mock('lucide-react', () => ({
 
 jest.mock('@/lib/constants', () => ({
   TRADING_FEE_BPS: 180,
+  LP_FEE_SHARE_BPS: 7000,
+  TREASURY_FEE_SHARE_BPS: 2000,
+  INSURANCE_FEE_SHARE_BPS: 1000,
+  ASSET_METADATA: {
+    BTC: { label: 'BTC', color: 'text-orange-500', feedId: '' },
+    ETH: { label: 'ETH', color: 'text-blue-500', feedId: '' },
+    SOL: { label: 'SOL', color: 'text-purple-500', feedId: '' },
+    FOGO: { label: 'FOGO', color: 'text-primary', feedId: '' },
+  },
 }))
 
 import { YourPosition } from './your-position'
@@ -394,14 +426,14 @@ describe('YourPosition', () => {
   })
 
   describe('sell flow', () => {
-    it('opens sell confirmation dialog on button click', () => {
+    it('opens sell dialog with SellPreview on button click', () => {
       render(<YourPosition asset="BTC" />)
 
       fireEvent.click(screen.getByText('Sell Position'))
 
       expect(screen.getByTestId('dialog')).toBeTruthy()
-      expect(screen.getByText(/Sell all/)).toBeTruthy()
-      expect(screen.getByText(/Estimated return/)).toBeTruthy()
+      expect(screen.getByTestId('sell-preview')).toBeTruthy()
+      expect(screen.getByText('Confirm Sell')).toBeTruthy()
     })
 
     it('calls sell mutation on confirm', () => {
@@ -420,6 +452,96 @@ describe('YourPosition', () => {
         userPubkey: mockPublicKey.toString(),
         isFullExit: true,
       })
+    })
+
+    it('hides sell button when epoch is frozen', () => {
+      mockUseEpoch.mockReturnValue({
+        epochState: {
+          epoch: { state: 'Open', pool: mockPublicKey },
+          timeRemaining: 5,
+          isFrozen: true,
+          isSettling: false,
+          isSettled: false,
+          startPriceDisplay: 50000,
+          priceExponent: -8,
+        },
+        isLoading: false,
+        error: null,
+        noEpochStatus: null,
+        refetch: jest.fn(),
+      })
+
+      render(<YourPosition asset="BTC" />)
+      expect(screen.queryByText('Sell Position')).toBeNull()
+    })
+
+    it('disables confirm button and shows freeze message when epoch freezes after dialog opens', () => {
+      // Start with epoch open — sell button is visible
+      const { rerender } = render(<YourPosition asset="BTC" />)
+
+      // Open dialog while epoch is still open
+      fireEvent.click(screen.getByText('Sell Position'))
+      expect(screen.getByTestId('dialog')).toBeTruthy()
+      expect(screen.getByText('Confirm Sell')).toBeTruthy()
+
+      // Now epoch freezes — re-render with isFrozen: true
+      mockUseEpoch.mockReturnValue({
+        epochState: {
+          epoch: { state: 'Open', pool: mockPublicKey },
+          timeRemaining: 5,
+          isFrozen: true,
+          isSettling: false,
+          isSettled: false,
+          startPriceDisplay: 50000,
+          priceExponent: -8,
+        },
+        isLoading: false,
+        error: null,
+        noEpochStatus: null,
+        refetch: jest.fn(),
+      })
+      rerender(<YourPosition asset="BTC" />)
+
+      // Confirm button should be disabled
+      const confirmBtn = screen.getByText('Confirm Sell').closest('button')
+      expect(confirmBtn?.disabled).toBe(true)
+
+      // Freeze message should be visible
+      expect(screen.getByTestId('epoch-frozen-message')).toBeTruthy()
+      expect(screen.getByText('Epoch frozen — selling unavailable')).toBeTruthy()
+    })
+
+    it('shows spinner on confirm button when transaction is pending', () => {
+      const { rerender } = render(<YourPosition asset="BTC" />)
+
+      // Open dialog first while not pending
+      fireEvent.click(screen.getByText('Sell Position'))
+      expect(screen.getByTestId('dialog')).toBeTruthy()
+      expect(screen.getByText('Confirm Sell')).toBeTruthy()
+
+      // Now set isPending and re-render
+      Object.assign(mockSellMutation, { isPending: true })
+      rerender(<YourPosition asset="BTC" />)
+
+      // Confirm button should show spinner text
+      expect(screen.getByText('Selling...')).toBeTruthy()
+      expect(screen.getAllByTestId('loader').length).toBeGreaterThanOrEqual(1)
+
+      // Reset
+      Object.assign(mockSellMutation, { isPending: false })
+    })
+
+    it('pendingSellAsset from store triggers dialog open', () => {
+      mockPendingSellAsset.current = 'BTC'
+
+      render(<YourPosition asset="BTC" />)
+
+      // The useEffect should trigger the dialog
+      expect(screen.getByTestId('dialog')).toBeTruthy()
+      expect(screen.getByTestId('sell-preview')).toBeTruthy()
+
+      // Reset
+      mockPendingSellAsset.current = null
     })
   })
 })

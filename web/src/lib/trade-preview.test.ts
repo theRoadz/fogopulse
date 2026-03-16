@@ -7,6 +7,7 @@ import {
   calculateProbabilityImpact,
   getReservesForDirection,
   calculatePositionPnL,
+  calculateSellReturn,
 } from './trade-preview'
 
 describe('trade-preview calculations', () => {
@@ -392,6 +393,163 @@ describe('trade-preview calculations', () => {
       expect(Number.isFinite(slippage)).toBe(true)
       // With balanced huge reserves, slippage should be near 0
       expect(slippage).toBeCloseTo(0, 1)
+    })
+  })
+
+  describe('calculateSellReturn', () => {
+    it('calculates basic sell return matching inverse CPMM formula', () => {
+      // 100 shares, entry 100 USDC, balanced pool (500 yes, 500 no), UP direction
+      // gross = 100 * 500 / 500 = 100
+      // fee = ceiling(100 * 180 / 10000) = ceiling(1.8) = 2 (in lamports: ceiling(18_000_000 * ... ))
+      const result = calculateSellReturn(
+        100_000_000n, // shares
+        100_000_000n, // entryAmount
+        'up',
+        500_000_000n, // yesReserves
+        500_000_000n  // noReserves
+      )
+
+      // gross = 100_000_000
+      expect(result.gross).toBe(100_000_000n)
+
+      // fee = ceiling(100_000_000 * 180 / 10000) = ceiling(1_800_000) = 1_800_000
+      // (100_000_000 * 180 + 9999) / 10000 = (18_000_000_000 + 9999) / 10000 = 1_800_000
+      expect(result.fee).toBe(1_800_000n)
+
+      // net = 100_000_000 - 1_800_000 = 98_200_000
+      expect(result.net).toBe(98_200_000n)
+
+      // realizedPnl = 98_200_000 - 100_000_000 = -1_800_000 (loss due to fees)
+      expect(result.realizedPnl).toBe(-1_800_000n)
+    })
+
+    it('fee split sums to total fee', () => {
+      const result = calculateSellReturn(
+        200_000_000n,
+        150_000_000n,
+        'up',
+        600_000_000n,
+        400_000_000n
+      )
+
+      const { lpFee, treasuryFee, insuranceFee } = result.feeSplit
+      expect(lpFee + treasuryFee + insuranceFee).toBe(result.fee)
+    })
+
+    it('calculates positive realized PnL correctly', () => {
+      // 100 shares, entry 80 USDC, favorable reserves (yesReserves > noReserves for UP)
+      // gross = 100 * 600 / 400 = 150
+      const result = calculateSellReturn(
+        100_000_000n,
+        80_000_000n,
+        'up',
+        600_000_000n,
+        400_000_000n
+      )
+
+      expect(result.gross).toBe(150_000_000n)
+      expect(result.net).toBeGreaterThan(80_000_000n) // net > entry
+      expect(result.realizedPnl).toBeGreaterThan(0n)
+      expect(result.realizedPnlPercent).toBeGreaterThan(0)
+    })
+
+    it('calculates negative realized PnL correctly', () => {
+      // 100 shares, entry 100 USDC, unfavorable reserves
+      // gross = 100 * 400 / 600 = 66.67 → 66_666_666 after truncation
+      const result = calculateSellReturn(
+        100_000_000n,
+        100_000_000n,
+        'up',
+        400_000_000n,
+        600_000_000n
+      )
+
+      expect(result.net).toBeLessThan(100_000_000n) // net < entry
+      expect(result.realizedPnl).toBeLessThan(0n)
+      expect(result.realizedPnlPercent).toBeLessThan(0)
+    })
+
+    it('returns 1:1 refund (matching on-chain) when oppositeReserves is 0', () => {
+      // On-chain calculate_refund returns shares when opposite_reserves == 0
+      const result = calculateSellReturn(
+        100_000_000n, // shares
+        100_000_000n, // entryAmount
+        'up',
+        500_000_000n,
+        0n
+      )
+
+      // gross = shares (1:1 refund, matching on-chain)
+      expect(result.gross).toBe(100_000_000n)
+      // fee = ceiling(100_000_000 * 180 / 10000) = 1_800_000
+      expect(result.fee).toBe(1_800_000n)
+      // net = gross - fee
+      expect(result.net).toBe(98_200_000n)
+      // fee split sums to total fee
+      expect(result.feeSplit.lpFee + result.feeSplit.treasuryFee + result.feeSplit.insuranceFee).toBe(result.fee)
+      // realizedPnl = net - entry = 98_200_000 - 100_000_000 = -1_800_000
+      expect(result.realizedPnl).toBe(-1_800_000n)
+      expect(result.priceImpact).toBe(0)
+    })
+
+    it('returns realizedPnlPercent 0 when entryAmount is 0', () => {
+      const result = calculateSellReturn(
+        100_000_000n,
+        0n, // zero entry amount
+        'up',
+        500_000_000n,
+        500_000_000n
+      )
+
+      expect(result.realizedPnlPercent).toBe(0)
+    })
+
+    it('calculates non-negative price impact', () => {
+      const result = calculateSellReturn(
+        100_000_000n,
+        100_000_000n,
+        'up',
+        500_000_000n,
+        500_000_000n
+      )
+
+      expect(result.priceImpact).toBeGreaterThanOrEqual(0)
+      expect(Number.isFinite(result.priceImpact)).toBe(true)
+    })
+
+    it('uses ceiling division for fee (matches on-chain)', () => {
+      // Choose values that would differ between floor and ceiling division
+      // gross = 100_000_001n → fee = ceiling(100_000_001 * 180 / 10000)
+      // floor: 18_000_000_180 / 10000 = 1_800_000 (with floor)
+      // ceiling: (18_000_000_180 + 9999) / 10000 = 18_000_010_179 / 10000 = 1_800_001
+      // To get gross = 100_000_001, need specific reserves
+      // Let's use: shares=100_000_001, yesRes=500_000_000, noRes=500_000_000 → gross = 100_000_001
+      const result = calculateSellReturn(
+        100_000_001n,
+        100_000_000n,
+        'up',
+        500_000_000n,
+        500_000_000n
+      )
+
+      // Verify ceiling division: (100_000_001 * 180 + 9999) / 10000
+      const expectedFee = (100_000_001n * 180n + 9999n) / 10000n
+      expect(result.fee).toBe(expectedFee)
+    })
+
+    it('handles DOWN direction correctly', () => {
+      // DOWN: same = noReserves, opposite = yesReserves
+      // gross = 100 * 600 / 400 = 150
+      const result = calculateSellReturn(
+        100_000_000n,
+        100_000_000n,
+        'down',
+        400_000_000n, // yesReserves (opposite for DOWN)
+        600_000_000n  // noReserves (same for DOWN)
+      )
+
+      expect(result.gross).toBe(150_000_000n)
+      expect(result.realizedPnl).toBeGreaterThan(0n)
     })
   })
 })
