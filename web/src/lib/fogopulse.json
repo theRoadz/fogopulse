@@ -1891,7 +1891,7 @@
           "name": "config",
           "docs": [
             "Global protocol configuration",
-            "Used to check: paused, frozen"
+            "Used to check: paused, frozen, fee parameters"
           ],
           "pda": {
             "seeds": [
@@ -1920,7 +1920,7 @@
           "name": "pool",
           "docs": [
             "The pool being traded",
-            "Used to check: paused, frozen, reserves"
+            "Used to check: paused, frozen, reserves; also PDA signer for transfers"
           ],
           "writable": true,
           "pda": {
@@ -2005,6 +2005,309 @@
               }
             ]
           }
+        },
+        {
+          "name": "user_usdc",
+          "docs": [
+            "User's USDC ATA - receives net_payout"
+          ],
+          "writable": true
+        },
+        {
+          "name": "pool_usdc",
+          "docs": [
+            "Pool's USDC ATA - source of all transfers"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "treasury_usdc",
+          "docs": [
+            "Treasury USDC token account - receives treasury_fee"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "config.treasury",
+                "account": "GlobalConfig"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "insurance_usdc",
+          "docs": [
+            "Insurance USDC token account - receives insurance_fee"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "config.insurance",
+                "account": "GlobalConfig"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "usdc_mint",
+          "docs": [
+            "USDC mint - verified against constant"
+          ],
+          "address": "6jzddTQNDh2RPuav88r19gdSGmGnbH6EWa2NXgLV8cAy"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
         },
         {
           "name": "system_program",
@@ -2504,6 +2807,19 @@
       ]
     },
     {
+      "name": "PositionSold",
+      "discriminator": [
+        117,
+        122,
+        235,
+        232,
+        80,
+        15,
+        94,
+        179
+      ]
+    },
+    {
       "name": "RefundClaimed",
       "discriminator": [
         136,
@@ -2692,6 +3008,21 @@
       "code": 6034,
       "name": "PositionNotWinner",
       "msg": "Position is not on the winning side"
+    },
+    {
+      "code": 6035,
+      "name": "InsufficientShares",
+      "msg": "Position does not have enough shares to sell"
+    },
+    {
+      "code": 6036,
+      "name": "ZeroShares",
+      "msg": "Shares amount must be greater than zero"
+    },
+    {
+      "code": 6037,
+      "name": "InsufficientPoolReserves",
+      "msg": "Pool does not have sufficient reserves for this sell"
     }
   ],
   "types": [
@@ -3823,6 +4154,88 @@
             "name": "timestamp",
             "docs": [
               "Unix timestamp when position was opened"
+            ],
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PositionSold",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "epoch",
+            "docs": [
+              "Epoch account pubkey"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "user",
+            "docs": [
+              "User who sold the position"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "direction",
+            "docs": [
+              "Direction of the position (Up or Down)"
+            ],
+            "type": {
+              "defined": {
+                "name": "Direction"
+              }
+            }
+          },
+          {
+            "name": "shares_sold",
+            "docs": [
+              "Number of shares sold"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "gross_refund",
+            "docs": [
+              "Gross refund before fees"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "net_payout",
+            "docs": [
+              "Net payout after fees (sent to user)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "remaining_shares",
+            "docs": [
+              "Remaining shares after sell (0 if full exit)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "remaining_amount",
+            "docs": [
+              "Remaining amount after sell (0 if full exit)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "is_full_exit",
+            "docs": [
+              "Whether this was a full exit (all shares sold)"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "timestamp",
+            "docs": [
+              "Unix timestamp of the sell"
             ],
             "type": "i64"
           }

@@ -209,6 +209,30 @@ pub struct PayoutClaimed {
 }
 
 #[event]
+pub struct PositionSold {
+    /// Epoch account pubkey
+    pub epoch: Pubkey,
+    /// User who sold the position
+    pub user: Pubkey,
+    /// Direction of the position (Up or Down)
+    pub direction: Direction,
+    /// Number of shares sold
+    pub shares_sold: u64,
+    /// Gross refund before fees
+    pub gross_refund: u64,
+    /// Net payout after fees (sent to user)
+    pub net_payout: u64,
+    /// Remaining shares after sell (0 if full exit)
+    pub remaining_shares: u64,
+    /// Remaining amount after sell (0 if full exit)
+    pub remaining_amount: u64,
+    /// Whether this was a full exit (all shares sold)
+    pub is_full_exit: bool,
+    /// Unix timestamp of the sell
+    pub timestamp: i64,
+}
+
+#[event]
 pub struct FeesCollected {
     /// Epoch where fees were collected
     pub epoch: Pubkey,

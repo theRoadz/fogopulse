@@ -43,6 +43,14 @@ const ERROR_MESSAGES: Record<string, string> = {
   // Claim errors
   AlreadyClaimed: 'This position has already been claimed.',
   PositionNotWinner: 'This position did not win the epoch.',
+
+  // Sell position errors
+  InsufficientShares: 'Position does not have enough shares to sell.',
+  ZeroShares: 'Please enter a valid number of shares.',
+  InsufficientPoolReserves: 'Pool does not have sufficient reserves for this sell.',
+
+  // Development errors
+  NotImplemented: 'This feature is not yet available on-chain. Please deploy the updated program.',
 }
 
 /**
@@ -127,6 +135,9 @@ export function isRecoverableError(error: unknown): boolean {
     'PoolPaused',
     'InvalidDirection',
     'Unauthorized',
+    'InsufficientShares',
+    'ZeroShares',
+    'AlreadyClaimed',
   ]
 
   return !nonRecoverable.some((code) => message.includes(code))

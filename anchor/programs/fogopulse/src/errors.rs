@@ -117,4 +117,14 @@ pub enum FogoPulseError {
     // Payout errors
     #[msg("Position is not on the winning side")]
     PositionNotWinner,
+
+    // Sell position errors
+    #[msg("Position does not have enough shares to sell")]
+    InsufficientShares,
+
+    #[msg("Shares amount must be greater than zero")]
+    ZeroShares,
+
+    #[msg("Pool does not have sufficient reserves for this sell")]
+    InsufficientPoolReserves,
 }

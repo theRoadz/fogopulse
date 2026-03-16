@@ -35,11 +35,13 @@ pub fn calculate_shares(
         Ok(amount)
     } else {
         // Standard CPMM: shares = amount * opposite / same
-        amount
-            .checked_mul(opposite_reserves)
+        // Uses u128 intermediate to prevent overflow on large values
+        (amount as u128)
+            .checked_mul(opposite_reserves as u128)
             .ok_or(FogoPulseError::Overflow)?
-            .checked_div(same_reserves)
+            .checked_div(same_reserves as u128)
             .ok_or(FogoPulseError::Overflow)
+            .map(|v| v as u64)
             .map_err(|e| e.into())
     }
 }
@@ -65,6 +67,39 @@ pub fn calculate_entry_price(amount: u64, shares: u64) -> Result<u64> {
         .checked_div(shares)
         .ok_or(FogoPulseError::Overflow)
         .map_err(|e| e.into())
+}
+
+/// Calculate refund amount for selling shares back to the pool (inverse CPMM)
+///
+/// # Arguments
+/// * `shares` - Number of shares being sold
+/// * `same_reserves` - Current reserves on the position's side
+/// * `opposite_reserves` - Current reserves on the opposite side
+///
+/// # Returns
+/// * Gross refund amount in USDC lamports (before fees)
+///
+/// # Formula
+/// * If opposite_reserves == 0: refund = shares (1:1 refund, mirrors first-trade 1:1 buy)
+/// * Otherwise: refund = shares * same_reserves / opposite_reserves
+pub fn calculate_refund(
+    shares: u64,
+    same_reserves: u64,
+    opposite_reserves: u64,
+) -> Result<u64> {
+    if opposite_reserves == 0 {
+        // Edge case: 1:1 refund (mirrors the 1:1 buy when first trade creates shares)
+        Ok(shares)
+    } else {
+        // Inverse CPMM: refund = shares * same / opposite
+        (shares as u128)
+            .checked_mul(same_reserves as u128)
+            .ok_or(FogoPulseError::Overflow)?
+            .checked_div(opposite_reserves as u128)
+            .ok_or(FogoPulseError::Overflow)
+            .map(|v| v as u64)
+            .map_err(|e| e.into())
+    }
 }
 
 #[cfg(test)]
@@ -98,5 +133,27 @@ mod tests {
     fn test_entry_price_zero_shares() {
         let result = calculate_entry_price(100_000_000, 0);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_refund_inverse_of_buy() {
+        // Buy: 100 USDC with 500 same, 300 opposite → 60 shares
+        // Sell: 60 shares with 500 same, 300 opposite → 100 USDC
+        let refund = calculate_refund(60_000_000, 500_000_000, 300_000_000).unwrap();
+        assert_eq!(refund, 100_000_000);
+    }
+
+    #[test]
+    fn test_refund_opposite_zero() {
+        // Edge case: opposite_reserves == 0 → 1:1 refund
+        let refund = calculate_refund(1_000_000, 500_000_000, 0).unwrap();
+        assert_eq!(refund, 1_000_000);
+    }
+
+    #[test]
+    fn test_refund_partial_shares() {
+        // Sell half the shares
+        let refund = calculate_refund(30_000_000, 500_000_000, 300_000_000).unwrap();
+        assert_eq!(refund, 50_000_000);
     }
 }
