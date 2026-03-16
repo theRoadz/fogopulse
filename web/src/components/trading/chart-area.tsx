@@ -29,7 +29,7 @@ export function ChartArea({ asset, className }: ChartAreaProps) {
   const targetPrice = epochState.startPriceDisplay ?? undefined
 
   return (
-    <Card className={cn('h-full flex flex-col', className)}>
+    <Card className={cn('h-full flex flex-col overflow-hidden', className)}>
       <CardHeader className="border-b flex-shrink-0">
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -50,7 +50,7 @@ export function ChartArea({ asset, className }: ChartAreaProps) {
         {/* Epoch Status Display - shows Price to Beat, countdown, and state badge */}
         <EpochStatusDisplay asset={asset} className="pt-2" />
       </CardHeader>
-      <CardContent className="flex-1 p-0 min-h-[300px]">
+      <CardContent className="flex-1 p-0 min-h-0">
         {!hasFeed ? (
           // FOGO placeholder - no price feed available
           <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground p-6">

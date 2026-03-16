@@ -112,6 +112,7 @@ export function useSellPosition() {
       // Invalidate BOTH singular and plural position keys (known inconsistency — see Dev Notes)
       queryClient.invalidateQueries({ queryKey: ['position'] })
       queryClient.invalidateQueries({ queryKey: ['positions'] })
+      queryClient.invalidateQueries({ queryKey: ['positionsBatch'] })
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.usdcBalance(userPubkey),
       })

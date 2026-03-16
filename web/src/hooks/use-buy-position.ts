@@ -116,6 +116,7 @@ export function useBuyPosition() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.epoch(asset) })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.pool(asset) })
       queryClient.invalidateQueries({ queryKey: ['positions'] }) // All positions
+      queryClient.invalidateQueries({ queryKey: ['positionsBatch'] })
       // Use userPubkey from mutation params (not closure) to avoid stale reference
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.usdcBalance(userPubkey),
