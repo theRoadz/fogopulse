@@ -104,6 +104,16 @@ jest.mock('@/components/ui/dialog', () => ({
   ),
 }))
 
+jest.mock('@/components/trading/pnl-display', () => ({
+  PnLDisplay: ({ shares, entryAmount, direction, yesReserves, noReserves }: {
+    shares: bigint; entryAmount: bigint; direction: string; yesReserves: bigint; noReserves: bigint; className?: string
+  }) => (
+    <div data-testid="pnl-display" data-shares={shares.toString()} data-direction={direction}>
+      PnL Mock
+    </div>
+  ),
+}))
+
 jest.mock('lucide-react', () => ({
   Loader2: () => <span data-testid="loader" />,
 }))
@@ -336,6 +346,50 @@ describe('YourPosition', () => {
 
       expect(screen.getByText('Your Position')).toBeTruthy()
       expect(screen.queryByText('Sell Position')).toBeNull()
+    })
+  })
+
+  describe('PnL display', () => {
+    it('renders PnL row when position and pool data are available', () => {
+      render(<YourPosition asset="BTC" />)
+
+      expect(screen.getByTestId('pnl-display')).toBeTruthy()
+    })
+
+    it('does NOT render PnL row when position is fully sold (shares === 0n)', () => {
+      mockUseUserPosition.mockReturnValue({
+        position: createMockPosition({ shares: 0n }),
+        isLoading: false,
+        error: null,
+        refetch: jest.fn(),
+      })
+
+      render(<YourPosition asset="BTC" />)
+
+      expect(screen.queryByTestId('pnl-display')).toBeNull()
+    })
+
+    it('does NOT render PnL row when pool data is unavailable', () => {
+      mockUsePool.mockReturnValue({
+        pool: null,
+        poolState: null,
+        isLoading: false,
+        error: null,
+        isRealtimeConnected: false,
+        refetch: jest.fn(),
+      })
+
+      // Also need to handle that epochPda will be null when pool is null
+      mockUseUserPosition.mockReturnValue({
+        position: createMockPosition(),
+        isLoading: false,
+        error: null,
+        refetch: jest.fn(),
+      })
+
+      render(<YourPosition asset="BTC" />)
+
+      expect(screen.queryByTestId('pnl-display')).toBeNull()
     })
   })
 

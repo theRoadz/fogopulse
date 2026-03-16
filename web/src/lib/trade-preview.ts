@@ -303,6 +303,67 @@ export function calculateProbabilityImpact(
 }
 
 // =============================================================================
+// POSITION PNL CALCULATION
+// =============================================================================
+
+/**
+ * PnL calculation result for an open position.
+ */
+export interface PositionPnL {
+  /** Current mark-to-market value in USDC lamports */
+  currentValue: bigint
+  /** Unrealized PnL amount in USDC lamports (currentValue - entryAmount) */
+  pnlAmount: bigint
+  /** Unrealized PnL as percentage */
+  pnlPercent: number
+}
+
+/**
+ * Calculate unrealized PnL for an open position (mark-to-market, NO fees).
+ *
+ * Uses inverse CPMM formula: currentValue = (shares * sameReserves) / oppositeReserves
+ *
+ * @param shares - Position shares (bigint)
+ * @param entryAmount - Original entry amount in USDC lamports
+ * @param direction - Trade direction ('up' or 'down')
+ * @param yesReserves - Pool's YES reserves
+ * @param noReserves - Pool's NO reserves
+ * @returns PnL calculation result
+ */
+export function calculatePositionPnL(
+  shares: bigint,
+  entryAmount: bigint,
+  direction: 'up' | 'down',
+  yesReserves: bigint,
+  noReserves: bigint
+): PositionPnL {
+  // Sold position — no PnL
+  if (shares === 0n) {
+    return { currentValue: 0n, pnlAmount: 0n, pnlPercent: 0 }
+  }
+
+  const [sameReserves, oppositeReserves] = getReservesForDirection(
+    direction,
+    yesReserves,
+    noReserves
+  )
+
+  // No liquidity on opposite side — position is worthless
+  if (oppositeReserves === 0n) {
+    return { currentValue: 0n, pnlAmount: -entryAmount, pnlPercent: -100 }
+  }
+
+  const currentValue = (shares * sameReserves) / oppositeReserves
+  const pnlAmount = currentValue - entryAmount
+
+  // Handle zero entry amount edge case
+  const pnlPercent =
+    entryAmount === 0n ? 0 : (Number(pnlAmount) / Number(entryAmount)) * 100
+
+  return { currentValue, pnlAmount, pnlPercent }
+}
+
+// =============================================================================
 // DIRECTION TO RESERVES HELPER
 // =============================================================================
 

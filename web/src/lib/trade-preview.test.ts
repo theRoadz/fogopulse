@@ -6,6 +6,7 @@ import {
   calculatePotentialPayout,
   calculateProbabilityImpact,
   getReservesForDirection,
+  calculatePositionPnL,
 } from './trade-preview'
 
 describe('trade-preview calculations', () => {
@@ -249,6 +250,112 @@ describe('trade-preview calculations', () => {
       // DOWN -> noReserves is same, yesReserves is opposite
       expect(same).toBe(300_000_000n)
       expect(opposite).toBe(500_000_000n)
+    })
+  })
+
+  describe('calculatePositionPnL', () => {
+    it('returns ~0 PnL for just-entered position in balanced pool (50/50 reserves)', () => {
+      // Buy 100 USDC in balanced pool: shares = 100 * 500 / 500 = 100
+      // Current value = 100 * 500 / 500 = 100 → PnL = 0
+      const result = calculatePositionPnL(
+        100_000_000n, // shares
+        100_000_000n, // entryAmount
+        'up',
+        500_000_000n, // yesReserves (same for UP)
+        500_000_000n  // noReserves (opposite for UP)
+      )
+      expect(result.currentValue).toBe(100_000_000n)
+      expect(result.pnlAmount).toBe(0n)
+      expect(result.pnlPercent).toBeCloseTo(0)
+    })
+
+    it('returns positive PnL for favorable pool shift (UP position, noReserves decreased)', () => {
+      // UP position: same = yesReserves, opposite = noReserves
+      // currentValue = shares * sameReserves / oppositeReserves
+      // 100 shares, yesReserves = 600, noReserves = 400
+      // currentValue = 100 * 600 / 400 = 150
+      // pnlAmount = 150 - 100 = 50
+      // pnlPercent = 50 / 100 * 100 = 50%
+      const result = calculatePositionPnL(
+        100_000_000n, // shares
+        100_000_000n, // entryAmount
+        'up',
+        600_000_000n, // yesReserves
+        400_000_000n  // noReserves
+      )
+      expect(result.currentValue).toBe(150_000_000n)
+      expect(result.pnlAmount).toBe(50_000_000n)
+      expect(result.pnlPercent).toBeCloseTo(50)
+    })
+
+    it('returns negative PnL for unfavorable pool shift', () => {
+      // UP position: same = yesReserves, opposite = noReserves
+      // 100 shares, yesReserves = 400, noReserves = 600
+      // currentValue = 100 * 400 / 600 = 66.666... → truncated to 66
+      // pnlAmount = 66 - 100 = -34
+      const result = calculatePositionPnL(
+        100_000_000n,
+        100_000_000n,
+        'up',
+        400_000_000n,
+        600_000_000n
+      )
+      expect(result.currentValue).toBe(66_666_666n) // BigInt truncation
+      expect(result.pnlAmount).toBe(66_666_666n - 100_000_000n)
+      expect(result.pnlPercent).toBeLessThan(0)
+    })
+
+    it('returns zeros for zero shares (sold position)', () => {
+      const result = calculatePositionPnL(
+        0n,
+        100_000_000n,
+        'up',
+        500_000_000n,
+        500_000_000n
+      )
+      expect(result.currentValue).toBe(0n)
+      expect(result.pnlAmount).toBe(0n)
+      expect(result.pnlPercent).toBe(0)
+    })
+
+    it('returns -100% PnL when oppositeReserves is zero (no liquidity)', () => {
+      const result = calculatePositionPnL(
+        100_000_000n,
+        100_000_000n,
+        'up',
+        500_000_000n,
+        0n // no opposite reserves
+      )
+      expect(result.currentValue).toBe(0n)
+      expect(result.pnlAmount).toBe(-100_000_000n)
+      expect(result.pnlPercent).toBe(-100)
+    })
+
+    it('returns 0% when entryAmount is zero (edge case)', () => {
+      const result = calculatePositionPnL(
+        100_000_000n,
+        0n, // zero entry amount
+        'up',
+        500_000_000n,
+        500_000_000n
+      )
+      expect(result.pnlPercent).toBe(0)
+    })
+
+    it('handles DOWN direction correctly', () => {
+      // DOWN position: same = noReserves, opposite = yesReserves
+      // 100 shares, yesReserves = 400, noReserves = 600
+      // currentValue = 100 * 600 / 400 = 150
+      const result = calculatePositionPnL(
+        100_000_000n,
+        100_000_000n,
+        'down',
+        400_000_000n, // yesReserves (opposite for DOWN)
+        600_000_000n  // noReserves (same for DOWN)
+      )
+      expect(result.currentValue).toBe(150_000_000n)
+      expect(result.pnlAmount).toBe(50_000_000n)
+      expect(result.pnlPercent).toBeCloseTo(50)
     })
   })
 

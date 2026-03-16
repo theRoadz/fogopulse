@@ -14,6 +14,7 @@ import { useClaimableAmount, formatUsdcAmount } from '@/hooks/use-claimable-amou
 import { useSellPosition } from '@/hooks/use-sell-position'
 import { useClaimPosition } from '@/hooks/use-claim-position'
 
+import { PnLDisplay } from '@/components/trading/pnl-display'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -243,6 +244,17 @@ export function YourPosition({ asset, className }: YourPositionProps) {
               </p>
             </div>
           </div>
+
+          {/* Unrealized PnL */}
+          {pool && position.shares > 0n && (
+            <PnLDisplay
+              shares={position.shares}
+              entryAmount={position.amount}
+              direction={direction}
+              yesReserves={pool.yesReserves}
+              noReserves={pool.noReserves}
+            />
+          )}
 
           {/* Action buttons */}
           <div className="pt-1">{renderActions()}</div>
