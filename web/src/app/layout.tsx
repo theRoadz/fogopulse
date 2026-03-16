@@ -25,6 +25,7 @@ const links: { label: string; path: string }[] = [
   { label: 'Account', path: '/account' },
   { label: 'History', path: '/history' },
   { label: 'Faucet', path: '/faucet' },
+  { label: 'Feedback', path: '/feedback' },
 ]
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
