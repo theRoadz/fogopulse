@@ -152,9 +152,17 @@ export const PYTH_FEED_IDS = {
 // FAUCET CONSTANTS
 // =============================================================================
 
-/** Amount of USDC to mint per faucet request (display units) */
-export const FAUCET_MINT_AMOUNT = 100
-/** Maximum USDC balance allowed to use faucet (display units) */
+/**
+ * Amount of USDC to mint per faucet request (display units).
+ * Intentionally higher than FAUCET_BALANCE_CAP so users get a meaningful
+ * amount per mint but can't accumulate indefinitely (they must spend before
+ * they can mint again).
+ *
+ * NOTE: Both constants are server-side only — they must NOT be imported
+ * in 'use client' components to avoid leaking values to the browser bundle.
+ */
+export const FAUCET_MINT_AMOUNT = 1000
+/** Maximum USDC balance allowed to use faucet (display units, server-side only) */
 export const FAUCET_BALANCE_CAP = 500
 
 // =============================================================================
