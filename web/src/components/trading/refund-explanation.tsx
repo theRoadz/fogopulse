@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
+import { ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -10,6 +10,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { cn, scalePrice, formatUsdPrice, formatConfidencePercent } from '@/lib/utils'
+import { ConfidenceBandChart } from './confidence-band-chart'
 
 interface RefundExplanationProps {
   /** Start price (bigint, scaled) */
@@ -30,7 +31,7 @@ interface RefundExplanationProps {
  * Displays:
  * - Explanation text about confidence bands overlapping
  * - Actual start and settlement price with confidence ranges
- * - Placeholder link for Story 3.7 (confidence band visualization)
+ * - Confidence band visualization (inline SVG chart)
  */
 export function RefundExplanation({
   startPrice,
@@ -40,6 +41,7 @@ export function RefundExplanation({
   className,
 }: RefundExplanationProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [showBands, setShowBands] = useState(false)
 
   // Calculate display values
   const startPriceUsd = scalePrice(startPrice)
@@ -94,17 +96,52 @@ export function RefundExplanation({
             </div>
           </div>
 
-          <div className="mt-4">
+          <div className="mt-4 space-y-3">
             <Button
               variant="outline"
               size="sm"
-              disabled
-              className="gap-1.5 text-xs opacity-60"
+              className="gap-1.5 text-xs"
+              onClick={() => setShowBands(!showBands)}
+              aria-expanded={showBands}
             >
-              <ExternalLink className="h-3 w-3" />
-              View Confidence Bands
-              <span className="text-muted-foreground">(Coming in Story 3.7)</span>
+              {showBands ? (
+                <EyeOff className="h-3 w-3" />
+              ) : (
+                <Eye className="h-3 w-3" />
+              )}
+              {showBands ? 'Hide' : 'View'} Confidence Bands
             </Button>
+
+            {showBands && (
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Because the confidence ranges overlap, we couldn&apos;t determine a fair winner.
+                  Your funds have been returned. This protects you from unfair outcomes.
+                </p>
+
+                <ConfidenceBandChart
+                  startPrice={startPrice}
+                  startConfidence={startConfidence}
+                  settlementPrice={settlementPrice}
+                  settlementConfidence={settlementConfidence}
+                />
+
+                <div className="space-y-1 font-mono text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Start range:</span>
+                    <span className="text-foreground">
+                      {formatUsdPrice(startPriceUsd - startConfidenceUsd)} – {formatUsdPrice(startPriceUsd + startConfidenceUsd)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Settlement range:</span>
+                    <span className="text-foreground">
+                      {formatUsdPrice(settlementPriceUsd - settlementConfidenceUsd)} – {formatUsdPrice(settlementPriceUsd + settlementConfidenceUsd)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </CollapsibleContent>

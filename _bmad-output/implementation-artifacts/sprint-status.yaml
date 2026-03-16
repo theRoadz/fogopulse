@@ -81,7 +81,7 @@ development_status:
   3-4-implement-claim-refund-instruction: done  # Implemented as part of Story 3.2
   3-5-implement-fee-distribution: done
   3-6-create-settlement-status-ui: done
-  3-7-create-confidence-band-visualization: backlog
+  3-7-create-confidence-band-visualization: done
   3-8-create-claim-payout-ui: backlog
   3-9-display-settlement-history: backlog
   epic-3-retrospective: optional

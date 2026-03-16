@@ -16,6 +16,13 @@ jest.mock('@/lib/utils', () => ({
   },
 }))
 
+// Mock ConfidenceBandChart
+jest.mock('./confidence-band-chart', () => ({
+  ConfidenceBandChart: (props: Record<string, unknown>) => (
+    <div data-testid="confidence-band-chart" data-start-price={String(props.startPrice)} />
+  ),
+}))
+
 // Mock shadcn components
 jest.mock('@/components/ui/button', () => ({
   Button: ({ children, onClick, disabled, className, ...props }: React.ComponentProps<'button'>) => (
@@ -50,7 +57,8 @@ jest.mock('@/components/ui/collapsible', () => ({
 jest.mock('lucide-react', () => ({
   ChevronDown: () => <span data-testid="chevron-down" />,
   ChevronUp: () => <span data-testid="chevron-up" />,
-  ExternalLink: () => <span data-testid="external-link" />,
+  Eye: () => <span data-testid="eye" />,
+  EyeOff: () => <span data-testid="eye-off" />,
 }))
 
 describe('RefundExplanation', () => {
@@ -91,15 +99,52 @@ describe('RefundExplanation', () => {
     expect(screen.getByText('End:')).toBeInTheDocument()
   })
 
-  it('should show disabled "View Confidence Bands" button', () => {
+  it('should show enabled "View Confidence Bands" button', () => {
     render(<RefundExplanation {...defaultProps} />)
-    const viewButton = screen.getByText('View Confidence Bands').closest('button')
-    expect(viewButton).toBeDisabled()
+    const viewButton = screen.getByText(/Confidence Bands/).closest('button')
+    expect(viewButton).not.toBeDisabled()
   })
 
-  it('should show Story 3.7 placeholder text', () => {
+  it('should toggle visualization when "View Confidence Bands" button is clicked', () => {
     render(<RefundExplanation {...defaultProps} />)
-    expect(screen.getByText('(Coming in Story 3.7)')).toBeInTheDocument()
+
+    // Initially no chart visible
+    expect(screen.queryByTestId('confidence-band-chart')).not.toBeInTheDocument()
+
+    // Click to show
+    const viewButton = screen.getByText(/Confidence Bands/).closest('button')!
+    fireEvent.click(viewButton)
+
+    // Chart should now be visible
+    expect(screen.getByTestId('confidence-band-chart')).toBeInTheDocument()
+
+    // Explanation text should be visible
+    expect(screen.getByText(/Because the confidence ranges overlap/i)).toBeInTheDocument()
+  })
+
+  it('should hide visualization when button is clicked again', () => {
+    render(<RefundExplanation {...defaultProps} />)
+
+    const viewButton = screen.getByText(/Confidence Bands/).closest('button')!
+
+    // Show
+    fireEvent.click(viewButton)
+    expect(screen.getByTestId('confidence-band-chart')).toBeInTheDocument()
+
+    // Hide
+    fireEvent.click(screen.getByText(/Confidence Bands/).closest('button')!)
+    expect(screen.queryByTestId('confidence-band-chart')).not.toBeInTheDocument()
+  })
+
+  it('should show UX-spec copy when visualization is expanded', () => {
+    render(<RefundExplanation {...defaultProps} />)
+
+    const viewButton = screen.getByText(/Confidence Bands/).closest('button')!
+    fireEvent.click(viewButton)
+
+    expect(
+      screen.getByText(/This protects you from unfair outcomes/i)
+    ).toBeInTheDocument()
   })
 
   it('should apply custom className', () => {
