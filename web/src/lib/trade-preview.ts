@@ -231,20 +231,51 @@ export function calculateSlippage(
 }
 
 // =============================================================================
-// POTENTIAL PAYOUT CALCULATION
+// ESTIMATED SETTLEMENT PAYOUT CALCULATION
 // =============================================================================
 
 /**
- * Calculate potential payout if the user wins.
+ * Estimate settlement payout using the on-chain formula with current reserves.
  *
- * Winning side shares are redeemable 1:1 with USDC in settlement.
- * Each share is worth 1 USDC if the user's direction wins.
+ * Formula (matches claim_payout.rs):
+ *   payout = positionAmount + (positionAmount * loserTotal) / winnerTotal
  *
- * @param shares - Shares held (in USDC lamports scale)
- * @returns Potential payout in USDC display units
+ * At trade preview time, we estimate winner/loser totals using current pool
+ * reserves + the new position amount (since the trade hasn't happened yet).
+ *
+ * @param netAmountLamports - Position amount after fees (what goes into the pool)
+ * @param direction - Trade direction ('up' or 'down')
+ * @param yesReserves - Current pool YES reserves
+ * @param noReserves - Current pool NO reserves
+ * @returns Estimated payout in USDC display units
  */
-export function calculatePotentialPayout(shares: bigint): number {
-  return Number(shares) / 10 ** USDC_DECIMALS
+export function estimateSettlementPayout(
+  netAmountLamports: bigint,
+  direction: 'up' | 'down',
+  yesReserves: bigint,
+  noReserves: bigint
+): number {
+  const [sameReserves, oppositeReserves] = getReservesForDirection(
+    direction,
+    yesReserves,
+    noReserves
+  )
+
+  // Estimated winner total = current same-side reserves + this new position
+  const estimatedWinnerTotal = sameReserves + netAmountLamports
+  // Estimated loser total = current opposite-side reserves (unchanged by this trade)
+  const estimatedLoserTotal = oppositeReserves
+
+  if (estimatedWinnerTotal === 0n) {
+    return Number(netAmountLamports) / 10 ** USDC_DECIMALS
+  }
+
+  // Same formula as on-chain claim_payout:
+  // payout = positionAmount + (positionAmount * loserTotal) / winnerTotal
+  const winnings = (netAmountLamports * estimatedLoserTotal) / estimatedWinnerTotal
+  const payout = netAmountLamports + winnings
+
+  return Number(payout) / 10 ** USDC_DECIMALS
 }
 
 // =============================================================================

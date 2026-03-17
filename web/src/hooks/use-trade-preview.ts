@@ -11,7 +11,7 @@ import {
   calculateEntryPrice,
   calculateFeeSplit,
   calculateSlippage,
-  calculatePotentialPayout,
+  estimateSettlementPayout,
   calculateProbabilityImpact,
   getReservesForDirection,
 } from '@/lib/trade-preview'
@@ -51,9 +51,9 @@ export interface TradePreviewData {
   feeSplit: FeeSplit
   /** Slippage percentage (e.g., 0.3) */
   slippage: number
-  /** Max payout if prediction wins (USDC) - based on net amount */
+  /** Estimated settlement payout if prediction wins (USDC) — approximate, based on current pool reserves */
   potentialPayout: number
-  /** Potential profit (potentialPayout - net amount) */
+  /** Potential profit (potentialPayout - grossAmount) */
   potentialProfit: number
   /** Profit as percentage based on gross amount ((potentialProfit / grossAmount) * 100) */
   profitPercent: number
@@ -155,8 +155,13 @@ export function useTradePreview(asset: Asset): TradePreviewData | null {
       oppositeReserves
     )
 
-    // Calculate potential payout (based on shares from net amount)
-    const potentialPayout = calculatePotentialPayout(shares)
+    // Estimate settlement payout using on-chain formula with current reserves
+    const potentialPayout = estimateSettlementPayout(
+      netAmountLamports,
+      direction,
+      yesReserves,
+      noReserves
+    )
     // Profit calculation: payout minus gross amount (user spent gross amount)
     const potentialProfit = potentialPayout - grossAmount
     const profitPercent = grossAmount > 0 ? (potentialProfit / grossAmount) * 100 : 0

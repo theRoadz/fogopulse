@@ -53,7 +53,7 @@ function formatNumber(value: number, decimals = 2): string {
  * - Entry price per share
  * - Shares to receive
  * - Fee amount (informational - collected at settlement)
- * - Potential payout if prediction wins
+ * - Estimated settlement payout if prediction wins
  * - Market probability impact
  * - Slippage estimate with warning
  */
@@ -154,7 +154,7 @@ export function TradePreview({ asset, className }: TradePreviewProps) {
             If {isUp ? 'UP' : 'DOWN'} Wins
           </span>
           <span className={cn('font-semibold', isUp ? 'text-green-500' : 'text-red-500')}>
-            {formatCurrency(potentialPayout)}{' '}
+            ~{formatCurrency(potentialPayout)}{' '}
             <span className="text-xs opacity-80">({formatPercent(profitPercent)})</span>
           </span>
         </div>

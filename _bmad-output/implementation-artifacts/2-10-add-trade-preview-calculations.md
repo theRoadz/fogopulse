@@ -26,7 +26,7 @@ So that **I can make informed decisions**.
   - [x] 1.3 Implement `calculateEntryPrice(amount, shares)` - price per share in USDC
   - [x] 1.4 Implement `calculateFee(amount, feeBps)` - fee in USDC
   - [x] 1.5 Implement `calculateSlippage(shares, sameReserves)` - % slippage from fair price
-  - [x] 1.6 Implement `calculatePotentialPayout(shares)` - max payout if win (shares value)
+  - [x] 1.6 ~~Implement `calculatePotentialPayout(shares)`~~ → Replaced with `estimateSettlementPayout(netAmount, direction, yesReserves, noReserves)` — uses on-chain settlement formula
   - [x] 1.7 Implement `calculateProbabilityImpact(amount, direction, yesReserves, noReserves)` - new probabilities
 
 - [x] **Task 2: Create useTradePreview Hook** (AC: #1, #2, #3, #4, #5, #6)
@@ -175,18 +175,33 @@ function calculateProbabilityImpact(
 }
 ```
 
-### Potential Payout Calculation
+### Potential Payout Calculation (CORRECTED)
 
-If the user wins, they receive the value of their shares (each share worth 1 USDC in settlement):
+~~Original (WRONG): assumed shares are redeemable 1:1 with USDC.~~
+
+The original `calculatePotentialPayout(shares)` was incorrect. On-chain settlement (`claim_payout.rs`) distributes the **entire losing pool** proportionally among winners:
 
 ```typescript
-// Winning side shares are redeemable 1:1 with USDC
-// Potential payout = shares (in USDC, converted from lamports)
+// On-chain formula (claim_payout.rs):
+// payout = positionAmount + (positionAmount * loserTotal) / winnerTotal
 
-function calculatePotentialPayout(shares: bigint): number {
-  return Number(shares) / 1_000_000 // Convert lamports to USDC
+// Corrected frontend estimation using current pool reserves:
+function estimateSettlementPayout(
+  netAmountLamports: bigint,
+  direction: 'up' | 'down',
+  yesReserves: bigint,
+  noReserves: bigint
+): number {
+  const [sameReserves, oppositeReserves] = getReservesForDirection(direction, yesReserves, noReserves)
+  const estimatedWinnerTotal = sameReserves + netAmountLamports
+  const estimatedLoserTotal = oppositeReserves
+  const winnings = (netAmountLamports * estimatedLoserTotal) / estimatedWinnerTotal
+  const payout = netAmountLamports + winnings
+  return Number(payout) / 10 ** USDC_DECIMALS
 }
 ```
+
+Display uses `~` prefix (e.g., `~$1,915.18`) to indicate the value is an estimate based on current pool state — the actual settlement payout depends on final pool totals at epoch settlement.
 
 ### TradePreviewData Interface
 
@@ -230,7 +245,7 @@ import {
   calculateEntryPrice,
   calculateFee,
   calculateSlippage,
-  calculatePotentialPayout,
+  estimateSettlementPayout,
   calculateProbabilityImpact,
 } from '@/lib/trade-preview'
 import { TRADING_FEE_BPS, USDC_DECIMALS } from '@/lib/constants'
@@ -258,7 +273,7 @@ export function useTradePreview(asset: Asset): TradePreviewData | null {
     const fee = calculateFee(amountNum, TRADING_FEE_BPS)
     const slippage = calculateSlippage(amountLamports, shares, sameReserves, oppositeReserves)
     const probImpact = calculateProbabilityImpact(amountLamports, direction, yesReserves, noReserves)
-    const potentialPayout = calculatePotentialPayout(shares)
+    const potentialPayout = estimateSettlementPayout(amountLamports, direction, yesReserves, noReserves)
 
     // Entry price per share
     const sharesNum = Number(shares) / 10 ** USDC_DECIMALS
@@ -491,3 +506,19 @@ Test results: All 86 trade-related tests pass (including new tests)
   - M4: Removed redundant null check in TradePreview component
   - M5: Added fractional amount and BigInt overflow test coverage
   - All tests passing: 54 tests (3 new tests added)
+- 2026-03-17: **Bug Fix — Incorrect "If UP/DOWN Wins" Payout Calculation:**
+  - **Root cause:** `calculatePotentialPayout(shares)` assumed 1:1 share redemption, but on-chain settlement (`claim_payout.rs`) uses `payout = positionAmount + (positionAmount × loserTotal) / winnerTotal`. This meant a $1,000 bet showed ~$982 payout instead of ~$1,915.
+  - Replaced `calculatePotentialPayout` with `estimateSettlementPayout` in `trade-preview.ts` using correct on-chain formula with current pool reserves as proxy for settlement totals
+  - Updated `use-trade-preview.ts` to pass pool reserves to new function
+  - Added `~` prefix to payout display in `trade-preview.tsx` to indicate estimate
+  - Replaced 3 old unit tests with 6 new tests for `estimateSettlementPayout` (balanced pool, skewed pools, zero reserves, zero amount, DOWN direction)
+  - Updated hook test payout assertion to expect settlement-based value
+  - All trade-preview unit tests passing (49 tests)
+- 2026-03-17: **Code Review Fixes Applied:**
+  - M1: Updated `TradePreviewData.potentialPayout` JSDoc — was "Max payout", now "Estimated settlement payout"
+  - M2: Fixed `TradePreviewData.potentialProfit` JSDoc — was "potentialPayout - net amount", corrected to "potentialPayout - grossAmount"
+  - M4: Tightened hook test assertion from `toBeGreaterThan(150)` to `toBeCloseTo(180, -1)` to catch formula regressions
+  - L1: Updated stale code example in Dev Notes to reference `estimateSettlementPayout` instead of `calculatePotentialPayout`
+  - L2: Updated component docstring from "Potential payout" to "Estimated settlement payout"
+  - Note: M3 (payout color based on direction not profit sign) is pre-existing, not introduced by this fix — deferred
+  - Note: 2 pre-existing test failures in `use-trade-preview.test.tsx` (sharesDisplay expects 100 but gets 98.2 due to fee deduction) — not related to this fix

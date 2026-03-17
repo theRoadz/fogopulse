@@ -254,8 +254,11 @@ describe('useTradePreview', () => {
         expect(result.current.fee).toBeCloseTo(1.8, 2)
         expect(result.current.feePercent).toBe(1.8)
 
-        // Potential payout = shares = 100
-        expect(result.current.potentialPayout).toBeCloseTo(100, 1)
+        // Estimated settlement payout using on-chain formula:
+        // netAmount = 98.2 USDC (after 1.8% fee), pool = 500/500
+        // winnerTotal = 500 + 98.2 = 598.2, loserTotal = 500
+        // payout = 98.2 + (98.2 * 500) / 598.2 ≈ 98.2 + 82.05 ≈ 180.25
+        expect(result.current.potentialPayout).toBeCloseTo(180, -1)
 
         // Current probabilities: 50/50
         expect(result.current.currentProbabilities.pUp).toBe(50)

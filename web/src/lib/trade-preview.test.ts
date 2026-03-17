@@ -3,7 +3,7 @@ import {
   calculateEntryPrice,
   calculateFee,
   calculateSlippage,
-  calculatePotentialPayout,
+  estimateSettlementPayout,
   calculateProbabilityImpact,
   getReservesForDirection,
   calculatePositionPnL,
@@ -154,22 +154,81 @@ describe('trade-preview calculations', () => {
     })
   })
 
-  describe('calculatePotentialPayout', () => {
-    it('converts lamports to USDC correctly', () => {
-      // 100 shares in lamports = 100 USDC payout
-      const payout = calculatePotentialPayout(100_000_000n)
+  describe('estimateSettlementPayout', () => {
+    it('estimates ~2x payout in balanced pool (wins opposite side)', () => {
+      // 100 USDC UP bet, balanced pool (500 yes, 500 no)
+      // winnerTotal = 500 + 100 = 600, loserTotal = 500
+      // payout = 100 + (100 * 500) / 600 = 100 + 83.33 = 183.33
+      const payout = estimateSettlementPayout(
+        100_000_000n,
+        'up',
+        500_000_000n,
+        500_000_000n
+      )
+      expect(payout).toBeCloseTo(183.33, 1)
+    })
+
+    it('estimates higher payout when loser side is larger', () => {
+      // 100 USDC UP bet, skewed pool (200 yes, 800 no)
+      // winnerTotal = 200 + 100 = 300, loserTotal = 800
+      // payout = 100 + (100 * 800) / 300 = 100 + 266.67 = 366.67
+      const payout = estimateSettlementPayout(
+        100_000_000n,
+        'up',
+        200_000_000n,
+        800_000_000n
+      )
+      expect(payout).toBeCloseTo(366.67, 0)
+    })
+
+    it('estimates lower payout when winner side is larger', () => {
+      // 100 USDC UP bet, skewed pool (800 yes, 200 no)
+      // winnerTotal = 800 + 100 = 900, loserTotal = 200
+      // payout = 100 + (100 * 200) / 900 = 100 + 22.22 = 122.22
+      const payout = estimateSettlementPayout(
+        100_000_000n,
+        'up',
+        800_000_000n,
+        200_000_000n
+      )
+      expect(payout).toBeCloseTo(122.22, 0)
+    })
+
+    it('returns position amount when opposite reserves is zero (no losers)', () => {
+      // 100 USDC UP bet, no opposite reserves
+      // winnerTotal = 500 + 100 = 600, loserTotal = 0
+      // payout = 100 + (100 * 0) / 600 = 100
+      const payout = estimateSettlementPayout(
+        100_000_000n,
+        'up',
+        500_000_000n,
+        0n
+      )
       expect(payout).toBe(100)
     })
 
-    it('handles fractional amounts', () => {
-      // 50.5 shares = 50.5 USDC payout
-      const payout = calculatePotentialPayout(50_500_000n)
-      expect(payout).toBe(50.5)
+    it('handles zero net amount', () => {
+      const payout = estimateSettlementPayout(
+        0n,
+        'up',
+        500_000_000n,
+        500_000_000n
+      )
+      expect(payout).toBe(0)
     })
 
-    it('handles zero shares', () => {
-      const payout = calculatePotentialPayout(0n)
-      expect(payout).toBe(0)
+    it('handles DOWN direction correctly', () => {
+      // 100 USDC DOWN bet, pool (500 yes, 500 no)
+      // For DOWN: same = noReserves, opposite = yesReserves
+      // winnerTotal = 500 + 100 = 600, loserTotal = 500
+      // payout = 100 + (100 * 500) / 600 = 183.33
+      const payout = estimateSettlementPayout(
+        100_000_000n,
+        'down',
+        500_000_000n,
+        500_000_000n
+      )
+      expect(payout).toBeCloseTo(183.33, 1)
     })
   })
 
