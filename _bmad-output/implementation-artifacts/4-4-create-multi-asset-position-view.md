@@ -354,6 +354,7 @@ Post-implementation fix: Chart height was reduced after positions panel integrat
 - 2026-03-16: Fixed chart height regression — changed ChartArea from `min-h-*` to fixed `h-[450px]/h-[500px]/h-[550px]`, restored `h-full` on Card, kept `overflow-hidden` to prevent content overflow
 - 2026-03-16: Code review fixes — removed unused useEpoch calls from hook, rewrote hook tests to use renderHook with mocked sub-hooks, moderated chart heights to h-[400px]/h-[450px]/h-[500px], documented buy/sell hook changes in file list
 - 2026-03-17: Layout refinement — moved MultiAssetPositionsPanel from full-width below main trading area into the 70% left column (below chart), so it doesn't span under the trade ticket
+- 2026-03-17: Fix — "Your Position" not updating after buy/sell. Root cause: `useBuyPosition` invalidated `['positions']` (plural) but `useUserPosition` query key is `['position', epochPda, publicKey]` (singular), so buy didn't trigger a refetch. Added `['position']` invalidation to `useBuyPosition`. Also hid "Your Position" card when `shares === 0n` (fully sold positions were still displayed with 0 shares and 0.00 USDC entry).
 
 ### File List
 
@@ -366,5 +367,6 @@ Post-implementation fix: Chart height was reduced after positions panel integrat
 - web/src/components/trading/asset-position-row.test.tsx (new)
 - web/src/components/trading/trading-layout.tsx (modified)
 - web/src/components/trading/chart-area.tsx (modified)
-- web/src/hooks/use-buy-position.ts (modified — added positionsBatch query invalidation)
+- web/src/hooks/use-buy-position.ts (modified — added `['position']` and `['positionsBatch']` query invalidation)
 - web/src/hooks/use-sell-position.ts (modified — added positionsBatch query invalidation)
+- web/src/components/trading/your-position.tsx (modified — hide card when shares === 0n)

@@ -115,6 +115,7 @@ export function useBuyPosition() {
       // This triggers refetch of epoch, pool, and positions data
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.epoch(asset) })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.pool(asset) })
+      queryClient.invalidateQueries({ queryKey: ['position'] }) // Single position (YourPosition)
       queryClient.invalidateQueries({ queryKey: ['positions'] }) // All positions
       queryClient.invalidateQueries({ queryKey: ['positionsBatch'] })
       // Use userPubkey from mutation params (not closure) to avoid stale reference

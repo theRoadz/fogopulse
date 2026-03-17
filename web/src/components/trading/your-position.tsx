@@ -83,8 +83,8 @@ export function YourPosition({ asset, className }: YourPositionProps) {
   // Don't render while loading (avoids flash)
   if (positionLoading) return null
 
-  // Don't render if no position
-  if (!position) return null
+  // Don't render if no position or fully sold (0 shares)
+  if (!position || position.shares === 0n) return null
 
   const direction = position.direction
   const isUp = direction === 'up'
