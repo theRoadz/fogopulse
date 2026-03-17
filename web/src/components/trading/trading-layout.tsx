@@ -16,7 +16,7 @@ export function TradingLayout() {
         <div className="w-full lg:w-[70%] flex flex-col gap-4">
           <ChartArea
             asset={activeAsset}
-            className="min-h-[400px] md:min-h-[450px] lg:min-h-[500px]"
+            className="min-h-[425px] md:min-h-[475px] lg:min-h-[525px]"
           />
           <PositionsAndTradesPanel />
         </div>

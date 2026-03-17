@@ -42,14 +42,20 @@ so that the interface is cleaner now that I can switch markets from the header d
   - [x] 2.4: Kept `Asset` type import — still needed by `isValidAsset` type guard
 
 - [x] Task 3: Fix Last Settlement collapsible clipped by overflow (AC: #5)
-  - [x] 3.1: Changed `h-[400px] md:h-[450px] lg:h-[500px]` to `min-h-[400px] md:min-h-[450px] lg:min-h-[500px]` on ChartArea in `trading-layout.tsx`
+  - [x] 3.1: Changed `h-[400px] md:h-[450px] lg:h-[500px]` to `min-h-[500px] md:min-h-[550px] lg:min-h-[600px]` on ChartArea in `trading-layout.tsx`
   - [x] 3.2: Removed `overflow-hidden` and `h-full` from Card in `chart-area.tsx` — now `flex flex-col`
   - [x] 3.3: Added `overflow-hidden` to `CardContent` in `chart-area.tsx` to keep chart contained
 
-- [x] Task 4: Verification (AC: #3, #4, #5)
-  - [x] 3.1: TypeScript compilation passes with zero new errors
-  - [x] 3.2: `AssetTabs` component file and barrel export untouched
-  - [x] 3.3: Pre-existing test/build errors unchanged
+- [x] Task 4: Fix chart not filling card height after collapsible fix (AC: #5)
+  - [x] 4.1: CardContent changed to `relative flex-1 p-0 min-h-0` — `relative` enables absolute positioning for chart content
+  - [x] 4.2: Wrapped all CardContent children in `<div className="absolute inset-0">` — this gives the chart a concrete pixel-based width/height to render into, bypassing the CSS height resolution chain that `min-h-*` breaks for percentage-based children
+  - [x] 4.3: Reduced min-heights from `500px/550px/600px` to `min-h-[425px] md:min-h-[475px] lg:min-h-[525px]` in `trading-layout.tsx` for better proportions
+  - [x] 4.4: Collapsible still works because `min-h-*` (not fixed `h-*`) is on the Card, so it can grow beyond the minimum when the settlement panel expands
+
+- [x] Task 5: Verification (AC: #3, #4, #5)
+  - [x] 5.1: TypeScript compilation passes with zero new errors
+  - [x] 5.2: `AssetTabs` component file and barrel export untouched
+  - [x] 5.3: Pre-existing test/build errors unchanged
 
 ## Dev Notes
 
@@ -112,14 +118,16 @@ Claude Opus 4.6 (1M context)
 - Simplified `<TradingLayout />` call (no props)
 - `AssetTabs` component file and barrel export preserved for History page usage
 - TypeScript compiles cleanly — zero new errors
-- Fixed Last Settlement collapsible clipping: ChartArea Card had `overflow-hidden` and a fixed height (`h-[400px]`), causing the expanded `SettlementStatusPanel` to be cut off. Changed fixed height to `min-h-[400px]` in `trading-layout.tsx` so the Card can grow. Moved `overflow-hidden` from the outer Card to `CardContent` in `chart-area.tsx` so the chart stays contained but the settlement panel is not clipped.
+- Fixed Last Settlement collapsible clipping: ChartArea Card had `overflow-hidden` and a fixed height (`h-[400px]`), causing the expanded `SettlementStatusPanel` to be cut off. Changed fixed height to `min-h-[500px]` in `trading-layout.tsx` so the Card can grow. Moved `overflow-hidden` from the outer Card to `CardContent` in `chart-area.tsx` so the chart stays contained but the settlement panel is not clipped.
+- Fixed chart not filling card height: After the collapsible fix, `min-h-*` on the Card did not provide a concrete height for percentage-based children (`h-full`) to resolve against. The `h-0 + flex-1` pattern was tried but did not work. The working fix uses `relative` on CardContent with an `absolute inset-0` wrapper div inside — this gives the chart a concrete pixel-based bounding box regardless of how the parent's height is established. Min-heights were also reduced to `425px/475px/525px` for better proportions.
 
 ### Change Log
 - 2026-03-17: Story created and implemented — removed redundant asset tabs from trade page
 - 2026-03-17: Fix — Last Settlement collapsible was clipped by ChartArea Card overflow/fixed height
+- 2026-03-17: Fix — Chart not filling card height; used `relative` + `absolute inset-0` pattern on CardContent to give chart concrete dimensions
 
 ### File List
 **Modified files:**
-- `web/src/components/trading/trading-layout.tsx` — Removed AssetTabs import, interface, prop, and JSX block; changed ChartArea fixed height to min-height
-- `web/src/components/trading/chart-area.tsx` — Moved `overflow-hidden` from Card to CardContent; removed `h-full` from Card
+- `web/src/components/trading/trading-layout.tsx` — Removed AssetTabs import, interface, prop, and JSX block; changed ChartArea height to `min-h-[425px] md:min-h-[475px] lg:min-h-[525px]`
+- `web/src/components/trading/chart-area.tsx` — Card: `flex flex-col`; CardContent: `relative flex-1 p-0 min-h-0` with `absolute inset-0` wrapper for chart content
 - `web/src/app/trade/[asset]/page.tsx` — Removed handleAssetChange function and onAssetChange prop passing
