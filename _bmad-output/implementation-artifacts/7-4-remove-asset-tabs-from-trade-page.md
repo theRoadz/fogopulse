@@ -24,6 +24,7 @@ so that the interface is cleaner now that I can switch markets from the header d
 2. **Given** I use the header Markets dropdown, **When** I click a different asset, **Then** I navigate to that asset's trade page correctly (existing behavior preserved)
 3. **Given** I visit `/history`, **When** I look at the page, **Then** the asset tabs still appear and function for settlement filtering (unchanged)
 4. **Given** the codebase, **When** I inspect the `AssetTabs` component file, **Then** it still exists and is exported — it was not deleted
+5. **Given** I am on `/trade/btc`, **When** I expand the "Last Settlement" collapsible, **Then** the full `SettlementStatusPanel` is visible without being clipped, and the Positions/My Trades panel is pushed down; **When** I collapse it, **Then** the layout returns to normal
 
 ## Tasks / Subtasks
 
@@ -40,7 +41,12 @@ so that the interface is cleaner now that I can switch markets from the header d
   - [x] 2.3: Kept `useRouter` — still needed for redirect in `useEffect` (`router.replace('/trade/btc')`)
   - [x] 2.4: Kept `Asset` type import — still needed by `isValidAsset` type guard
 
-- [x] Task 3: Verification (AC: #3, #4)
+- [x] Task 3: Fix Last Settlement collapsible clipped by overflow (AC: #5)
+  - [x] 3.1: Changed `h-[400px] md:h-[450px] lg:h-[500px]` to `min-h-[400px] md:min-h-[450px] lg:min-h-[500px]` on ChartArea in `trading-layout.tsx`
+  - [x] 3.2: Removed `overflow-hidden` and `h-full` from Card in `chart-area.tsx` — now `flex flex-col`
+  - [x] 3.3: Added `overflow-hidden` to `CardContent` in `chart-area.tsx` to keep chart contained
+
+- [x] Task 4: Verification (AC: #3, #4, #5)
   - [x] 3.1: TypeScript compilation passes with zero new errors
   - [x] 3.2: `AssetTabs` component file and barrel export untouched
   - [x] 3.3: Pre-existing test/build errors unchanged
@@ -106,11 +112,14 @@ Claude Opus 4.6 (1M context)
 - Simplified `<TradingLayout />` call (no props)
 - `AssetTabs` component file and barrel export preserved for History page usage
 - TypeScript compiles cleanly — zero new errors
+- Fixed Last Settlement collapsible clipping: ChartArea Card had `overflow-hidden` and a fixed height (`h-[400px]`), causing the expanded `SettlementStatusPanel` to be cut off. Changed fixed height to `min-h-[400px]` in `trading-layout.tsx` so the Card can grow. Moved `overflow-hidden` from the outer Card to `CardContent` in `chart-area.tsx` so the chart stays contained but the settlement panel is not clipped.
 
 ### Change Log
 - 2026-03-17: Story created and implemented — removed redundant asset tabs from trade page
+- 2026-03-17: Fix — Last Settlement collapsible was clipped by ChartArea Card overflow/fixed height
 
 ### File List
 **Modified files:**
-- `web/src/components/trading/trading-layout.tsx` — Removed AssetTabs import, interface, prop, and JSX block
+- `web/src/components/trading/trading-layout.tsx` — Removed AssetTabs import, interface, prop, and JSX block; changed ChartArea fixed height to min-height
+- `web/src/components/trading/chart-area.tsx` — Moved `overflow-hidden` from Card to CardContent; removed `h-full` from Card
 - `web/src/app/trade/[asset]/page.tsx` — Removed handleAssetChange function and onAssetChange prop passing
