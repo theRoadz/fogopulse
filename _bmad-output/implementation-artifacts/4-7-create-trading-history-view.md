@@ -348,15 +348,19 @@ Claude Opus 4.6 (1M context)
 - No existing files from DO NOT modify list were changed
 - 31 tests across 5 test suites, all passing (30 original + 1 added during code review)
 - No regressions introduced (same 12 pre-existing failures)
+- Added `PositionsAndTradesPanel` wrapper on trading page: tabbed panel below chart with "Positions" (default) and "My Trades" tabs, reusing `MultiAssetPositionsPanel` and `TradingHistoryList` (auto-filtered by active asset from `useUIStore`)
+- Trading layout updated to swap `MultiAssetPositionsPanel` for `PositionsAndTradesPanel` — `/history` page remains independent with its own "ALL" filter
 
 ### Change Log
 
 - 2026-03-17: Story 4.7 implementation — Trading History View with realized PnL, aggregate stats, asset filtering, and tab navigation
 - 2026-03-17: Code review fixes — H1: consistent PnL calculation in computeTradingStats (use realizedPnl field for losses); M2: throw on unexpected claimState instead of silent misclassification; M3: handle negative timestamp diff in formatTimeAgo; added error-case test for classifyPosition
+- 2026-03-17: Added "My Trades" tab to trading page — new `PositionsAndTradesPanel` wrapper below chart, auto-filters by active asset; updated `TradingLayout` to use it
 
 ### File List
 
 **New files:**
+- web/src/components/trading/positions-and-trades-panel.tsx
 - web/src/hooks/use-trading-history.ts
 - web/src/hooks/use-trading-history.test.ts
 - web/src/components/trading/trading-history-row.tsx
@@ -372,4 +376,5 @@ Claude Opus 4.6 (1M context)
 - web/src/app/history/page.tsx — Updated metadata title to "History | FOGO Pulse"
 - web/src/lib/constants.ts — Added `tradingHistory` query key to QUERY_KEYS
 - web/src/hooks/index.ts — Added barrel export for `use-trading-history`
+- web/src/components/trading/trading-layout.tsx — Swapped `MultiAssetPositionsPanel` for `PositionsAndTradesPanel`
 - _bmad-output/implementation-artifacts/sprint-status.yaml — Status updated

@@ -5,7 +5,7 @@ import type { Asset } from '@/types/assets'
 import { AssetTabs } from './asset-tabs'
 import { ChartArea } from './chart-area'
 import { TradeTicketArea } from './trade-ticket-area'
-import { MultiAssetPositionsPanel } from './multi-asset-positions-panel'
+import { PositionsAndTradesPanel } from './positions-and-trades-panel'
 
 interface TradingLayoutProps {
   onAssetChange?: (asset: Asset) => void
@@ -29,7 +29,7 @@ export function TradingLayout({ onAssetChange }: TradingLayoutProps) {
             asset={activeAsset}
             className="h-[400px] md:h-[450px] lg:h-[500px]"
           />
-          <MultiAssetPositionsPanel />
+          <PositionsAndTradesPanel />
         </div>
 
         {/* Trade Ticket Area - 30% on desktop, full width on mobile/tablet */}
