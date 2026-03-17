@@ -14,9 +14,9 @@ export function AppLayout({
 }) {
   return (
     <>
-      <div className="flex flex-col min-h-screen">
+      <div className="flex flex-col h-screen overflow-hidden">
         <AppHeader />
-        <main className="flex-grow container mx-auto p-4">
+        <main className="flex-1 overflow-y-auto container mx-auto p-4">
           <ClusterChecker>
             <AccountChecker />
           </ClusterChecker>
