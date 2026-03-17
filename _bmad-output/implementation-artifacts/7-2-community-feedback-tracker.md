@@ -387,7 +387,7 @@ export function truncateWallet(address: string): string {
 
 | File | Change |
 |------|--------|
-| `web/package.json` | Add `firebase-admin` dependency |
+| `web/package.json` | Add `firebase-admin` and `tweetnacl` dependencies |
 | `web/src/lib/constants.ts` | Add feedback keys to `QUERY_KEYS` |
 | `web/src/app/layout.tsx` | Add Feedback nav link to `links` array |
 | `web/.env.example` | Add `ADMIN_WALLETS`, `FEEDBACK_RATE_LIMIT`, `FIREBASE_SERVICE_ACCOUNT_KEY` |
@@ -411,8 +411,8 @@ Non-admin GET now runs two Firestore queries (non-critical + resolved-critical) 
 **H2 — Race condition on replyCount fixed** (`web/src/app/api/feedback/[id]/reply/route.ts`)
 Replaced read-then-write pattern with `FieldValue.increment(1)` for atomic counter updates.
 
-**H3 — Removed duplicate tweetnacl dependency** (`web/package.json`)
-Removed direct `tweetnacl` dep; it's already a transitive dep of `@solana/web3.js`.
+**H3 — ~~Removed duplicate tweetnacl dependency~~ Re-added as direct dependency** (`web/package.json`)
+Originally removed direct `tweetnacl` dep assuming it was a transitive dep of `@solana/web3.js`. However, Vercel production builds tree-shake transitive deps, causing `verify-signature.ts` to fail with "module not found". Re-added `tweetnacl` as an explicit direct dependency.
 
 **H4 — Added signature verification to PATCH endpoint** (`web/src/app/api/feedback/[id]/route.ts`, `web/src/hooks/use-update-status.ts`)
 PATCH now requires Ed25519 wallet signature to prove admin identity, preventing status spoofing.

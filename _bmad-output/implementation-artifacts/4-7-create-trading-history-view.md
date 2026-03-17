@@ -358,6 +358,7 @@ Claude Opus 4.6 (1M context)
 - 2026-03-17: Code review fixes — H1: consistent PnL calculation in computeTradingStats (use realizedPnl field for losses); M2: throw on unexpected claimState instead of silent misclassification; M3: handle negative timestamp diff in formatTimeAgo; added error-case test for classifyPosition
 - 2026-03-17: Added "My Trades" tab to trading page — new `PositionsAndTradesPanel` wrapper below chart, auto-filters by active asset; updated `TradingLayout` to use it
 - 2026-03-17: Redesign — My Trades rows as collapsible cards with inline claim buttons and expandable settlement details
+- 2026-03-17: Vercel deploy fix — Added `export const dynamic = 'force-dynamic'` to `web/src/app/history/page.tsx` because `HistoryFeature` uses `useSearchParams()` which causes prerender errors during static generation
 
 ### File List
 
