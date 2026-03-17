@@ -80,18 +80,8 @@ export function TradingHistoryList({ assetFilter, className }: TradingHistoryLis
     <div className={cn('w-full space-y-3', className)} data-testid="trading-history-list">
       <TradingStatsBar stats={stats} />
 
-      {/* Column headers */}
-      <div className="flex items-center gap-2 px-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-        <span className="w-12">Asset</span>
-        <span className="w-3.5" /> {/* Direction icon spacer */}
-        <span className="w-16">Amount</span>
-        <span className="w-16">Outcome</span>
-        <span className="w-20">PnL</span>
-        <span className="ml-auto">Time</span>
-      </div>
-
-      <ScrollArea className="max-h-[400px]">
-        <div className="space-y-0.5">
+      <ScrollArea className="max-h-[600px]">
+        <div className="space-y-1">
           {history.map((entry) => (
             <TradingHistoryRow
               key={`${entry.asset}-${entry.epochId.toString()}`}

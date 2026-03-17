@@ -350,12 +350,14 @@ Claude Opus 4.6 (1M context)
 - No regressions introduced (same 12 pre-existing failures)
 - Added `PositionsAndTradesPanel` wrapper on trading page: tabbed panel below chart with "Positions" (default) and "My Trades" tabs, reusing `MultiAssetPositionsPanel` and `TradingHistoryList` (auto-filtered by active asset from `useUIStore`)
 - Trading layout updated to swap `MultiAssetPositionsPanel` for `PositionsAndTradesPanel` — `/history` page remains independent with its own "ALL" filter
+- Redesigned My Trades rows: `TradingHistoryRow` now uses `Collapsible` for expand/collapse. Collapsed row shows asset, direction, amount, outcome badge, PnL, inline claim button (for unclaimed won/refund trades), and time ago. Expanded row renders `SettlementStatusPanel` with full epoch settlement details (start/settlement prices, confidence, outcome, verification links). Rows have larger padding (`py-3 px-3`), hover states, and card-like feel. Column headers removed from `TradingHistoryList`. Max height increased from 400px to 600px.
 
 ### Change Log
 
 - 2026-03-17: Story 4.7 implementation — Trading History View with realized PnL, aggregate stats, asset filtering, and tab navigation
 - 2026-03-17: Code review fixes — H1: consistent PnL calculation in computeTradingStats (use realizedPnl field for losses); M2: throw on unexpected claimState instead of silent misclassification; M3: handle negative timestamp diff in formatTimeAgo; added error-case test for classifyPosition
 - 2026-03-17: Added "My Trades" tab to trading page — new `PositionsAndTradesPanel` wrapper below chart, auto-filters by active asset; updated `TradingLayout` to use it
+- 2026-03-17: Redesign — My Trades rows as collapsible cards with inline claim buttons and expandable settlement details
 
 ### File List
 

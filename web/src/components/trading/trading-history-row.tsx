@@ -1,12 +1,23 @@
 'use client'
 
-import { ArrowUp, ArrowDown } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowUp, ArrowDown, ChevronDown, ChevronRight, CheckCircle, Loader2 } from 'lucide-react'
+import { useWallet } from '@solana/wallet-adapter-react'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
 import { ASSET_METADATA } from '@/lib/constants'
 import { formatUsdcAmount } from '@/hooks/use-claimable-amount'
+import { useClaimPosition } from '@/hooks/use-claim-position'
 import type { TradingHistoryEntry } from '@/hooks/use-trading-history'
+
+import { SettlementStatusPanel } from './settlement-status-panel'
 
 /**
  * Format a Unix timestamp as relative "time ago" string
@@ -40,6 +51,10 @@ interface TradingHistoryRowProps {
 }
 
 export function TradingHistoryRow({ entry, className }: TradingHistoryRowProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const { publicKey } = useWallet()
+  const claimMutation = useClaimPosition()
+
   const badge = getOutcomeBadge(entry.outcome)
   const DirectionIcon = entry.direction === 'up' ? ArrowUp : ArrowDown
   const directionColor = entry.direction === 'up' ? 'text-up' : 'text-down'
@@ -60,58 +75,131 @@ export function TradingHistoryRow({ entry, className }: TradingHistoryRowProps) 
           ? 'text-down'
           : 'text-muted-foreground'
 
+  // Determine if this trade is claimable
+  const isClaimable =
+    !entry.position.claimed &&
+    (entry.outcome === 'won' || entry.outcome === 'refund') &&
+    entry.payoutAmount !== null &&
+    entry.payoutAmount > 0n
+
+  const handleClaim = (e: React.MouseEvent) => {
+    e.stopPropagation() // Don't toggle collapsible
+    if (!publicKey || !entry.epochPda || !entry.payoutAmount) return
+
+    const displayAmount = formatUsdcAmount(entry.payoutAmount)
+    claimMutation.mutate({
+      asset: entry.asset,
+      type: entry.outcome === 'won' ? 'payout' : 'refund',
+      epochPda: entry.epochPda,
+      userPubkey: publicKey.toString(),
+      displayAmount,
+    })
+  }
+
   return (
-    <div
-      className={cn(
-        'flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm',
-        className
-      )}
-      data-testid="trading-history-row"
-    >
-      {/* Asset */}
-      <span
-        className={cn('w-12 shrink-0 text-xs font-semibold', ASSET_METADATA[entry.asset].color)}
-        data-testid="trade-asset"
-      >
-        {ASSET_METADATA[entry.asset].label}
-      </span>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} data-testid="trading-history-row">
+      <CollapsibleTrigger asChild>
+        <button
+          className={cn(
+            'flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm transition-colors hover:bg-muted/50',
+            isOpen && 'bg-muted/30',
+            className
+          )}
+        >
+          {/* Expand icon */}
+          {isOpen ? (
+            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          )}
 
-      {/* Direction */}
-      <span className={cn('shrink-0', directionColor)} data-testid="trade-direction">
-        <DirectionIcon className="h-3.5 w-3.5" />
-      </span>
+          {/* Asset */}
+          <span
+            className={cn('w-12 shrink-0 text-sm font-semibold', ASSET_METADATA[entry.asset].color)}
+            data-testid="trade-asset"
+          >
+            {ASSET_METADATA[entry.asset].label}
+          </span>
 
-      {/* Amount invested */}
-      <span className="w-16 shrink-0 text-xs text-foreground" data-testid="trade-amount">
-        ${formatUsdcAmount(entry.amountInvested)}
-      </span>
+          {/* Direction */}
+          <span className={cn('shrink-0', directionColor)} data-testid="trade-direction">
+            <DirectionIcon className="h-4 w-4" />
+          </span>
 
-      {/* Outcome badge */}
-      <Badge
-        variant="outline"
-        className={cn(
-          'shrink-0 px-1.5 py-0.5 text-[10px] font-semibold',
-          badge.bgClass,
-          badge.textClass,
-          badge.borderClass
-        )}
-        data-testid="trade-outcome"
-      >
-        {badge.label}
-      </Badge>
+          {/* Amount invested */}
+          <span className="w-20 shrink-0 text-sm text-foreground" data-testid="trade-amount">
+            ${formatUsdcAmount(entry.amountInvested)}
+          </span>
 
-      {/* Realized PnL */}
-      <span
-        className={cn('w-20 shrink-0 text-xs font-medium', pnlColor)}
-        data-testid="trade-pnl"
-      >
-        {pnlDisplay}
-      </span>
+          {/* Outcome badge */}
+          <Badge
+            variant="outline"
+            className={cn(
+              'shrink-0 px-2 py-0.5 text-xs font-semibold',
+              badge.bgClass,
+              badge.textClass,
+              badge.borderClass
+            )}
+            data-testid="trade-outcome"
+          >
+            {badge.label}
+          </Badge>
 
-      {/* Time ago */}
-      <span className="ml-auto shrink-0 text-xs text-muted-foreground" data-testid="trade-time">
-        {formatTimeAgo(entry.settlementTime)}
-      </span>
-    </div>
+          {/* Realized PnL */}
+          <span
+            className={cn('w-24 shrink-0 text-sm font-medium', pnlColor)}
+            data-testid="trade-pnl"
+          >
+            {pnlDisplay}
+          </span>
+
+          {/* Claim button or Claimed badge */}
+          <span className="shrink-0">
+            {isClaimable ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className={cn(
+                  'h-7 gap-1 px-2 text-xs font-medium',
+                  entry.outcome === 'won'
+                    ? 'border-up/40 text-up hover:bg-up/10'
+                    : 'border-warning/40 text-warning hover:bg-warning/10'
+                )}
+                onClick={handleClaim}
+                disabled={claimMutation.isPending}
+              >
+                {claimMutation.isPending ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  entry.outcome === 'won' ? 'Claim' : 'Refund'
+                )}
+              </Button>
+            ) : entry.position.claimed ? (
+              <Badge
+                variant="outline"
+                className="gap-1 border-muted-foreground/30 bg-muted/30 px-2 py-0.5 text-xs text-muted-foreground"
+              >
+                <CheckCircle className="h-3 w-3" />
+                Claimed
+              </Badge>
+            ) : null}
+          </span>
+
+          {/* Time ago */}
+          <span className="ml-auto shrink-0 text-xs text-muted-foreground" data-testid="trade-time">
+            {formatTimeAgo(entry.settlementTime)}
+          </span>
+        </button>
+      </CollapsibleTrigger>
+
+      <CollapsibleContent className="px-3 pb-3 pt-1">
+        <SettlementStatusPanel
+          asset={entry.asset}
+          settlementData={entry.settlement}
+          title={`Epoch #${entry.epochId.toString()} Settlement`}
+          className="border-0 shadow-none bg-muted/20"
+        />
+      </CollapsibleContent>
+    </Collapsible>
   )
 }
