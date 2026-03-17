@@ -98,29 +98,15 @@ describe('GET /api/feedback', () => {
     expect(json.issues[0].title).toBe('Test issue')
   })
 
-  it('should filter hidden criticals for non-admins', async () => {
-    const mockCritical = {
-      id: 'crit-1',
-      data: () => ({
-        title: 'Critical issue',
-        category: 'critical',
-        status: 'open',
-        walletAddress: VALID_WALLET,
-        visibility: 'hidden',
-        replyCount: 0,
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-        isAdmin: false,
-      }),
-    }
-    mockFirestore.countGet.mockResolvedValue({ data: () => ({ count: 1 }) })
-    mockFirestore.get.mockResolvedValue({ docs: [mockCritical] })
-
+  it('should query visibility==public for non-admins (critical filtering at query level)', async () => {
+    // With the visibility-based query approach, non-admin GET filters at Firestore
+    // query level using where('visibility', '==', 'public'). Verify the query is
+    // constructed correctly by checking that .where is called with visibility filter.
     const req = new NextRequest('http://localhost/api/feedback')
     const res = await GET(req)
-    const json = await res.json()
 
-    expect(json.issues).toHaveLength(0)
+    expect(res.status).toBe(200)
+    expect(mockFirestore.where).toHaveBeenCalledWith('visibility', '==', 'public')
   })
 
   it('should show hidden criticals for admins', async () => {

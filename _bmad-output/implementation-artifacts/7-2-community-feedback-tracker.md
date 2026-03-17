@@ -50,9 +50,11 @@ feedback/                          # Collection
     category: string               # 'feedback' | 'bug' | 'critical' | 'feature-request'
     title: string
     description: string
-    status: string                 # 'open' | 'in-progress' | 'resolved' | 'wont-fix'
+    status: string                 # 'open' | 'in-progress' | 'resolved' | 'wont-fix' | 'closed'
     visibility: string             # 'public' | 'hidden'
     replyCount: number             # Denormalized for list display
+    upvoteCount: number            # Denormalized upvote count
+    upvoters: string[]             # Wallet addresses that upvoted
     createdAt: Timestamp
     updatedAt: Timestamp
     signature: string              # Ed25519 signature (base64)
@@ -72,10 +74,12 @@ feedback/                          # Collection
 
 | Route | Method | Purpose |
 |-------|--------|---------|
-| `/api/feedback` | GET | List issues (query: category, status, page, limit). Excludes hidden criticals for non-admins. |
-| `/api/feedback` | POST | Create issue. Verify wallet signature, enforce rate limit, auto-hide criticals. |
-| `/api/feedback/[id]` | GET | Get single issue with replies. |
+| `/api/feedback` | GET | List issues (query: category, status, page, limit). Excludes hidden criticals for non-admins. Strips `upvoters` array from response. |
+| `/api/feedback` | POST | Create issue. Verify wallet signature, enforce rate limit, auto-hide criticals. Initializes `upvoteCount: 0, upvoters: []`. |
+| `/api/feedback/[id]` | GET | Get single issue with replies. Includes `upvoters` array for client-side upvote state. |
 | `/api/feedback/[id]` | PATCH | Update status (admin only). Auto-unhide criticals when resolved. |
+| `/api/feedback/[id]` | DELETE | Delete issue + all replies. Requires wallet signature. Author or admin only. |
+| `/api/feedback/[id]/upvote` | POST | Toggle upvote. No signature required (low-stakes). Uses Firestore transaction with `arrayUnion`/`arrayRemove`. |
 | `/api/feedback/[id]/reply` | POST | Create reply. Verify wallet signature, enforce rate limit. |
 | `/api/feedback/admin-check` | GET | Check if wallet is admin. Returns `{ isAdmin: boolean }`. |
 
@@ -177,7 +181,7 @@ export const db = getFirebaseAdmin()
 ```typescript
 // web/src/types/feedback.ts
 export type IssueCategory = 'feedback' | 'bug' | 'critical' | 'feature-request'
-export type IssueStatus = 'open' | 'in-progress' | 'resolved' | 'wont-fix'
+export type IssueStatus = 'open' | 'in-progress' | 'resolved' | 'wont-fix' | 'closed'
 
 export interface FeedbackIssue {
   id: string
@@ -188,6 +192,8 @@ export interface FeedbackIssue {
   status: IssueStatus
   visibility: 'public' | 'hidden'
   replyCount: number
+  upvoteCount: number
+  upvoters?: string[]      // wallet addresses; only in detail response
   createdAt: string        // ISO 8601
   updatedAt: string
   isAdmin: boolean         // Whether poster is an admin wallet
@@ -293,6 +299,7 @@ FEEDBACK_ADMIN_CHECK: (wallet?: string) => ['feedback-admin', wallet] as const,
 - In Progress: Yellow (`bg-yellow-500/10 text-yellow-500`)
 - Resolved: Green (`bg-green-500/10 text-green-500`)
 - Won't Fix: Gray/muted
+- Closed: Gray/muted (replies blocked)
 
 ### shadcn/ui Components to Use (already installed)
 - `Card`, `CardContent`, `CardHeader` — issue cards
@@ -382,6 +389,13 @@ export function truncateWallet(address: string): string {
 | `web/src/app/api/feedback/admin-check/route.test.ts` | Admin check route tests |
 | `web/src/lib/feedback-constants.ts` | Server-only rate limit constants |
 | `web/src/components/ui/textarea.tsx` | shadcn Textarea component |
+| `web/src/app/api/feedback/[id]/upvote/route.ts` | POST toggle upvote (Firestore transaction, no signature) |
+| `web/src/hooks/use-upvote.ts` | Mutation hook for upvote toggle |
+| `web/src/hooks/use-delete-issue.ts` | Mutation hook for issue deletion with wallet signature |
+| `web/src/app/api/feedback/[id]/route.test.ts` | Tests for GET detail, PATCH status, DELETE issue |
+| `web/src/app/api/feedback/[id]/reply/route.test.ts` | Tests for POST reply (auth, rate limit, closed) |
+| `web/src/app/api/feedback/[id]/upvote/route.test.ts` | Tests for POST upvote (toggle, hidden critical) |
+| `web/src/lib/feedback-utils.test.ts` | Tests for formatRelativeTime, truncateWallet, sanitizeInput |
 
 ## Files Modified
 
@@ -391,7 +405,7 @@ export function truncateWallet(address: string): string {
 | `web/src/lib/constants.ts` | Add feedback keys to `QUERY_KEYS` |
 | `web/src/app/layout.tsx` | Add Feedback nav link to `links` array |
 | `web/.env.example` | Add `ADMIN_WALLETS`, `FEEDBACK_RATE_LIMIT`, `FIREBASE_SERVICE_ACCOUNT_KEY` |
-| `web/src/hooks/index.ts` | Export feedback hooks |
+| `web/src/hooks/index.ts` | Export feedback hooks (including use-upvote, use-delete-issue) |
 
 ## Dev Agent Record
 
@@ -428,3 +442,57 @@ Moved `FEEDBACK_RATE_LIMIT` and `FEEDBACK_REPLY_RATE_LIMIT` from shared `constan
 
 **UI — Widened feedback page container** (`web/src/components/feedback/feedback-feature.tsx`)
 Changed `max-w-3xl` → `max-w-5xl` for a wider layout.
+
+#### 2026-03-17 — Upvote & Delete Features
+
+**Upvote — Toggle upvote on feedback issues**
+- Added `upvoteCount` (number) and `upvoters` (string[]) fields to Firestore feedback docs and `FeedbackIssue` type
+- Created `POST /api/feedback/[id]/upvote` route — no wallet signature required (low-friction UX). Uses Firestore transaction with `arrayUnion`/`arrayRemove` + `increment` for atomic toggle
+- Created `use-upvote.ts` hook — `useMutation` that POSTs wallet address, invalidates list + detail queries
+- `feedback-card.tsx` — shows upvote count (ArrowBigUp icon) in metadata row when count > 0
+- `feedback-detail-dialog.tsx` — interactive upvote button with highlighted state when current wallet has upvoted. Disabled when no wallet connected
+- `GET /api/feedback` (list) — strips `upvoters` array from response to keep payloads small; only `upvoteCount` is sent. Detail GET includes full `upvoters` for client-side state
+- `POST /api/feedback` (create) — initializes `upvoteCount: 0, upvoters: []` on new issues
+
+**Delete — Author or admin can delete issues**
+- Added `DELETE /api/feedback/[id]` handler — requires Ed25519 wallet signature (`FogoPulse Delete:` prefix). Verifies author ownership or admin status. Batch-deletes all replies subcollection docs, then deletes the issue
+- Extended `validateSignedMessage` in `verify-signature.ts` to accept `'delete'` type with `FogoPulse Delete:` prefix
+- Created `use-delete-issue.ts` hook — `useMutation` that signs message, sends DELETE, toasts success, invalidates list, calls `onDeleted` callback
+- `feedback-detail-dialog.tsx` — trash icon button in dialog header, visible only to issue author or admin. Uses `window.confirm` for deletion confirmation
+
+#### 2026-03-17 — Closed Status (Block Replies)
+
+**Added `'closed'` as a new `IssueStatus` value** — distinct from `resolved`/`wont-fix`, which remain open for discussion.
+
+- `web/src/types/feedback.ts` — added `'closed'` to `IssueStatus` union
+- `web/src/components/feedback/feedback-card.tsx` — added `closed` entry to `STATUS_CONFIG` (gray/muted badge)
+- `web/src/components/feedback/feedback-feature.tsx` — added `Closed` to status filter dropdown
+- `web/src/app/api/feedback/[id]/route.ts` — added `'closed'` to `VALID_STATUSES` for admin PATCH
+- `web/src/app/api/feedback/[id]/reply/route.ts` — server-side enforcement: returns 403 when issue status is `'closed'`
+- `web/src/components/feedback/reply-form.tsx` — added `isClosed` prop; shows "This issue is closed and no longer accepts replies" message instead of the form
+- `web/src/components/feedback/feedback-detail-dialog.tsx` — added `'closed'` to admin status dropdown, passes `isClosed` prop to `ReplyForm`
+
+#### 2026-03-17 — Code Review #2 Fixes (AI Review)
+
+**H1 — Non-admin pagination fix** (`web/src/app/api/feedback/route.ts`)
+Replaced broken dual-query approach (two independent offset/limit queries causing pagination gaps) with single `visibility == 'public'` query. Hidden criticals are excluded at query level since they have `visibility: 'hidden'` on creation.
+
+**H2 — Upvote hidden-issue leakage** (`web/src/app/api/feedback/[id]/upvote/route.ts`)
+Added hidden-critical visibility check inside transaction — non-admin upvoting a hidden critical now returns 404 instead of leaking issue existence.
+
+**H3 — Batch delete 500-doc limit** (`web/src/app/api/feedback/[id]/route.ts`)
+DELETE handler now chunks reply subcollection deletions in batches of 500 to respect Firestore batch operation limit.
+
+**H4 — Story task checkboxes** — All tasks still marked `[ ]` despite being implemented. Deferred to dev to reconcile.
+
+**M1 — Improved sanitizeInput** (`web/src/lib/feedback-utils.ts`)
+Regex updated from `/<[^>]*>/g` to `/<[^>]*>?/g` to catch unclosed HTML tags like `<script`.
+
+**M3 — Added missing route tests** (3 new test files)
+- `[id]/route.test.ts` — 12 tests covering GET detail (critical hiding, admin), PATCH (auth, admin, invalid status, auto-unhide), DELETE (author, admin, non-author, sig, 404)
+- `[id]/reply/route.test.ts` — 7 tests covering POST reply (create, validation, auth, closed-issue blocking, rate limiting)
+- `[id]/upvote/route.test.ts` — 7 tests covering POST upvote (toggle on/off, validation, hidden critical, admin bypass)
+- Updated `route.test.ts` critical-filter test to verify visibility query approach
+
+**M4 — Fixed useDeleteIssue callback anti-pattern** (`use-delete-issue.ts`, `feedback-detail-dialog.tsx`)
+Removed `onDeleted` from mutation input (functions can't serialize for TanStack Query dedup). Now passed via `mutate({}, { onSuccess })` second arg.

@@ -9,12 +9,21 @@ import { useCreateReply } from '@/hooks/use-create-reply'
 
 interface ReplyFormProps {
   issueId: string
+  isClosed?: boolean
 }
 
-export function ReplyForm({ issueId }: ReplyFormProps) {
+export function ReplyForm({ issueId, isClosed }: ReplyFormProps) {
   const { connected } = useWallet()
   const { mutate: createReply, isPending } = useCreateReply()
   const [content, setContent] = useState('')
+
+  if (isClosed) {
+    return (
+      <div className="rounded-lg border border-dashed p-4 text-center">
+        <p className="text-sm text-muted-foreground">This issue is closed and no longer accepts replies.</p>
+      </div>
+    )
+  }
 
   if (!connected) {
     return (

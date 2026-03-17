@@ -48,6 +48,15 @@ export async function POST(
       return NextResponse.json({ error: 'Issue not found' }, { status: 404 })
     }
 
+    // Block replies on closed issues
+    const issueData = issueDoc.data()!
+    if (issueData.status === 'closed') {
+      return NextResponse.json(
+        { error: 'This issue is closed and no longer accepts replies.' },
+        { status: 403 }
+      )
+    }
+
     // Rate limiting: count replies from this wallet in the last hour
     // Query across all reply subcollections for this wallet using a collection group query
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()

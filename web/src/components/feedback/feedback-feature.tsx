@@ -33,6 +33,7 @@ const STATUS_OPTIONS: { value: IssueStatus | 'all'; label: string }[] = [
   { value: 'in-progress', label: 'In Progress' },
   { value: 'resolved', label: 'Resolved' },
   { value: 'wont-fix', label: "Won't Fix" },
+  { value: 'closed', label: 'Closed' },
 ]
 
 export function FeedbackFeature() {

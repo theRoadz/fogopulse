@@ -12,7 +12,8 @@ export function truncateWallet(address: string): string {
 
 /**
  * Strip HTML tags from user input to prevent XSS.
+ * Handles unclosed tags, nested angles, and common evasion patterns.
  */
 export function sanitizeInput(input: string): string {
-  return input.replace(/<[^>]*>/g, '')
+  return input.replace(/<[^>]*>?/g, '')
 }

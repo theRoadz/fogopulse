@@ -26,75 +26,32 @@ export async function GET(request: NextRequest) {
     const db = getDb()
     const offset = (page - 1) * limit
 
-    // For non-admins, exclude unresolved critical issues at the query level
-    // to avoid pagination gaps and data leaks.
-    // Firestore doesn't support OR/!= natively, so we run two queries:
-    //   1. All non-critical issues (with filters)
-    //   2. Resolved critical issues (with filters)
-    // For admins, a single query suffices.
+    // For non-admins, use the visibility field to exclude hidden issues
+    // (unresolved critical issues are auto-set to visibility='hidden' on creation
+    // and auto-set to visibility='public' on resolution). A single query on
+    // visibility=='public' gives correct results with straightforward pagination.
     if (!isAdmin) {
-      let nonCriticalQuery = db
+      let query = db
         .collection('feedback')
-        .where('category', '!=', 'critical')
-        .orderBy('category')
-        .orderBy('createdAt', 'desc') as FirebaseFirestore.Query
-
-      let resolvedCriticalQuery = db
-        .collection('feedback')
-        .where('category', '==', 'critical')
-        .where('status', '==', 'resolved')
+        .where('visibility', '==', 'public')
         .orderBy('createdAt', 'desc') as FirebaseFirestore.Query
 
       if (category && VALID_CATEGORIES.includes(category as IssueCategory)) {
-        if (category === 'critical') {
-          // Non-admin filtering critical: only show resolved
-          nonCriticalQuery = null as unknown as FirebaseFirestore.Query
-          resolvedCriticalQuery = resolvedCriticalQuery // already filtered
-        } else {
-          // Non-critical category selected: no resolved-critical results needed
-          nonCriticalQuery = db
-            .collection('feedback')
-            .where('category', '==', category)
-            .orderBy('createdAt', 'desc') as FirebaseFirestore.Query
-          resolvedCriticalQuery = null as unknown as FirebaseFirestore.Query
-        }
+        query = query.where('category', '==', category)
       }
 
       if (status) {
-        if (nonCriticalQuery) nonCriticalQuery = nonCriticalQuery.where('status', '==', status)
-        if (resolvedCriticalQuery) {
-          // resolved-critical already has status=='resolved', skip if conflicting
-          if (status !== 'resolved') resolvedCriticalQuery = null as unknown as FirebaseFirestore.Query
-        }
+        query = query.where('status', '==', status)
       }
 
-      // Count totals
-      const [nonCritCount, resolvedCritCount] = await Promise.all([
-        nonCriticalQuery ? nonCriticalQuery.count().get() : Promise.resolve(null),
-        resolvedCriticalQuery ? resolvedCriticalQuery.count().get() : Promise.resolve(null),
-      ])
-      const total =
-        (nonCritCount?.data().count ?? 0) + (resolvedCritCount?.data().count ?? 0)
+      const countSnapshot = await query.count().get()
+      const total = countSnapshot.data().count
+      const snapshot = await query.offset(offset).limit(limit).get()
 
-      // Fetch paginated results from both queries and merge by createdAt desc
-      const [nonCritSnap, resolvedCritSnap] = await Promise.all([
-        nonCriticalQuery
-          ? nonCriticalQuery.offset(offset).limit(limit).get()
-          : Promise.resolve(null),
-        resolvedCriticalQuery
-          ? resolvedCriticalQuery.offset(offset).limit(limit).get()
-          : Promise.resolve(null),
-      ])
-
-      const allDocs = [
-        ...(nonCritSnap?.docs ?? []),
-        ...(resolvedCritSnap?.docs ?? []),
-      ]
-      // Sort merged results by createdAt descending, then take `limit` items
-      const issues: FeedbackIssue[] = allDocs
-        .map((doc) => ({ id: doc.id, ...(doc.data() as Omit<FeedbackIssue, 'id'>) }))
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, limit)
+      const issues: FeedbackIssue[] = snapshot.docs.map((doc) => {
+        const { upvoters, ...rest } = doc.data() as Omit<FeedbackIssue, 'id'> & { upvoters?: string[] }
+        return { id: doc.id, ...rest, upvoteCount: rest.upvoteCount || 0 }
+      })
 
       return NextResponse.json({
         issues,
@@ -120,10 +77,10 @@ export async function GET(request: NextRequest) {
     const total = countSnapshot.data().count
     const snapshot = await query.offset(offset).limit(limit).get()
 
-    const issues: FeedbackIssue[] = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...(doc.data() as Omit<FeedbackIssue, 'id'>),
-    }))
+    const issues: FeedbackIssue[] = snapshot.docs.map((doc) => {
+      const { upvoters, ...rest } = doc.data() as Omit<FeedbackIssue, 'id'> & { upvoters?: string[] }
+      return { id: doc.id, ...rest, upvoteCount: rest.upvoteCount || 0 }
+    })
 
     return NextResponse.json({
       issues,
@@ -204,6 +161,8 @@ export async function POST(request: NextRequest) {
       status: 'open' as const,
       visibility: isCritical ? ('hidden' as const) : ('public' as const),
       replyCount: 0,
+      upvoteCount: 0,
+      upvoters: [],
       createdAt: now,
       updatedAt: now,
       signature,

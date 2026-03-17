@@ -1,6 +1,6 @@
 'use client'
 
-import { Bug, Lightbulb, MessageSquare, AlertTriangle, EyeOff } from 'lucide-react'
+import { Bug, Lightbulb, MessageSquare, AlertTriangle, EyeOff, ArrowBigUp } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { formatRelativeTime, truncateWallet } from '@/lib/feedback-utils'
@@ -18,6 +18,7 @@ const STATUS_CONFIG: Record<IssueStatus, { label: string; className: string }> =
   'in-progress': { label: 'In Progress', className: 'bg-yellow-500/10 text-yellow-500' },
   resolved: { label: 'Resolved', className: 'bg-green-500/10 text-green-500' },
   'wont-fix': { label: "Won't Fix", className: 'bg-muted text-muted-foreground' },
+  closed: { label: 'Closed', className: 'bg-muted text-muted-foreground' },
 }
 
 interface FeedbackCardProps {
@@ -65,6 +66,15 @@ export function FeedbackCard({ issue, isAdmin, onClick }: FeedbackCardProps) {
             <span>{formatRelativeTime(issue.createdAt)}</span>
             <span>·</span>
             <span>{issue.replyCount} {issue.replyCount === 1 ? 'reply' : 'replies'}</span>
+            {(issue.upvoteCount || 0) > 0 && (
+              <>
+                <span>·</span>
+                <span className="flex items-center gap-0.5">
+                  <ArrowBigUp className="h-3 w-3" />
+                  {issue.upvoteCount}
+                </span>
+              </>
+            )}
           </div>
         </div>
       </div>

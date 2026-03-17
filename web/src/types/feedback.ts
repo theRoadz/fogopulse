@@ -1,5 +1,5 @@
 export type IssueCategory = 'feedback' | 'bug' | 'critical' | 'feature-request'
-export type IssueStatus = 'open' | 'in-progress' | 'resolved' | 'wont-fix'
+export type IssueStatus = 'open' | 'in-progress' | 'resolved' | 'wont-fix' | 'closed'
 
 export interface FeedbackIssue {
   id: string
@@ -10,6 +10,8 @@ export interface FeedbackIssue {
   status: IssueStatus
   visibility: 'public' | 'hidden'
   replyCount: number
+  upvoteCount: number
+  upvoters?: string[] // wallet addresses; only present in detail response
   createdAt: string // ISO 8601
   updatedAt: string
   isAdmin: boolean // Whether poster is an admin wallet

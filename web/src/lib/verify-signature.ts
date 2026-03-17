@@ -26,9 +26,14 @@ export function verifyWalletSignature(
  */
 export function validateSignedMessage(
   message: string,
-  type: 'feedback' | 'reply'
+  type: 'feedback' | 'reply' | 'delete'
 ): { valid: boolean; error?: string } {
-  const prefix = type === 'feedback' ? 'FogoPulse Feedback: ' : 'FogoPulse Reply: '
+  const prefixes: Record<string, string> = {
+    feedback: 'FogoPulse Feedback: ',
+    reply: 'FogoPulse Reply: ',
+    delete: 'FogoPulse Delete: ',
+  }
+  const prefix = prefixes[type]
 
   if (!message.startsWith(prefix)) {
     return { valid: false, error: 'Invalid message format' }
