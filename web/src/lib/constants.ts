@@ -178,6 +178,8 @@ export const QUERY_KEYS = {
     userPubkey ? (['positions', userPubkey] as const) : (['positions'] as const),
   usdcBalance: (userPubkey?: string) =>
     userPubkey ? (['usdc-balance', userPubkey] as const) : (['usdc-balance'] as const),
+  tradingHistory: (userPubkey?: string, asset?: string) =>
+    userPubkey ? (['tradingHistory', userPubkey, asset] as const) : (['tradingHistory'] as const),
   feedback: (filters?: Record<string, string>) => ['feedback', filters] as const,
   feedbackDetail: (id: string) => ['feedback', id] as const,
   feedbackAdminCheck: (wallet?: string) => ['feedback-admin', wallet] as const,

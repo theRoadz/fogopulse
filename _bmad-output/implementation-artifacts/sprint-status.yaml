@@ -94,7 +94,7 @@ development_status:
   4-4-create-multi-asset-position-view: done
   4-5-implement-early-exit-ui: done
   4-6-add-cap-warning-indicators: done
-  4-7-create-trading-history-view: backlog
+  4-7-create-trading-history-view: done
   epic-4-retrospective: optional
 
   # Epic 5: Liquidity Provision
