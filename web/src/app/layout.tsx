@@ -20,20 +20,12 @@ export const metadata: Metadata = {
   description: 'Prediction market on FOGO chain',
 }
 
-const links: { label: string; path: string }[] = [
-  { label: 'Trade', path: '/trade' },
-  { label: 'Account', path: '/account' },
-  { label: 'History', path: '/history' },
-  { label: 'Faucet', path: '/faucet' },
-  { label: 'Feedback', path: '/feedback' },
-]
-
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
         <AppProviders>
-          <AppLayout links={links}>{children}</AppLayout>
+          <AppLayout>{children}</AppLayout>
         </AppProviders>
       </body>
     </html>

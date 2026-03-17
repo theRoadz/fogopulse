@@ -9,15 +9,13 @@ import { AccountChecker } from '@/components/account/account-ui'
 
 export function AppLayout({
   children,
-  links,
 }: {
   children: React.ReactNode
-  links: { label: string; path: string }[]
 }) {
   return (
     <>
       <div className="flex flex-col min-h-screen">
-        <AppHeader links={links} />
+        <AppHeader />
         <main className="flex-grow container mx-auto p-4">
           <ClusterChecker>
             <AccountChecker />

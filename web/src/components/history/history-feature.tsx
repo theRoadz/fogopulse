@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 import { useUIStore } from '@/stores/ui-store'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -12,6 +13,9 @@ import { ASSET_METADATA } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 
 export function HistoryFeature() {
+  const searchParams = useSearchParams()
+  const defaultTab = searchParams.get('tab') === 'trades' ? 'trades' : 'settlement'
+
   const activeAsset = useUIStore((s) => s.activeAsset)
   const setActiveAsset = useUIStore((s) => s.setActiveAsset)
 
@@ -25,7 +29,7 @@ export function HistoryFeature() {
     <div className="mx-auto w-full max-w-3xl space-y-6 p-4">
       <h1 className="text-2xl font-bold">History</h1>
 
-      <Tabs defaultValue="settlement" data-testid="history-tabs">
+      <Tabs defaultValue={defaultTab} data-testid="history-tabs">
         <TabsList>
           <TabsTrigger value="settlement" data-testid="settlement-tab">
             Settlement History

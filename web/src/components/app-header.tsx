@@ -3,12 +3,31 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, MoreVertical, ChevronDown } from 'lucide-react'
 import { ModeToggle } from '@/components/shared/mode-toggle'
 import { ClusterUiSelect } from './cluster/cluster-ui'
 import { WalletButton } from '@/components/wallet'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { ASSETS } from '@/types/assets'
+import { ASSET_METADATA } from '@/lib/constants'
 
-export function AppHeader({ links = [] }: { links: { label: string; path: string }[] }) {
+const overflowLinks = [
+  { label: 'Balance', href: '/account' },
+  { label: 'Settlement History', href: '/history?tab=settlement' },
+  { label: 'My Trades', href: '/history?tab=trades' },
+]
+
+const utilityLinks = [
+  { label: 'Faucet', href: '/faucet' },
+  { label: 'Feedback', href: '/feedback' },
+]
+
+export function AppHeader() {
   const pathname = usePathname()
   const [showMenu, setShowMenu] = useState(false)
 
@@ -19,24 +38,32 @@ export function AppHeader({ links = [] }: { links: { label: string; path: string
   return (
     <header className="relative z-50 px-4 py-2 bg-neutral-100 dark:bg-neutral-900 dark:text-neutral-400">
       <div className="mx-auto flex justify-between items-center">
-        <div className="flex items-baseline gap-4">
+        <div className="flex items-center gap-2">
           <Link className="text-xl font-bold hover:text-neutral-500 dark:hover:text-white" href="/">
             <span className="text-primary">FOGO</span> Pulse
           </Link>
-          <div className="hidden md:flex items-center">
-            <ul className="flex gap-4 flex-nowrap items-center">
-              {links.map(({ label, path }) => (
-                <li key={path}>
-                  <Link
-                    className={`hover:text-neutral-500 dark:hover:text-white ${isActive(path) ? 'text-neutral-500 dark:text-white' : ''}`}
-                    href={path}
-                  >
-                    {label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className={`gap-1 ${isActive('/trade') ? 'text-neutral-500 dark:text-white' : ''}`}
+                >
+                  Markets
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {ASSETS.map((asset) => (
+                  <DropdownMenuItem key={asset} asChild>
+                    <Link href={`/trade/${asset.toLowerCase()}`}>
+                      <span className={ASSET_METADATA[asset].color}>
+                        {ASSET_METADATA[asset].label}
+                      </span>
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
         </div>
 
         <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setShowMenu(!showMenu)}>
@@ -44,31 +71,98 @@ export function AppHeader({ links = [] }: { links: { label: string; path: string
         </Button>
 
         <div className="hidden md:flex items-center gap-4">
-          <WalletButton />
-          <ClusterUiSelect />
+          {utilityLinks.map(({ label, href }) => (
+            <Link
+              key={href}
+              className={`text-sm hover:text-neutral-500 dark:hover:text-white ${isActive(href) ? 'text-neutral-500 dark:text-white' : ''}`}
+              href={href}
+            >
+              {label}
+            </Link>
+          ))}
           <ModeToggle />
+          <ClusterUiSelect />
+          <WalletButton />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" data-testid="overflow-menu-trigger">
+                <MoreVertical className="h-5 w-5" />
+                <span className="sr-only">More options</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {overflowLinks.map(({ label, href }) => (
+                <DropdownMenuItem key={href} asChild>
+                  <Link href={href}>{label}</Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {showMenu && (
           <div className="md:hidden fixed inset-x-0 top-[52px] bottom-0 bg-neutral-100/95 dark:bg-neutral-900/95 backdrop-blur-sm">
             <div className="flex flex-col p-4 gap-4 border-t dark:border-neutral-800">
-              <ul className="flex flex-col gap-4">
-                {links.map(({ label, path }) => (
-                  <li key={path}>
-                    <Link
-                      className={`hover:text-neutral-500 dark:hover:text-white block text-lg py-2  ${isActive(path) ? 'text-neutral-500 dark:text-white' : ''} `}
-                      href={path}
-                      onClick={() => setShowMenu(false)}
-                    >
-                      {label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              {/* Markets section */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">
+                  Markets
+                </p>
+                <ul className="flex flex-col gap-2">
+                  {ASSETS.map((asset) => (
+                    <li key={asset}>
+                      <Link
+                        className={`hover:text-neutral-500 dark:hover:text-white block text-lg py-1 ${
+                          isActive(`/trade/${asset.toLowerCase()}`) ? 'text-neutral-500 dark:text-white' : ''
+                        }`}
+                        href={`/trade/${asset.toLowerCase()}`}
+                        onClick={() => setShowMenu(false)}
+                      >
+                        <span className={ASSET_METADATA[asset].color}>{ASSET_METADATA[asset].label}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Utility links */}
+              <div className="border-t dark:border-neutral-800 pt-4">
+                <ul className="flex flex-col gap-4">
+                  {utilityLinks.map(({ label, href }) => (
+                    <li key={href}>
+                      <Link
+                        className={`hover:text-neutral-500 dark:hover:text-white block text-lg py-2 ${isActive(href) ? 'text-neutral-500 dark:text-white' : ''}`}
+                        href={href}
+                        onClick={() => setShowMenu(false)}
+                      >
+                        {label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Overflow links */}
+              <div className="border-t dark:border-neutral-800 pt-4">
+                <ul className="flex flex-col gap-4">
+                  {overflowLinks.map(({ label, href }) => (
+                    <li key={href}>
+                      <Link
+                        className="hover:text-neutral-500 dark:hover:text-white block text-lg py-2"
+                        href={href}
+                        onClick={() => setShowMenu(false)}
+                      >
+                        {label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
               <div className="flex flex-col gap-4">
-                <WalletButton />
-                <ClusterUiSelect />
                 <ModeToggle />
+                <ClusterUiSelect />
+                <WalletButton />
               </div>
             </div>
           </div>

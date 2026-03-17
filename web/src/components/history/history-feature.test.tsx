@@ -5,6 +5,12 @@ import { render, screen, fireEvent } from '@testing-library/react'
 
 import { HistoryFeature } from './history-feature'
 
+// Mock next/navigation
+const mockSearchParams = new URLSearchParams()
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => mockSearchParams,
+}))
+
 // Mock utils
 jest.mock('@/lib/utils', () => ({
   cn: (...args: (string | boolean | undefined)[]) => args.filter(Boolean).join(' '),
@@ -28,7 +34,9 @@ jest.mock('@/stores/ui-store', () => ({
 
 // Mock UI components
 jest.mock('@/components/ui/tabs', () => ({
-  Tabs: ({ children, ...props }: React.ComponentProps<'div'>) => <div {...props}>{children}</div>,
+  Tabs: ({ children, defaultValue, ...props }: React.ComponentProps<'div'> & { defaultValue?: string }) => (
+    <div data-default-tab={defaultValue} {...props}>{children}</div>
+  ),
   TabsList: ({ children, ...props }: React.ComponentProps<'div'>) => <div {...props}>{children}</div>,
   TabsTrigger: ({ children, value, ...props }: React.ComponentProps<'button'> & { value: string }) => (
     <button data-value={value} {...props}>{children}</button>
@@ -54,6 +62,10 @@ jest.mock('@/components/trading/trading-history-list', () => ({
 }))
 
 describe('HistoryFeature', () => {
+  beforeEach(() => {
+    mockSearchParams.delete('tab')
+  })
+
   it('renders the History heading', () => {
     render(<HistoryFeature />)
     expect(screen.getByText('History')).toBeInTheDocument()
@@ -89,5 +101,26 @@ describe('HistoryFeature', () => {
     render(<HistoryFeature />)
     const list = screen.getByTestId('trading-history-list')
     expect(list).toHaveAttribute('data-filter', 'ALL')
+  })
+
+  it('defaults to settlement tab when no query param', () => {
+    mockSearchParams.delete('tab')
+    render(<HistoryFeature />)
+    const tabs = screen.getByTestId('history-tabs')
+    expect(tabs).toHaveAttribute('data-default-tab', 'settlement')
+  })
+
+  it('defaults to trades tab when ?tab=trades', () => {
+    mockSearchParams.set('tab', 'trades')
+    render(<HistoryFeature />)
+    const tabs = screen.getByTestId('history-tabs')
+    expect(tabs).toHaveAttribute('data-default-tab', 'trades')
+  })
+
+  it('defaults to settlement tab for unknown tab param', () => {
+    mockSearchParams.set('tab', 'unknown')
+    render(<HistoryFeature />)
+    const tabs = screen.getByTestId('history-tabs')
+    expect(tabs).toHaveAttribute('data-default-tab', 'settlement')
   })
 })
