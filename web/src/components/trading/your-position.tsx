@@ -61,6 +61,22 @@ export function YourPosition({ asset, className }: YourPositionProps) {
     }
   }, [pendingSellAsset, asset, position])
 
+  // Calculate sell return using shared library
+  // NOTE: Must be before early returns to satisfy Rules of Hooks
+  const sellReturn = useMemo(
+    () =>
+      pool && position && position.shares > 0n
+        ? calculateSellReturn(
+            position.shares,
+            position.amount,
+            position.direction,
+            pool.yesReserves,
+            pool.noReserves
+          )
+        : null,
+    [position?.shares, position?.amount, position?.direction, pool?.yesReserves, pool?.noReserves]
+  )
+
   // Don't render if wallet not connected
   if (!publicKey) return null
 
@@ -79,21 +95,6 @@ export function YourPosition({ asset, className }: YourPositionProps) {
 
   // Check if position is fully sold (shares === 0)
   const isFullySold = position.shares === 0n
-
-  // Calculate sell return using shared library
-  const sellReturn = useMemo(
-    () =>
-      pool && position.shares > 0n
-        ? calculateSellReturn(
-            position.shares,
-            position.amount,
-            direction,
-            pool.yesReserves,
-            pool.noReserves
-          )
-        : null,
-    [position.shares, position.amount, direction, pool?.yesReserves, pool?.noReserves]
-  )
 
   function handleSellClick() {
     setShowSellDialog(true)

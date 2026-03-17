@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 
 import type { Asset } from '@/types/assets'
 import { usePool } from '@/hooks/use-pool'
+import { useUserPosition } from '@/hooks/use-user-position'
 import { useTradeStore } from '@/stores/trade-store'
 import {
   calculateShares,
@@ -15,6 +16,8 @@ import {
   getReservesForDirection,
 } from '@/lib/trade-preview'
 import type { FeeSplit } from '@/lib/trade-preview'
+import { getCapStatus } from '@/lib/cap-utils'
+import type { CapStatus } from '@/lib/cap-utils'
 import { TRADING_FEE_BPS, USDC_DECIMALS } from '@/lib/constants'
 
 // =============================================================================
@@ -68,6 +71,8 @@ export interface TradePreviewData {
   hasHighSlippage: boolean
   /** True if trade would approach wallet/side cap */
   isNearCap: boolean
+  /** Detailed cap status with wallet and side cap info */
+  capStatus: CapStatus
 }
 
 // =============================================================================
@@ -91,6 +96,7 @@ export interface TradePreviewData {
 export function useTradePreview(asset: Asset): TradePreviewData | null {
   const { pool, isLoading } = usePool(asset)
   const { direction, amount } = useTradeStore()
+  const { position: userPosition } = useUserPosition(pool?.activeEpoch ?? null)
 
   return useMemo(() => {
     // Pool is still loading - check first to avoid stale data during refresh
@@ -171,8 +177,22 @@ export function useTradePreview(asset: Asset): TradePreviewData | null {
 
     // Determine warnings
     const hasHighSlippage = slippage > 2
-    // Cap checking deferred to later story
-    const isNearCap = false
+
+    // Cap status calculation
+    const grossAmountLamports = BigInt(Math.floor(grossAmount * 10 ** USDC_DECIMALS))
+    const existingPositionLamports = userPosition?.amount ?? 0n
+
+    const capStatus = getCapStatus({
+      existingPositionLamports,
+      grossAmountLamports,
+      yesReserves,
+      noReserves,
+      direction,
+      walletCapBps: pool.walletCapBps,
+      sideCapBps: pool.sideCapBps,
+    })
+
+    const isNearCap = capStatus.hasWarning
 
     return {
       amount: grossAmount,
@@ -199,6 +219,7 @@ export function useTradePreview(asset: Asset): TradePreviewData | null {
       probabilityChange,
       hasHighSlippage,
       isNearCap,
+      capStatus,
     }
-  }, [pool, direction, amount, isLoading])
+  }, [pool, direction, amount, isLoading, userPosition])
 }

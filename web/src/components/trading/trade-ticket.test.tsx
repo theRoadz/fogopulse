@@ -81,6 +81,31 @@ jest.mock('@/lib/utils', () => ({
   cn: (...args: (string | boolean | undefined)[]) => args.filter(Boolean).join(' '),
 }))
 
+// Mock useTradePreview hook
+const mockTradePreview = {
+  capStatus: {
+    walletCap: { level: 'ok', remainingLamports: 40_000_000n, maxAllowedLamports: 50_000_000n, usedPercent: 20, label: 'wallet' },
+    sideCap: { level: 'ok', remainingLamports: 140_000_000n, maxAllowedLamports: 650_000_000n, usedPercent: 78, label: 'side' },
+    mostRestrictive: 'wallet' as const,
+    hasWarning: false,
+    hasError: false,
+  },
+}
+
+jest.mock('@/hooks/use-trade-preview', () => ({
+  useTradePreview: () => mockTradePreview,
+}))
+
+// Mock CapWarningBanner
+jest.mock('./cap-warning-banner', () => ({
+  CapWarningBanner: () => <div data-testid="cap-warning-banner">Cap Warning</div>,
+}))
+
+// Mock TradePreview
+jest.mock('./trade-preview', () => ({
+  TradePreview: () => <div data-testid="trade-preview">Trade Preview</div>,
+}))
+
 // Mock sub-components
 jest.mock('./direction-button', () => ({
   DirectionButton: ({
@@ -184,6 +209,8 @@ describe('TradeTicket', () => {
     mockTradeStore.error = null
     mockTradeStore.isValid = false
     mockBuyPosition.isPending = false
+    mockTradePreview.capStatus.hasWarning = false
+    mockTradePreview.capStatus.hasError = false
   })
 
   describe('rendering', () => {
@@ -301,6 +328,29 @@ describe('TradeTicket', () => {
       mockEpochState.epochState.isFrozen = true
       render(<TradeTicket asset="BTC" />)
       expect(screen.getByText('Trading Unavailable')).toBeInTheDocument()
+    })
+  })
+
+  describe('cap exceeded', () => {
+    it('should show Cap Exceeded and disable button when cap is exceeded', () => {
+      mockTradeStore.direction = 'up'
+      mockTradeStore.amount = '500'
+      mockTradeStore.isValid = true
+      mockTradePreview.capStatus.hasError = true
+
+      render(<TradeTicket asset="BTC" />)
+      expect(screen.getByText('Cap Exceeded')).toBeInTheDocument()
+      expect(screen.getByText('Cap Exceeded').closest('button')).toBeDisabled()
+    })
+
+    it('should show cap warning banner when cap has warning', () => {
+      mockTradeStore.direction = 'up'
+      mockTradeStore.amount = '45'
+      mockTradeStore.isValid = true
+      mockTradePreview.capStatus.hasWarning = true
+
+      render(<TradeTicket asset="BTC" />)
+      expect(screen.getByTestId('cap-warning-banner')).toBeInTheDocument()
     })
   })
 

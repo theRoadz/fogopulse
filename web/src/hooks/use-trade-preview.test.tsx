@@ -49,6 +49,16 @@ jest.mock('@coral-xyz/anchor', () => {
 // Mock the IDL
 jest.mock('@/lib/fogopulse.json', () => ({}), { virtual: true })
 
+// Mock useUserPosition to avoid wallet provider dependency
+jest.mock('@/hooks/use-user-position', () => ({
+  useUserPosition: () => ({
+    position: null,
+    isLoading: false,
+    error: null,
+    refetch: jest.fn(),
+  }),
+}))
+
 // Mock constants
 jest.mock('@/lib/constants', () => ({
   POOL_PDAS: {
@@ -60,6 +70,8 @@ jest.mock('@/lib/constants', () => ({
   FOGO_TESTNET_RPC: 'https://testnet.fogo.io',
   TRADING_FEE_BPS: 180,
   USDC_DECIMALS: 6,
+  PER_WALLET_CAP_BPS: 500,
+  PER_SIDE_CAP_BPS: 3000,
 }))
 
 // Test wrapper with providers

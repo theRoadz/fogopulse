@@ -24,11 +24,12 @@ export function TradingLayout({ onAssetChange }: TradingLayoutProps) {
       {/* Main trading area: 70% chart / 30% trade ticket on desktop */}
       <div className="flex flex-col lg:flex-row lg:items-start gap-4">
         {/* Chart Area - 70% on desktop, full width on mobile/tablet */}
-        <div className="w-full lg:w-[70%]">
+        <div className="w-full lg:w-[70%] flex flex-col gap-4">
           <ChartArea
             asset={activeAsset}
             className="h-[400px] md:h-[450px] lg:h-[500px]"
           />
+          <MultiAssetPositionsPanel />
         </div>
 
         {/* Trade Ticket Area - 30% on desktop, full width on mobile/tablet */}
@@ -36,9 +37,6 @@ export function TradingLayout({ onAssetChange }: TradingLayoutProps) {
           <TradeTicketArea asset={activeAsset} />
         </div>
       </div>
-
-      {/* Multi-Asset Positions Panel - below main trading area, full width */}
-      <MultiAssetPositionsPanel />
     </div>
   )
 }

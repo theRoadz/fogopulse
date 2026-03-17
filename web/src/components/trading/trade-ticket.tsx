@@ -13,11 +13,14 @@ import { EpochState } from '@/types/epoch'
 import type { Asset } from '@/types/assets'
 import { ASSET_METADATA } from '@/lib/constants'
 
+import { useTradePreview } from '@/hooks/use-trade-preview'
+
 import { DirectionButton } from './direction-button'
 import { AmountInput } from './amount-input'
 import { QuickAmountButtons } from './quick-amount-buttons'
 import { BalanceDisplay } from './balance-display'
 import { TradePreview } from './trade-preview'
+import { CapWarningBanner } from './cap-warning-banner'
 
 interface TradeTicketProps {
   asset: Asset
@@ -41,8 +44,9 @@ function getTradeButtonState(params: {
   error: string | null
   isValid: boolean
   connected: boolean
+  capExceeded: boolean
 }): TradeButtonState {
-  const { isPending, isEpochOpen, direction, amount, error, isValid, connected } = params
+  const { isPending, isEpochOpen, direction, amount, error, isValid, connected, capExceeded } = params
 
   if (isPending) {
     return { disabled: true, text: 'Confirming...' }
@@ -58,6 +62,10 @@ function getTradeButtonState(params: {
 
   if (!amount || parseFloat(amount) <= 0) {
     return { disabled: true, text: 'Enter Amount' }
+  }
+
+  if (capExceeded) {
+    return { disabled: true, text: 'Cap Exceeded' }
   }
 
   if (error || !isValid) {
@@ -103,6 +111,10 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
   // Trade readiness state for AC #7 (FR6, FR7 foundation)
   const { isValid } = useTradeStore()
 
+  // Trade preview for cap status
+  const tradePreview = useTradePreview(asset)
+  const capExceeded = tradePreview?.capStatus.hasError ?? false
+
   // Compute button state using helper
   const tradeButtonState = getTradeButtonState({
     isPending,
@@ -112,6 +124,7 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
     error,
     isValid,
     connected,
+    capExceeded,
   })
 
   // Re-validate when balance changes
@@ -248,6 +261,11 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
         {/* Trade Preview - Show when amount > 0 and direction selected */}
         {direction && amount && parseFloat(amount) > 0 && (
           <TradePreview asset={asset} />
+        )}
+
+        {/* Cap Warning Banner - Show between preview and button */}
+        {tradePreview?.capStatus.hasWarning && (
+          <CapWarningBanner capStatus={tradePreview.capStatus} />
         )}
 
         {/* Action Button */}
