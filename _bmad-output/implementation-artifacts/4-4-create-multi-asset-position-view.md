@@ -12,7 +12,7 @@ so that I can manage my complete portfolio.
 
 ## Acceptance Criteria
 
-1. **Given** I have positions in multiple asset pools, **When** I view the portfolio section below the trading area, **Then** positions across BTC, ETH, SOL, FOGO are displayed simultaneously.
+1. **Given** I have positions in multiple asset pools, **When** I view the portfolio section below the chart (in the left column), **Then** positions across BTC, ETH, SOL, FOGO are displayed simultaneously.
 2. **Given** I have positions in multiple assets, **When** I view the portfolio section, **Then** total portfolio value (sum of all position current values) is calculated and shown in USDC.
 3. **Given** I have positions in multiple assets, **When** I view the portfolio section, **Then** aggregate unrealized PnL (sum of all position PnL amounts) is displayed as both absolute USDC and percentage.
 4. **Given** I am viewing the portfolio section, **When** I click on an asset section header, **Then** that asset's position details collapse/expand (each asset section is collapsible).
@@ -101,15 +101,12 @@ so that I can manage my complete portfolio.
 
 - [x] Task 5: Integrate panel into `TradingLayout` (AC: #1)
   - [x] 5.1: Import `MultiAssetPositionsPanel` in `web/src/components/trading/trading-layout.tsx`
-  - [x] 5.2: Add BELOW the main trading area (chart + trade ticket row), full width:
+  - [x] 5.2: Add inside the 70% left column (chart column), below `ChartArea`:
     ```tsx
-    {/* Main trading area */}
-    <div className="flex flex-col lg:flex-row gap-4">
-      ...existing chart + trade ticket...
+    <div className="w-full lg:w-[70%] flex flex-col gap-4">
+      <ChartArea ... />
+      <MultiAssetPositionsPanel />
     </div>
-
-    {/* Multi-Asset Positions Panel - below main trading area */}
-    <MultiAssetPositionsPanel />
     ```
   - [x] 5.3: Do NOT remove or modify the existing `YourPosition` component in `TradeTicketArea` — it shows the single-asset active position for the selected asset. The multi-asset panel is COMPLEMENTARY (portfolio overview vs. single-asset detail).
 
@@ -204,14 +201,15 @@ The `collapsible.tsx` component is already installed in `web/src/components/ui/`
 TradingLayout
   ├── AssetTabs (BTC / ETH / SOL / FOGO)
   ├── Main Trading Area (flex row on desktop)
-  │   ├── ChartArea (70%)
+  │   ├── Left Column (70%)
+  │   │   ├── ChartArea
+  │   │   └── MultiAssetPositionsPanel ← below chart, inside 70% column
+  │   │       ├── PortfolioSummary
+  │   │       └── AssetPositionRow × N (one per active position)
   │   └── TradeTicketArea (30%)
   │       ├── PoolStateDisplay
   │       ├── YourPosition ← KEEP (single-asset detail)
   │       └── TradeTicket
-  └── MultiAssetPositionsPanel ← NEW (full width, below main area)
-      ├── PortfolioSummary
-      └── AssetPositionRow × N (one per active position)
 ```
 
 **Do NOT remove `YourPosition`** from `TradeTicketArea`. It serves a different purpose — showing the detailed position card for the currently selected asset with sell/claim actions. The multi-asset panel is a read-only portfolio overview.
@@ -344,7 +342,7 @@ Post-implementation fix: Chart height was reduced after positions panel integrat
 - Created `PortfolioSummary` component showing total value, aggregate PnL, and active position count
 - Created `AssetPositionRow` component with collapsible expand/collapse per asset, showing direction, entry, PnL, and "Trade" navigation button
 - Created `MultiAssetPositionsPanel` container that handles wallet connection, loading, and empty states
-- Integrated panel into `TradingLayout` below the main trading area (chart + trade ticket)
+- Integrated panel into `TradingLayout` inside the 70% left column, below the chart (not full-width)
 - Existing `YourPosition` component preserved in `TradeTicketArea` (complementary, not replaced)
 - Fixed chart height regression: restored `h-full` on Card, added `overflow-hidden`, and used fixed heights (`h-[450px] md:h-[500px] lg:h-[550px]`) on ChartArea wrapper to ensure chart fills the correct height with positions panel below
 - All 15 tests pass; pre-existing test failures remain (unchanged from master)
@@ -354,7 +352,8 @@ Post-implementation fix: Chart height was reduced after positions panel integrat
 
 - 2026-03-16: Implemented Story 4.4 - Multi-Asset Position View with aggregation hook, portfolio summary, collapsible asset rows, and layout integration
 - 2026-03-16: Fixed chart height regression — changed ChartArea from `min-h-*` to fixed `h-[450px]/h-[500px]/h-[550px]`, restored `h-full` on Card, kept `overflow-hidden` to prevent content overflow
-- 2026-03-16: Code review fixes — moved MultiAssetPositionsPanel to full-width below main trading area (per spec), removed unused useEpoch calls from hook, rewrote hook tests to use renderHook with mocked sub-hooks, moderated chart heights to h-[400px]/h-[450px]/h-[500px], documented buy/sell hook changes in file list
+- 2026-03-16: Code review fixes — removed unused useEpoch calls from hook, rewrote hook tests to use renderHook with mocked sub-hooks, moderated chart heights to h-[400px]/h-[450px]/h-[500px], documented buy/sell hook changes in file list
+- 2026-03-17: Layout refinement — moved MultiAssetPositionsPanel from full-width below main trading area into the 70% left column (below chart), so it doesn't span under the trade ticket
 
 ### File List
 
