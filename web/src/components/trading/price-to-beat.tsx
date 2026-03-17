@@ -14,7 +14,7 @@ interface PriceToBeatProps {
 }
 
 /**
- * Displays the "Price to Beat" (epoch start price) with a delta indicator
+ * Displays the "Target Price" (epoch start price) with a delta indicator
  * showing how far the current price is from the target.
  *
  * Delta is shown as:
@@ -47,7 +47,7 @@ export function PriceToBeat({ startPrice, currentPrice, className }: PriceToBeat
     return (
       <div className={cn('flex flex-col', className)}>
         <span className="text-xs uppercase tracking-wide text-muted-foreground">
-          Price to Beat
+          Target Price
         </span>
         <span className="font-mono text-xl font-bold text-muted-foreground">
           --
@@ -60,7 +60,7 @@ export function PriceToBeat({ startPrice, currentPrice, className }: PriceToBeat
     <div className={cn('flex flex-col', className)}>
       {/* Label */}
       <span className="text-xs uppercase tracking-wide text-muted-foreground">
-        Price to Beat
+        Target Price
       </span>
 
       {/* Price row */}
