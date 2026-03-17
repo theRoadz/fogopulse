@@ -80,8 +80,8 @@ export function calculateProbabilities(
     return { pUp: 50, pDown: 50 }
   }
 
-  // Convert to percentages using BigInt math
-  const pUp = Number((noReserves * 100n) / total)
+  // Convert to percentages using basis-point precision then rounding
+  const pUp = Math.round(Number((noReserves * 10000n) / total) / 100)
   const pDown = 100 - pUp
 
   return { pUp, pDown }

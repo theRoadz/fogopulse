@@ -139,8 +139,8 @@ const calculateProbabilities = (yesReserves: bigint, noReserves: bigint) => {
     return { pUp: 50, pDown: 50 } // 50/50 when no liquidity
   }
 
-  // Convert to percentages
-  const pUp = Number((noReserves * 100n) / total)
+  // Convert to percentages using basis-point precision then rounding
+  const pUp = Math.round(Number((noReserves * 10000n) / total) / 100)
   const pDown = 100 - pUp
 
   return { pUp, pDown }
@@ -445,6 +445,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 
 **New files:**
 - web/src/types/pool.ts
+- web/src/types/pool.test.ts
 - web/src/hooks/use-pool.ts
 - web/src/hooks/use-pool.test.tsx
 - web/src/components/trading/probability-bar.tsx
@@ -464,6 +465,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 
 ## Change Log
 
+- 2026-03-17 (bugfix): Fixed `calculateProbabilities` showing 49/51 instead of 50/50 after settlement. Root cause: truncating BigInt integer division (`noReserves * 100n / total`) caused 49.999...% to floor to 49%. Fix uses basis-point precision (`noReserves * 10000n / total`) with `Math.round` for correct rounding to nearest percent. Added dedicated test file `web/src/types/pool.test.ts` with 5 test cases including the exact on-chain values from epoch 87 (reserves differing by 1 lamport). Updated Dev Notes code example to match the fix.
 - 2026-03-13: Story implementation completed - Pool State Display with probability bar, liquidity display, and real-time WebSocket updates
 - 2026-03-13: Code review fixes applied:
   - M1: Added explanatory comment for Anchor `any` type assertion pattern

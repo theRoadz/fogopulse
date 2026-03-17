@@ -179,6 +179,35 @@ sudo systemctl restart fogopulse-crank
 
 ---
 
+## Updating the Crank Bot
+
+When you've made changes to `crank-bot.ts` locally and need to deploy them to the server:
+
+### 1. Transfer the updated file from your local machine
+```bash
+scp D:/dev/fogopulse/crank-bot/crank-bot.ts fogopulse@<server-ip>:/home/fogopulse/fogopulse-crank/crank-bot.ts
+```
+
+To update multiple files at once:
+```bash
+scp D:/dev/fogopulse/crank-bot/crank-bot.ts D:/dev/fogopulse/crank-bot/package.json fogopulse@<server-ip>:/home/fogopulse/fogopulse-crank/
+```
+
+### 2. SSH into the server and restart
+```bash
+ssh fogopulse@<server-ip>
+sudo systemctl restart fogopulse-crank
+```
+
+### 3. Verify the update
+```bash
+sudo journalctl -u fogopulse-crank -f
+```
+
+> **Note:** If `package.json` changed (new dependencies), run `cd ~/fogopulse-crank && npm install` before restarting.
+
+---
+
 ## Troubleshooting
 
 | Error | Solution |

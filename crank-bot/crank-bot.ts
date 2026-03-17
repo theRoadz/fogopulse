@@ -453,8 +453,8 @@ async function fetchPythMessage(feedId: number, accessToken: string): Promise<Bu
           const PAYLOAD_OFFSET = 4 + 64 + 32 + 2
           const TIMESTAMP_OFFSET = PAYLOAD_OFFSET + 1 + 1 + 4 + 1  // After channel, feedCount, feedId, properties
           if (pythMessage.length > TIMESTAMP_OFFSET + 8) {
-            const publishTimeNs = pythMessage.readBigInt64LE(TIMESTAMP_OFFSET)
-            const publishTimeSec = Number(publishTimeNs / BigInt(1_000_000_000))
+            const publishTimeUs = pythMessage.readBigInt64LE(TIMESTAMP_OFFSET)
+            const publishTimeSec = Number(publishTimeUs / BigInt(1_000_000))
             const nowSec = Math.floor(Date.now() / 1000)
             const ageSec = nowSec - publishTimeSec
 
