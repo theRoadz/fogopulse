@@ -27,15 +27,10 @@ export default function AssetTradePage() {
     }
   }, [rawAssetParam, setActiveAsset, router])
 
-  // Tab clicks trigger router.push() directly (no Store→URL sync needed)
-  const handleAssetChange = (asset: Asset) => {
-    router.push(`/trade/${asset.toLowerCase()}`)
-  }
-
   // Don't render until we have a valid asset
   if (!isValidAsset(rawAssetParam)) {
     return null
   }
 
-  return <TradingLayout onAssetChange={handleAssetChange} />
+  return <TradingLayout />
 }
