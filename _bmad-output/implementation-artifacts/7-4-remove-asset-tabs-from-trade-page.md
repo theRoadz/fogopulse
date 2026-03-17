@@ -121,12 +121,14 @@ Claude Opus 4.6 (1M context)
 - Fixed Last Settlement collapsible clipping: ChartArea Card had `overflow-hidden` and a fixed height (`h-[400px]`), causing the expanded `SettlementStatusPanel` to be cut off. Changed fixed height to `min-h-[500px]` in `trading-layout.tsx` so the Card can grow. Moved `overflow-hidden` from the outer Card to `CardContent` in `chart-area.tsx` so the chart stays contained but the settlement panel is not clipped.
 - Fixed chart not filling card height: After the collapsible fix, `min-h-*` on the Card did not provide a concrete height for percentage-based children (`h-full`) to resolve against. The `h-0 + flex-1` pattern was tried but did not work. The working fix uses `relative` on CardContent with an `absolute inset-0` wrapper div inside — this gives the chart a concrete pixel-based bounding box regardless of how the parent's height is established. Min-heights were also reduced to `425px/475px/525px` for better proportions.
 - Fixed "Your Position" not updating after buy/sell: `useBuyPosition` invalidated `['positions']` (plural) but `useUserPosition` query key is `['position', epochPda, publicKey]` (singular), so buying didn't trigger a refetch. Added `['position']` invalidation to `useBuyPosition`. Also hid "Your Position" card when `shares === 0n` — fully sold positions were still displayed with 0 shares and 0.00 USDC entry.
+- Freeze Target Price delta when timer reaches 0: The `PriceToBeat` delta indicator kept updating with live Pyth price for 2-3 seconds after the countdown hit 0 (until on-chain settlement). Added a `useRef` in `epoch-status-display.tsx` that captures the latest price while `timeRemaining > 0` and freezes when the timer expires. `isFrozen` was not used as the trigger since it fires ~15 seconds before epoch end (at `freezeTime`); `timeRemaining === 0` is the correct trigger.
 
 ### Change Log
 - 2026-03-17: Story created and implemented — removed redundant asset tabs from trade page
 - 2026-03-17: Fix — Last Settlement collapsible was clipped by ChartArea Card overflow/fixed height
 - 2026-03-17: Fix — Chart not filling card height; used `relative` + `absolute inset-0` pattern on CardContent to give chart concrete dimensions
 - 2026-03-17: Fix — "Your Position" not refreshing after buy (query key mismatch) and showing sold positions with 0 shares
+- 2026-03-17: Fix — Target Price delta indicator freezes when countdown timer reaches 0
 
 ### File List
 **Modified files:**
@@ -135,3 +137,4 @@ Claude Opus 4.6 (1M context)
 - `web/src/app/trade/[asset]/page.tsx` — Removed handleAssetChange function and onAssetChange prop passing
 - `web/src/hooks/use-buy-position.ts` — Added `['position']` query invalidation so `YourPosition` refreshes after buy
 - `web/src/components/trading/your-position.tsx` — Hide card when `shares === 0n` (fully sold)
+- `web/src/components/trading/epoch-status-display.tsx` — Freeze delta price via `useRef` when `timeRemaining === 0`

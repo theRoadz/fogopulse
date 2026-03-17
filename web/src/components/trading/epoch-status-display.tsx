@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, ChevronRight, Loader2, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -128,6 +128,18 @@ export function EpochStatusDisplay({ asset, className }: EpochStatusDisplayProps
   const { lastSettledEpoch, isLoading: isLastSettledLoading } = useLastSettledEpoch(asset)
   const [isLastSettlementOpen, setIsLastSettlementOpen] = useState(false)
 
+  // Freeze the delta price when the countdown timer reaches 0
+  const frozenPriceRef = useRef<number | null>(null)
+  useEffect(() => {
+    if (epochState.timeRemaining > 0) {
+      frozenPriceRef.current = pythPrice?.price ?? null
+    }
+  }, [epochState.timeRemaining, pythPrice])
+
+  const displayPrice = epochState.timeRemaining > 0
+    ? (pythPrice?.price ?? null)
+    : frozenPriceRef.current
+
   // Loading state
   if (isLoading) {
     return (
@@ -212,7 +224,7 @@ export function EpochStatusDisplay({ asset, className }: EpochStatusDisplayProps
             <EpochStateBadge state={epochState.epoch.state} />
             <PriceToBeat
               startPrice={epochState.startPriceDisplay}
-              currentPrice={pythPrice?.price ?? null}
+              currentPrice={displayPrice}
             />
           </div>
         </div>
@@ -233,7 +245,7 @@ export function EpochStatusDisplay({ asset, className }: EpochStatusDisplayProps
           <EpochStateBadge state={epochState.epoch.state} />
           <PriceToBeat
             startPrice={epochState.startPriceDisplay}
-            currentPrice={pythPrice?.price ?? null}
+            currentPrice={displayPrice}
           />
         </div>
 
