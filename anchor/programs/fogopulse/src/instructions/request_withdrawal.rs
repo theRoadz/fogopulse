@@ -42,8 +42,9 @@ pub struct RequestWithdrawal<'info> {
     )]
     pub config: Box<Account<'info, GlobalConfig>>,
 
-    /// The pool this LP position belongs to
+    /// The pool this LP position belongs to — mutable to update pending_withdrawal_shares
     #[account(
+        mut,
         seeds = [b"pool", pool.asset_mint.as_ref()],
         bump = pool.bump,
     )]
@@ -77,7 +78,7 @@ pub fn handler(ctx: Context<RequestWithdrawal>, user: Pubkey, shares_amount: u64
     require!(user == extracted_user, FogoPulseError::Unauthorized);
 
     let config = &ctx.accounts.config;
-    let pool = &ctx.accounts.pool;
+    let pool = &mut ctx.accounts.pool;
     let lp_share = &mut ctx.accounts.lp_share;
 
     msg!(
@@ -113,13 +114,18 @@ pub fn handler(ctx: Context<RequestWithdrawal>, user: Pubkey, shares_amount: u64
     lp_share.pending_withdrawal = shares_amount;
     lp_share.withdrawal_requested_at = Some(clock.unix_timestamp);
 
+    // 7. Add shares to pool pending withdrawal total
+    pool.pending_withdrawal_shares = pool.pending_withdrawal_shares
+        .checked_add(shares_amount)
+        .ok_or(FogoPulseError::Overflow)?;
+
     msg!(
         "request_withdrawal complete: pending_withdrawal={}, withdrawal_requested_at={}",
         lp_share.pending_withdrawal,
         clock.unix_timestamp
     );
 
-    // 7. Emit event
+    // 8. Emit event
     emit!(WithdrawalRequested {
         pool: pool.key(),
         user,

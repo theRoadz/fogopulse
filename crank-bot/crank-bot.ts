@@ -34,6 +34,7 @@ import {
   VersionedTransaction,
   SYSVAR_INSTRUCTIONS_PUBKEY,
 } from '@solana/web3.js'
+import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import WebSocket from 'ws'
 
 // Load environment variables
@@ -71,10 +72,15 @@ const PYTH_FEED_IDS: Record<Asset, number> = {
   FOGO: 0, // Not available - bot will exit if FOGO pool is selected
 }
 
+// USDC Mint (FOGO Testnet)
+const USDC_MINT = new PublicKey('6jzddTQNDh2RPuav88r19gdSGmGnbH6EWa2NXgLV8cAy')
+
 // Instruction discriminators
 const CREATE_EPOCH_DISCRIMINATOR = Buffer.from([115, 111, 36, 230, 59, 145, 168, 27])
 const ADVANCE_EPOCH_DISCRIMINATOR = Buffer.from([93, 138, 234, 218, 241, 230, 132, 38])
 const SETTLE_EPOCH_DISCRIMINATOR = Buffer.from([148, 223, 178, 38, 201, 158, 167, 13])
+const PROCESS_WITHDRAWAL_DISCRIMINATOR = Buffer.from([51, 97, 236, 17, 37, 33, 196, 64])
+const CRANK_PROCESS_WITHDRAWAL_DISCRIMINATOR = Buffer.from([27, 194, 37, 86, 75, 227, 102, 217])
 
 // Sysvars and programs
 const SYSVAR_CLOCK_PUBKEY = new PublicKey('SysvarC1ock11111111111111111111111111111111')
@@ -296,6 +302,9 @@ function parsePoolAccount(data: Buffer): PoolData {
   offset += 8
 
   // total_lp_shares (8 bytes, u64)
+  offset += 8
+
+  // pending_withdrawal_shares (8 bytes, u64)
   offset += 8
 
   // next_epoch_id (8 bytes, u64)
@@ -769,6 +778,192 @@ async function buildAndSendSettleEpochTx(
 }
 
 // =============================================================================
+// WITHDRAWAL PROCESSING HELPERS
+// =============================================================================
+
+// LpShare account discriminator
+const LP_SHARE_DISCRIMINATOR = Buffer.from([137, 210, 47, 236, 167, 57, 72, 145])
+
+interface PendingWithdrawal {
+  lpSharePda: PublicKey
+  user: PublicKey
+  pool: PublicKey
+  pendingWithdrawalShares: bigint
+}
+
+/**
+ * Find all LpShare accounts with pending withdrawals for a specific pool.
+ * Uses memcmp filters on discriminator, pool pubkey, and non-zero pending_withdrawal.
+ * Filters out accounts still within cooldown period to avoid wasting transactions.
+ *
+ * LpShare layout (after 8-byte discriminator):
+ *   user: Pubkey (32 bytes) offset 8
+ *   pool: Pubkey (32 bytes) offset 40
+ *   shares: u64 (8 bytes) offset 72
+ *   deposited_amount: u64 (8 bytes) offset 80
+ *   pending_withdrawal: u64 (8 bytes) offset 88
+ *   withdrawal_requested_at: Option<i64> (1+8 bytes) offset 96
+ */
+async function findPendingWithdrawals(
+  conn: Connection,
+  poolPubkey: PublicKey
+): Promise<PendingWithdrawal[]> {
+  const accounts = await conn.getProgramAccounts(PROGRAM_ID, {
+    filters: [
+      // Match LpShare discriminator
+      { memcmp: { offset: 0, bytes: LP_SHARE_DISCRIMINATOR.toString('base64'), encoding: 'base64' } },
+      // Match pool pubkey at offset 40
+      { memcmp: { offset: 40, bytes: poolPubkey.toBase58() } },
+    ],
+  })
+
+  const pending: PendingWithdrawal[] = []
+  const now = BigInt(Math.floor(Date.now() / 1000))
+  const cooldownSeconds = 60n // WITHDRAWAL_COOLDOWN_SECONDS
+
+  for (const { pubkey, account } of accounts) {
+    const data = account.data
+    // Read pending_withdrawal at offset 88 (8 bytes u64)
+    const pendingWithdrawalShares = data.readBigUInt64LE(88)
+    if (pendingWithdrawalShares > 0n) {
+      // Read withdrawal_requested_at: Option<i64> at offset 96
+      // Borsh Option layout: 1 byte tag (0=None, 1=Some) + 8 bytes i64 if Some
+      const optionTag = data.readUInt8(96)
+      if (optionTag === 1) {
+        const requestedAt = data.readBigInt64LE(97)
+        if (now < requestedAt + cooldownSeconds) {
+          // Still in cooldown — skip to avoid wasting a transaction
+          continue
+        }
+      }
+
+      const user = new PublicKey(data.subarray(8, 40))
+      const pool = new PublicKey(data.subarray(40, 72))
+      pending.push({ lpSharePda: pubkey, user, pool, pendingWithdrawalShares })
+    }
+  }
+
+  return pending
+}
+
+function deriveLpSharePda(user: PublicKey, pool: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from('lp_share'), user.toBuffer(), pool.toBuffer()],
+    PROGRAM_ID
+  )
+}
+
+/**
+ * Build and send a crank_process_withdrawal transaction for a pending withdrawal.
+ * Uses the permissionless crank_process_withdrawal instruction — no session/user
+ * signature required. The crank bot just pays the TX fee; USDC goes to the LP user.
+ */
+async function buildAndSendProcessWithdrawalTx(
+  conn: Connection,
+  crankWallet: Keypair,
+  globalConfigPda: PublicKey,
+  poolPubkey: PublicKey,
+  withdrawal: PendingWithdrawal
+): Promise<string> {
+  const { user, lpSharePda } = withdrawal
+
+  // Derive token accounts
+  const poolUsdcAta = getAssociatedTokenAddressSync(USDC_MINT, poolPubkey, true)
+  const userUsdcAta = getAssociatedTokenAddressSync(USDC_MINT, user)
+
+  // Build instruction data: discriminator only (no user arg — derived from lp_share on-chain)
+  const data = Buffer.alloc(8)
+  CRANK_PROCESS_WITHDRAWAL_DISCRIMINATOR.copy(data, 0)
+
+  const crankProcessWithdrawalIx = {
+    keys: [
+      { pubkey: crankWallet.publicKey, isSigner: true, isWritable: true }, // payer
+      { pubkey: globalConfigPda, isSigner: false, isWritable: false },     // config
+      { pubkey: poolPubkey, isSigner: false, isWritable: true },           // pool
+      { pubkey: lpSharePda, isSigner: false, isWritable: true },           // lp_share
+      { pubkey: poolUsdcAta, isSigner: false, isWritable: true },          // pool_usdc
+      { pubkey: userUsdcAta, isSigner: false, isWritable: true },          // user_usdc
+      { pubkey: USDC_MINT, isSigner: false, isWritable: false },           // usdc_mint
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },    // token_program
+      { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // associated_token_program
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },     // system_program
+    ],
+    programId: PROGRAM_ID,
+    data,
+  }
+
+  const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash()
+
+  const messageV0 = new TransactionMessage({
+    payerKey: crankWallet.publicKey,
+    recentBlockhash: blockhash,
+    instructions: [crankProcessWithdrawalIx],
+  }).compileToV0Message()
+
+  const tx = new VersionedTransaction(messageV0)
+  tx.sign([crankWallet])
+
+  const signature = await conn.sendTransaction(tx, {
+    skipPreflight: false,
+    maxRetries: 3,
+  })
+
+  await conn.confirmTransaction({
+    signature,
+    blockhash,
+    lastValidBlockHeight,
+  })
+
+  return signature
+}
+
+/**
+ * Process all pending withdrawals for a pool.
+ * Called between settle_epoch and create_epoch in the crank chain.
+ */
+async function processPendingWithdrawals(
+  conn: Connection,
+  crankWallet: Keypair,
+  globalConfigPda: PublicKey,
+  poolPubkey: PublicKey,
+  poolAsset: string
+): Promise<number> {
+  const pending = await findPendingWithdrawals(conn, poolPubkey)
+
+  if (pending.length === 0) {
+    log.debug(`[${poolAsset}] No pending withdrawals to process`)
+    return 0
+  }
+
+  log.info(`[${poolAsset}] Found ${pending.length} pending withdrawal(s) to process`)
+
+  let processed = 0
+  for (const withdrawal of pending) {
+    try {
+      const sig = await buildAndSendProcessWithdrawalTx(
+        conn, crankWallet, globalConfigPda, poolPubkey, withdrawal
+      )
+      log.info(`[${poolAsset}] Processed withdrawal for ${withdrawal.user.toBase58().slice(0, 8)}... (${withdrawal.pendingWithdrawalShares} shares). TX: ${sig}`)
+      log.info(`Explorer: https://explorer.fogo.io/tx/${sig}`)
+      processed++
+    } catch (error: any) {
+      // Gracefully handle expected on-chain rejections (race conditions, timing)
+      if (error.message?.includes('NoPendingWithdrawal') || error.message?.includes('CooldownNotElapsed') || error.message?.includes('WithdrawalBlockedDuringEpoch')) {
+        log.debug(`[${poolAsset}] Skipping withdrawal for ${withdrawal.user.toBase58().slice(0, 8)}...: ${error.message}`)
+      } else {
+        log.warn(`[${poolAsset}] Failed to process withdrawal for ${withdrawal.user.toBase58().slice(0, 8)}...: ${error.message}`)
+      }
+    }
+  }
+
+  if (processed > 0) {
+    log.info(`[${poolAsset}] Processed ${processed}/${pending.length} pending withdrawal(s)`)
+  }
+
+  return processed
+}
+
+// =============================================================================
 // RETRY AND ERROR HANDLING
 // =============================================================================
 
@@ -987,6 +1182,13 @@ async function runCycle(): Promise<number> {
 
         log.info(`Epoch ${epochData!.epochId} settled. TX: ${sig}`)
         log.info(`Explorer: https://explorer.fogo.io/tx/${sig}`)
+
+        // Process pending withdrawals before creating next epoch
+        try {
+          await processPendingWithdrawals(connection, wallet, globalConfigPda, poolPda, config.poolAsset)
+        } catch (withdrawalError: any) {
+          log.warn(`Failed to process pending withdrawals: ${withdrawalError.message}`)
+        }
 
         // Chain: Immediately create next epoch after settlement (if auto-create enabled)
         if (config.autoCreateEpoch) {

@@ -1,9 +1,12 @@
+pub mod admin_close_lp_share;
+pub mod admin_close_pool;
 pub mod admin_force_close_epoch;
 pub mod admin_seed_liquidity;
 pub mod advance_epoch;
 pub mod buy_position;
 pub mod claim_payout;
 pub mod claim_refund;
+pub mod crank_process_withdrawal;
 pub mod create_epoch;
 pub mod create_pool;
 pub mod deposit_liquidity;
@@ -19,12 +22,15 @@ pub mod update_config;
 // via explicit paths (e.g., instructions::buy_position::handler), so the
 // ambiguous glob re-export warning is benign.
 #[allow(ambiguous_glob_reexports)]
+pub use admin_close_lp_share::*;
+pub use admin_close_pool::*;
 pub use admin_force_close_epoch::*;
 pub use admin_seed_liquidity::*;
 pub use advance_epoch::*;
 pub use buy_position::*;
 pub use claim_payout::*;
 pub use claim_refund::*;
+pub use crank_process_withdrawal::*;
 pub use create_epoch::*;
 pub use create_pool::*;
 pub use deposit_liquidity::*;

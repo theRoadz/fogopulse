@@ -10,6 +10,7 @@ import { LpEmptyState } from '@/components/lp/lp-empty-state'
 import { LpSummaryCard } from '@/components/lp/lp-summary-card'
 import { LpPoolCard } from '@/components/lp/lp-pool-card'
 import { LpDepositDialog } from '@/components/lp/lp-deposit-dialog'
+import { LpWithdrawDialog } from '@/components/lp/lp-withdraw-dialog'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -18,10 +19,17 @@ export function LpDashboardFeature() {
   const { pools, activePools, totalValue, totalEarnings, isLoading, hasError } = useMultiPoolLp()
   const [depositDialogOpen, setDepositDialogOpen] = useState(false)
   const [depositAsset, setDepositAsset] = useState<Asset>('BTC')
+  const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false)
+  const [withdrawAsset, setWithdrawAsset] = useState<Asset>('BTC')
 
   function openDeposit(asset: Asset) {
     setDepositAsset(asset)
     setDepositDialogOpen(true)
+  }
+
+  function openWithdraw(asset: Asset) {
+    setWithdrawAsset(asset)
+    setWithdrawDialogOpen(true)
   }
 
   return (
@@ -60,7 +68,7 @@ export function LpDashboardFeature() {
           <h2 className="text-lg font-semibold mt-8 mb-4">Pool Overview</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {pools.map((info) => (
-              <LpPoolCard key={info.asset} info={info} onDeposit={() => openDeposit(info.asset)} />
+              <LpPoolCard key={info.asset} info={info} onDeposit={() => openDeposit(info.asset)} onWithdraw={() => openWithdraw(info.asset)} />
             ))}
           </div>
         </>
@@ -74,18 +82,28 @@ export function LpDashboardFeature() {
           <h2 className="text-lg font-semibold mt-8 mb-4">Your Pools</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {pools.map((info) => (
-              <LpPoolCard key={info.asset} info={info} onDeposit={() => openDeposit(info.asset)} />
+              <LpPoolCard key={info.asset} info={info} onDeposit={() => openDeposit(info.asset)} onWithdraw={() => openWithdraw(info.asset)} />
             ))}
           </div>
         </>
       )}
 
       {publicKey && (
-        <LpDepositDialog
-          asset={depositAsset}
-          open={depositDialogOpen}
-          onOpenChange={setDepositDialogOpen}
-        />
+        <>
+          <LpDepositDialog
+            asset={depositAsset}
+            open={depositDialogOpen}
+            onOpenChange={setDepositDialogOpen}
+          />
+          {pools.length > 0 && (
+            <LpWithdrawDialog
+              asset={withdrawAsset}
+              info={pools.find((p) => p.asset === withdrawAsset) ?? pools[0]}
+              open={withdrawDialogOpen}
+              onOpenChange={setWithdrawDialogOpen}
+            />
+          )}
+        </>
       )}
     </div>
   )

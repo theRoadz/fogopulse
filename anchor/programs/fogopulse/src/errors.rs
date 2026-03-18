@@ -146,4 +146,7 @@ pub enum FogoPulseError {
 
     #[msg("Withdrawal too small - would transfer zero USDC")]
     WithdrawalTooSmall,
+
+    #[msg("Withdrawal cannot be processed during an active epoch - will be processed after settlement")]
+    WithdrawalBlockedDuringEpoch,
 }

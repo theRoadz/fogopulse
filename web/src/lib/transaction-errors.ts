@@ -46,6 +46,11 @@ const ERROR_MESSAGES: Record<string, string> = {
 
   // LP errors
   DepositTooSmall: 'Deposit too small — would result in zero LP shares.',
+  WithdrawalAlreadyPending: 'You already have a pending withdrawal. Complete or wait for it before requesting another.',
+  NoPendingWithdrawal: 'No pending withdrawal found to process.',
+  CooldownNotElapsed: 'Withdrawal cooldown has not elapsed. Please wait for the timer to complete.',
+  WithdrawalTooSmall: 'Withdrawal amount too small — would result in zero USDC.',
+  WithdrawalBlockedDuringEpoch: 'Withdrawal will be auto-processed after the current epoch settles.',
 
   // Sell position errors
   InsufficientShares: 'Position does not have enough shares to sell.',
@@ -141,6 +146,7 @@ export function isRecoverableError(error: unknown): boolean {
     'InsufficientShares',
     'ZeroShares',
     'AlreadyClaimed',
+    'WithdrawalBlockedDuringEpoch',
   ]
 
   return !nonRecoverable.some((code) => message.includes(code))

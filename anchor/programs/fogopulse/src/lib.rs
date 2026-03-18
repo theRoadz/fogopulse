@@ -133,6 +133,16 @@ pub mod fogopulse {
         instructions::settle_epoch::handler(ctx, pyth_message, ed25519_instruction_index, signature_index)
     }
 
+    /// Process a pending LP withdrawal (permissionless, for crank bots)
+    ///
+    /// Unlike process_withdrawal which requires user/session signature,
+    /// this instruction can be called by anyone. The withdrawal was already
+    /// authorized by the user in request_withdrawal. USDC is sent to the
+    /// user's token account (not the caller).
+    pub fn crank_process_withdrawal(ctx: Context<CrankProcessWithdrawal>) -> Result<()> {
+        instructions::crank_process_withdrawal::handler(ctx)
+    }
+
     // =========================================================================
     // USER-FACING INSTRUCTIONS (with FOGO Sessions support)
     // =========================================================================
@@ -220,6 +230,21 @@ pub mod fogopulse {
     // =========================================================================
     // ADMIN INSTRUCTIONS
     // =========================================================================
+
+    /// Close a stale LpShare account (admin only, testnet utility)
+    ///
+    /// Used after pool reinitialization to clean up orphaned LpShare accounts.
+    pub fn admin_close_lp_share(ctx: Context<AdminCloseLpShare>, user: Pubkey) -> Result<()> {
+        instructions::admin_close_lp_share::handler(ctx, user)
+    }
+
+    /// Close a pool account (admin only, testnet utility)
+    ///
+    /// Used when Pool struct size changes and accounts need to be recreated.
+    /// Returns rent to admin.
+    pub fn admin_close_pool(ctx: Context<AdminClosePool>) -> Result<()> {
+        instructions::admin_close_pool::handler(ctx)
+    }
 
     /// Force-close a stuck epoch (admin only)
     ///

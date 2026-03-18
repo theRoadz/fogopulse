@@ -8,6 +8,188 @@
   },
   "instructions": [
     {
+      "name": "admin_close_lp_share",
+      "docs": [
+        "Close a stale LpShare account (admin only, testnet utility)",
+        "",
+        "Used after pool reinitialization to clean up orphaned LpShare accounts."
+      ],
+      "discriminator": [
+        244,
+        97,
+        35,
+        230,
+        154,
+        155,
+        29,
+        110
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "docs": [
+            "Admin authority - must match GlobalConfig.admin"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "Pool reference — used only for PDA derivation"
+          ]
+        },
+        {
+          "name": "lp_share",
+          "docs": [
+            "LpShare account to close — rent returned to admin"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  112,
+                  95,
+                  115,
+                  104,
+                  97,
+                  114,
+                  101
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "user"
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "user",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "admin_close_pool",
+      "docs": [
+        "Close a pool account (admin only, testnet utility)",
+        "",
+        "Used when Pool struct size changes and accounts need to be recreated.",
+        "Returns rent to admin."
+      ],
+      "discriminator": [
+        83,
+        105,
+        178,
+        188,
+        61,
+        125,
+        117,
+        200
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "docs": [
+            "Admin authority - must match GlobalConfig.admin"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "Pool account to close — using UncheckedAccount to handle size mismatches"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "asset_mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "asset_mint",
+          "docs": [
+            "Asset mint for PDA derivation"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "admin_force_close_epoch",
       "docs": [
         "Force-close a stuck epoch (admin only)",
@@ -1479,6 +1661,247 @@
       ]
     },
     {
+      "name": "crank_process_withdrawal",
+      "docs": [
+        "Process a pending LP withdrawal (permissionless, for crank bots)",
+        "",
+        "Unlike process_withdrawal which requires user/session signature,",
+        "this instruction can be called by anyone. The withdrawal was already",
+        "authorized by the user in request_withdrawal. USDC is sent to the",
+        "user's token account (not the caller)."
+      ],
+      "discriminator": [
+        27,
+        194,
+        37,
+        86,
+        75,
+        227,
+        102,
+        217
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "docs": [
+            "Anyone can call - permissionless for crank bots/keepers"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "docs": [
+            "Global protocol configuration",
+            "Frozen check at constraint level (fail-fast before handler)"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "The pool this LP position belongs to — mutable for reserve updates",
+            "Frozen check at constraint level (fail-fast before handler)"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.asset_mint",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "lp_share",
+          "docs": [
+            "LP share account — user is derived from this account's data.",
+            "The `user` field is trusted because the PDA is program-owned."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  112,
+                  95,
+                  115,
+                  104,
+                  97,
+                  114,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "lp_share.user",
+                "account": "LpShare"
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool_usdc",
+          "docs": [
+            "Pool's USDC token account (source of withdrawal)"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "user_usdc",
+          "docs": [
+            "User's USDC token account (withdrawal destination)",
+            "Owner verified against lp_share.user — USDC goes to LP, not caller"
+          ],
+          "writable": true
+        },
+        {
+          "name": "usdc_mint",
+          "docs": [
+            "USDC mint - verified against constant"
+          ],
+          "address": "6jzddTQNDh2RPuav88r19gdSGmGnbH6EWa2NXgLV8cAy"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "create_epoch",
       "docs": [
         "Create a new epoch for a pool with verified Pyth Lazer oracle data",
@@ -2407,8 +2830,9 @@
         {
           "name": "pool",
           "docs": [
-            "The pool this LP position belongs to"
+            "The pool this LP position belongs to — mutable to update pending_withdrawal_shares"
           ],
+          "writable": true,
           "pda": {
             "seeds": [
               {
@@ -3722,6 +4146,11 @@
       "code": 6043,
       "name": "WithdrawalTooSmall",
       "msg": "Withdrawal too small - would transfer zero USDC"
+    },
+    {
+      "code": 6044,
+      "name": "WithdrawalBlockedDuringEpoch",
+      "msg": "Withdrawal cannot be processed during an active epoch - will be processed after settlement"
     }
   ],
   "types": [
@@ -4768,6 +5197,13 @@
             "name": "total_lp_shares",
             "docs": [
               "Total LP shares issued for this pool"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "pending_withdrawal_shares",
+            "docs": [
+              "Total LP shares pending withdrawal across all LPs (updated on request/process)"
             ],
             "type": "u64"
           },

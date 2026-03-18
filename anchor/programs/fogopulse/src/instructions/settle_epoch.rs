@@ -277,8 +277,23 @@ pub fn handler(
         .checked_add(pool.no_reserves)
         .ok_or(FogoPulseError::Overflow)?;
 
-    let balanced_amount = total_reserves / 2;
-    let remainder = total_reserves % 2;
+    // Reserve pending withdrawal amount before rebalancing
+    // Compute USDC value dynamically from shares to avoid drift
+    let reserved_usdc = if pool.total_lp_shares > 0 && pool.pending_withdrawal_shares > 0 {
+        (pool.pending_withdrawal_shares as u128)
+            .checked_mul(total_reserves as u128)
+            .ok_or(FogoPulseError::Overflow)?
+            .checked_div(pool.total_lp_shares as u128)
+            .ok_or(FogoPulseError::Overflow)? as u64
+    } else {
+        0u64
+    };
+
+    let available_for_epoch = total_reserves
+        .saturating_sub(reserved_usdc);
+
+    let balanced_amount = available_for_epoch / 2;
+    let remainder = available_for_epoch % 2;
 
     pool.yes_reserves = balanced_amount
         .checked_add(remainder)

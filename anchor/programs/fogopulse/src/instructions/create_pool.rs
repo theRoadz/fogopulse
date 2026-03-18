@@ -72,6 +72,7 @@ pub fn handler(ctx: Context<CreatePool>) -> Result<()> {
     pool.yes_reserves = 0;
     pool.no_reserves = 0;
     pool.total_lp_shares = 0;
+    pool.pending_withdrawal_shares = 0;
     pool.next_epoch_id = 0;
     pool.active_epoch = None;
     pool.active_epoch_state = 0; // 0 = None

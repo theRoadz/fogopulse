@@ -1,18 +1,24 @@
-//! Process Withdrawal instruction - Complete LP withdrawal after cooldown
+//! Crank Process Withdrawal instruction - Permissionless LP withdrawal processing
 //!
-//! This is a USER-FACING instruction that supports both:
-//! - Direct wallet signatures
-//! - FOGO Session accounts (for gasless UX)
+//! ## Permissionless Design
 //!
-//! # Two-Step Withdrawal Flow
+//! This instruction does NOT use FOGO Sessions because it is PERMISSIONLESS.
+//! Anyone (typically a crank bot) can call this to process pending LP withdrawals
+//! after epoch settlement.
 //!
-//! 1. request_withdrawal (Story 5.3): Marks shares as pending, records timestamp
-//! 2. process_withdrawal (THIS): After cooldown, transfers USDC and burns shares
+//! **Rationale:**
+//! - The withdrawal was already authorized by the user in `request_withdrawal`
+//! - USDC is sent to the user's token account, not the caller
+//! - The caller's identity is irrelevant — they just pay the TX fee
+//! - This enables automated withdrawal processing between epochs
 //!
-//! # Pause/Freeze Behavior
+//! ## Similar permissionless instructions (no session needed):
+//! - `create_epoch` - Anyone can trigger epoch creation
+//! - `settle_epoch` - Anyone can settle an expired epoch
+//! - `crank_process_withdrawal` - Anyone can process a pending withdrawal (this)
 //!
-//! - Paused: BLOCKED (modifies pool reserves)
-//! - Frozen: BLOCKED (emergency halt)
+//! ## User-facing variant:
+//! - `process_withdrawal` - Requires user/session signature (for manual withdrawal)
 
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
@@ -21,26 +27,20 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 use crate::constants::{USDC_MINT, WITHDRAWAL_COOLDOWN_SECONDS};
 use crate::errors::FogoPulseError;
 use crate::events::WithdrawalProcessed;
-use crate::session::extract_user;
 use crate::state::{GlobalConfig, LpShare, Pool};
 
-/// Process Withdrawal accounts
+/// Crank Process Withdrawal accounts - permissionless, no session needed
 ///
-/// Follows claim_payout pattern for PDA-signed token transfers.
-/// Pool is mutable because reserves are reduced on withdrawal.
-///
-/// Uses Box<> for GlobalConfig and Pool to follow established patterns.
+/// Follows settle_epoch pattern for permissionless access.
+/// User is derived from lp_share.user (PDA-verified, trustworthy).
 #[derive(Accounts)]
-#[instruction(user: Pubkey)]
-pub struct ProcessWithdrawal<'info> {
-    /// The user OR a session account representing the user.
-    /// Session validation is performed via extract_user().
+pub struct CrankProcessWithdrawal<'info> {
+    /// Anyone can call - permissionless for crank bots/keepers
     #[account(mut)]
-    pub signer_or_session: Signer<'info>,
+    pub payer: Signer<'info>,
 
     /// Global protocol configuration
-    /// Used to check: paused, frozen
-    /// Frozen check at constraint level (fail-fast before handler), paused in handler
+    /// Frozen check at constraint level (fail-fast before handler)
     #[account(
         seeds = [b"global_config"],
         bump = config.bump,
@@ -49,7 +49,7 @@ pub struct ProcessWithdrawal<'info> {
     pub config: Box<Account<'info, GlobalConfig>>,
 
     /// The pool this LP position belongs to — mutable for reserve updates
-    /// Frozen check at constraint level (fail-fast before handler), paused in handler
+    /// Frozen check at constraint level (fail-fast before handler)
     #[account(
         mut,
         seeds = [b"pool", pool.asset_mint.as_ref()],
@@ -58,10 +58,11 @@ pub struct ProcessWithdrawal<'info> {
     )]
     pub pool: Box<Account<'info, Pool>>,
 
-    /// LP share account — must exist (user must have deposited first)
+    /// LP share account — user is derived from this account's data.
+    /// The `user` field is trusted because the PDA is program-owned.
     #[account(
         mut,
-        seeds = [b"lp_share", user.as_ref(), pool.key().as_ref()],
+        seeds = [b"lp_share", lp_share.user.as_ref(), pool.key().as_ref()],
         bump = lp_share.bump,
     )]
     pub lp_share: Account<'info, LpShare>,
@@ -75,9 +76,10 @@ pub struct ProcessWithdrawal<'info> {
     pub pool_usdc: Box<Account<'info, TokenAccount>>,
 
     /// User's USDC token account (withdrawal destination)
+    /// Owner verified against lp_share.user — USDC goes to LP, not caller
     #[account(
         mut,
-        constraint = user_usdc.owner == user @ FogoPulseError::TokenOwnerMismatch,
+        constraint = user_usdc.owner == lp_share.user @ FogoPulseError::TokenOwnerMismatch,
         constraint = user_usdc.mint == USDC_MINT @ FogoPulseError::InvalidMint,
     )]
     pub user_usdc: Box<Account<'info, TokenAccount>>,
@@ -91,44 +93,37 @@ pub struct ProcessWithdrawal<'info> {
     pub system_program: Program<'info, System>,
 }
 
-/// Handler for process_withdrawal instruction
+/// Handler for crank_process_withdrawal instruction
 ///
-/// # Arguments
-/// * `user` - The actual user wallet pubkey (validated against session extraction)
+/// Identical logic to process_withdrawal but without session extraction.
+/// The user is derived from lp_share.user instead of being validated via sessions.
 ///
 /// # Flow
-/// 1. Extract and validate user via FOGO Sessions
-/// 2. Check protocol and pool not paused/frozen
+/// 1. Check protocol and pool not paused
+/// 2. Block during active epoch
 /// 3. Validate pending withdrawal exists
 /// 4. Validate cooldown elapsed
-/// 5. Calculate USDC value from shares using u128 math
-/// 6. Validate usdc_out > 0
-/// 7. Transfer USDC from pool to user using PDA signer seeds
-/// 8. Reduce reserves 50/50
-/// 9. Proportionally reduce deposited_amount
-/// 10. Burn shares from pool and lp_share
-/// 11. Reset pending withdrawal state
-/// 12. Emit WithdrawalProcessed event
-pub fn handler(ctx: Context<ProcessWithdrawal>, user: Pubkey) -> Result<()> {
-    // 1. Extract and validate user
-    let extracted_user = extract_user(&ctx.accounts.signer_or_session)?;
-    require!(user == extracted_user, FogoPulseError::Unauthorized);
-
+/// 5. Calculate USDC value from shares
+/// 6. Transfer USDC from pool to user
+/// 7. Update reserves, burn shares, reset pending state
+/// 8. Emit event
+pub fn handler(ctx: Context<CrankProcessWithdrawal>) -> Result<()> {
     let config = &ctx.accounts.config;
+    let user = ctx.accounts.lp_share.user;
 
     msg!(
-        "process_withdrawal: pool={}, user={}",
+        "crank_process_withdrawal: pool={}, user={}",
         ctx.accounts.pool.key(),
         user
     );
 
-    // 2. Check protocol not paused (frozen checks are in account constraints)
+    // 1. Check protocol not paused (frozen checks are in account constraints)
     require!(!config.paused, FogoPulseError::ProtocolPaused);
 
-    // 3. Check pool not paused (frozen checks are in account constraints)
+    // 2. Check pool not paused (frozen checks are in account constraints)
     require!(!ctx.accounts.pool.is_paused, FogoPulseError::PoolPaused);
 
-    // 3b. Block withdrawals during active epoch — funds are reserved, will be processed after settlement
+    // 3. Block withdrawals during active epoch
     require!(
         ctx.accounts.pool.active_epoch.is_none(),
         FogoPulseError::WithdrawalBlockedDuringEpoch
@@ -152,7 +147,6 @@ pub fn handler(ctx: Context<ProcessWithdrawal>, user: Pubkey) -> Result<()> {
         .checked_add(ctx.accounts.pool.no_reserves)
         .ok_or(FogoPulseError::Overflow)?;
 
-    // Guard against division by zero (pool must have shares to withdraw against)
     require!(ctx.accounts.pool.total_lp_shares > 0, FogoPulseError::PoolEmpty);
 
     let usdc_out = (pending_shares as u128)
@@ -169,7 +163,7 @@ pub fn handler(ctx: Context<ProcessWithdrawal>, user: Pubkey) -> Result<()> {
     let deposited_amount_before = ctx.accounts.lp_share.deposited_amount;
 
     msg!(
-        "process_withdrawal: pending_shares={}, pool_value={}, usdc_out={}",
+        "crank_process_withdrawal: pending_shares={}, pool_value={}, usdc_out={}",
         pending_shares,
         pool_value,
         usdc_out
@@ -202,7 +196,7 @@ pub fn handler(ctx: Context<ProcessWithdrawal>, user: Pubkey) -> Result<()> {
 
     // 9. Reduce reserves 50/50 (inverse of deposit split)
     let half_out = usdc_out / 2;
-    let yes_reduction = half_out + (usdc_out % 2); // YES loses remainder (matches deposit pattern)
+    let yes_reduction = half_out + (usdc_out % 2);
     let no_reduction = half_out;
 
     pool.yes_reserves = pool.yes_reserves
@@ -213,7 +207,6 @@ pub fn handler(ctx: Context<ProcessWithdrawal>, user: Pubkey) -> Result<()> {
         .ok_or(FogoPulseError::InsufficientPoolReserves)?;
 
     // 10. Proportionally reduce deposited_amount (using pre-burn shares)
-    // Guard: shares_before must be > 0 to avoid division by zero
     require!(shares_before > 0, FogoPulseError::Overflow);
     let deposited_reduction = (pending_shares as u128)
         .checked_mul(deposited_amount_before as u128)
@@ -238,7 +231,7 @@ pub fn handler(ctx: Context<ProcessWithdrawal>, user: Pubkey) -> Result<()> {
     lp_share.withdrawal_requested_at = None;
 
     msg!(
-        "process_withdrawal complete: usdc_out={}, total_lp_shares={}, yes_reserves={}, no_reserves={}",
+        "crank_process_withdrawal complete: usdc_out={}, total_lp_shares={}, yes_reserves={}, no_reserves={}",
         usdc_out,
         pool.total_lp_shares,
         pool.yes_reserves,

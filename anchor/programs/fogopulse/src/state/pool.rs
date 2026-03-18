@@ -12,6 +12,8 @@ pub struct Pool {
     pub no_reserves: u64,
     /// Total LP shares issued for this pool
     pub total_lp_shares: u64,
+    /// Total LP shares pending withdrawal across all LPs (updated on request/process)
+    pub pending_withdrawal_shares: u64,
 
     /// Counter for next epoch creation (starts at 0)
     pub next_epoch_id: u64,
