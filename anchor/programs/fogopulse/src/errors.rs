@@ -137,4 +137,13 @@ pub enum FogoPulseError {
 
     #[msg("A withdrawal request is already pending")]
     WithdrawalAlreadyPending,
+
+    #[msg("No pending withdrawal to process")]
+    NoPendingWithdrawal,
+
+    #[msg("Withdrawal cooldown period has not elapsed")]
+    CooldownNotElapsed,
+
+    #[msg("Withdrawal too small - would transfer zero USDC")]
+    WithdrawalTooSmall,
 }

@@ -2103,6 +2103,250 @@
       ]
     },
     {
+      "name": "process_withdrawal",
+      "docs": [
+        "Process a pending LP withdrawal after cooldown",
+        "",
+        "Supports FOGO Sessions for gasless withdrawal processing.",
+        "Calculates USDC value from shares at current pool value,",
+        "transfers USDC to user, and burns the LP shares."
+      ],
+      "discriminator": [
+        51,
+        97,
+        236,
+        17,
+        37,
+        33,
+        196,
+        64
+      ],
+      "accounts": [
+        {
+          "name": "signer_or_session",
+          "docs": [
+            "The user OR a session account representing the user.",
+            "Session validation is performed via extract_user()."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "docs": [
+            "Global protocol configuration",
+            "Used to check: paused, frozen",
+            "Frozen check at constraint level (fail-fast before handler), paused in handler"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "The pool this LP position belongs to — mutable for reserve updates",
+            "Frozen check at constraint level (fail-fast before handler), paused in handler"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.asset_mint",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "lp_share",
+          "docs": [
+            "LP share account — must exist (user must have deposited first)"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  112,
+                  95,
+                  115,
+                  104,
+                  97,
+                  114,
+                  101
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "user"
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool_usdc",
+          "docs": [
+            "Pool's USDC token account (source of withdrawal)"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "user_usdc",
+          "docs": [
+            "User's USDC token account (withdrawal destination)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "usdc_mint",
+          "docs": [
+            "USDC mint - verified against constant"
+          ],
+          "address": "6jzddTQNDh2RPuav88r19gdSGmGnbH6EWa2NXgLV8cAy"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "user",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
       "name": "request_withdrawal",
       "docs": [
         "Request withdrawal of LP shares from a pool",
@@ -3232,6 +3476,19 @@
       ]
     },
     {
+      "name": "WithdrawalProcessed",
+      "discriminator": [
+        127,
+        92,
+        169,
+        199,
+        212,
+        241,
+        193,
+        65
+      ]
+    },
+    {
       "name": "WithdrawalRequested",
       "discriminator": [
         75,
@@ -3450,6 +3707,21 @@
       "code": 6040,
       "name": "WithdrawalAlreadyPending",
       "msg": "A withdrawal request is already pending"
+    },
+    {
+      "code": 6041,
+      "name": "NoPendingWithdrawal",
+      "msg": "No pending withdrawal to process"
+    },
+    {
+      "code": 6042,
+      "name": "CooldownNotElapsed",
+      "msg": "Withdrawal cooldown period has not elapsed"
+    },
+    {
+      "code": 6043,
+      "name": "WithdrawalTooSmall",
+      "msg": "Withdrawal too small - would transfer zero USDC"
     }
   ],
   "types": [
@@ -5017,6 +5289,63 @@
               "PDA bump seed"
             ],
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "WithdrawalProcessed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "docs": [
+              "Pool account pubkey"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "user",
+            "docs": [
+              "User who processed withdrawal"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "shares_burned",
+            "docs": [
+              "Number of LP shares burned"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "usdc_amount",
+            "docs": [
+              "USDC amount transferred to user"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_lp_shares_after",
+            "docs": [
+              "Total LP shares in pool after withdrawal"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "yes_reserves_after",
+            "docs": [
+              "YES reserves after withdrawal"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "no_reserves_after",
+            "docs": [
+              "NO reserves after withdrawal"
+            ],
+            "type": "u64"
           }
         ]
       }

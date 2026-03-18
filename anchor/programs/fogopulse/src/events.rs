@@ -283,3 +283,21 @@ pub struct LiquidityDeposited {
     /// NO reserves after deposit
     pub no_reserves_after: u64,
 }
+
+#[event]
+pub struct WithdrawalProcessed {
+    /// Pool account pubkey
+    pub pool: Pubkey,
+    /// User who processed withdrawal
+    pub user: Pubkey,
+    /// Number of LP shares burned
+    pub shares_burned: u64,
+    /// USDC amount transferred to user
+    pub usdc_amount: u64,
+    /// Total LP shares in pool after withdrawal
+    pub total_lp_shares_after: u64,
+    /// YES reserves after withdrawal
+    pub yes_reserves_after: u64,
+    /// NO reserves after withdrawal
+    pub no_reserves_after: u64,
+}

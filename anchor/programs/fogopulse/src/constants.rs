@@ -27,3 +27,7 @@ pub const USDC_MINT: Pubkey = pubkey!("6jzddTQNDh2RPuav88r19gdSGmGnbH6EWa2NXgLV8
 /// Minimum trade amount in USDC lamports (6 decimals)
 /// 100_000 = $0.10 USDC - prevents dust position spam
 pub const MIN_TRADE_AMOUNT: u64 = 100_000;
+
+/// Withdrawal cooldown period in seconds
+/// LPs must wait this duration after requesting withdrawal before processing
+pub const WITHDRAWAL_COOLDOWN_SECONDS: i64 = 60;

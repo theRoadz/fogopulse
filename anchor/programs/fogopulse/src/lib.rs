@@ -208,6 +208,15 @@ pub mod fogopulse {
         instructions::request_withdrawal::handler(ctx, user, shares_amount)
     }
 
+    /// Process a pending LP withdrawal after cooldown
+    ///
+    /// Supports FOGO Sessions for gasless withdrawal processing.
+    /// Calculates USDC value from shares at current pool value,
+    /// transfers USDC to user, and burns the LP shares.
+    pub fn process_withdrawal(ctx: Context<ProcessWithdrawal>, user: Pubkey) -> Result<()> {
+        instructions::process_withdrawal::handler(ctx, user)
+    }
+
     // =========================================================================
     // ADMIN INSTRUCTIONS
     // =========================================================================
