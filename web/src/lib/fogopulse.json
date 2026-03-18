@@ -459,10 +459,9 @@
     {
       "name": "buy_position",
       "docs": [
-        "Buy a position in an epoch (STUB - returns NotImplemented)",
+        "Buy a position in an epoch",
         "",
-        "Supports FOGO Sessions for gasless trading.",
-        "Full implementation in Epic 2."
+        "Supports FOGO Sessions for gasless trading."
       ],
       "discriminator": [
         210,
@@ -941,10 +940,9 @@
     {
       "name": "claim_payout",
       "docs": [
-        "Claim payout from a winning position (STUB - returns NotImplemented)",
+        "Claim payout from a winning position",
         "",
-        "Supports FOGO Sessions for gasless claims.",
-        "Full implementation in Epic 3."
+        "Supports FOGO Sessions for gasless claims."
       ],
       "discriminator": [
         127,
@@ -2107,10 +2105,9 @@
     {
       "name": "sell_position",
       "docs": [
-        "Sell a position before epoch settlement (STUB - returns NotImplemented)",
+        "Sell a position before epoch settlement",
         "",
-        "Supports FOGO Sessions for gasless trading.",
-        "Full implementation in Epic 4."
+        "Supports FOGO Sessions for gasless trading."
       ],
       "discriminator": [
         11,
@@ -3303,6 +3300,11 @@
       "code": 6038,
       "name": "PoolEmpty",
       "msg": "Pool has no liquidity - use admin_seed_liquidity first"
+    },
+    {
+      "code": 6039,
+      "name": "DepositTooSmall",
+      "msg": "Deposit too small - would mint zero LP shares"
     }
   ],
   "types": [
