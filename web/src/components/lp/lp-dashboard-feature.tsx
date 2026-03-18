@@ -16,7 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 export function LpDashboardFeature() {
   const { publicKey } = useWallet()
-  const { pools, activePools, totalValue, totalEarnings, isLoading, hasError } = useMultiPoolLp()
+  const { pools, activePools, totalValue, totalEarnings, weightedApy, isLoading, hasError } = useMultiPoolLp()
   const [depositDialogOpen, setDepositDialogOpen] = useState(false)
   const [depositAsset, setDepositAsset] = useState<Asset>('BTC')
   const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false)
@@ -78,6 +78,7 @@ export function LpDashboardFeature() {
             totalValue={totalValue}
             totalEarnings={totalEarnings}
             poolCount={activePools.length}
+            weightedApy={weightedApy}
           />
           <h2 className="text-lg font-semibold mt-8 mb-4">Your Pools</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

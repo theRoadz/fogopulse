@@ -4,11 +4,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 import type { PoolLpInfo } from '@/hooks/use-multi-pool-lp'
 import { ASSET_METADATA } from '@/lib/constants'
 import { formatPoolLiquidity } from '@/types/pool'
 import { formatUsdcAmount } from '@/hooks/use-claimable-amount'
+import { formatApy } from '@/lib/utils'
 import { LpPendingWithdrawal } from '@/components/lp/lp-pending-withdrawal'
 
 interface LpPoolCardProps {
@@ -18,7 +24,7 @@ interface LpPoolCardProps {
 }
 
 export function LpPoolCard({ info, onDeposit, onWithdraw }: LpPoolCardProps) {
-  const { asset, pool, lpShare, shareValue, earnings, isLoading } = info
+  const { asset, pool, lpShare, shareValue, earnings, apy, isLoading } = info
   const meta = ASSET_METADATA[asset]
 
   if (isLoading) {
@@ -49,9 +55,19 @@ export function LpPoolCard({ info, onDeposit, onWithdraw }: LpPoolCardProps) {
           <CardTitle className={`text-base font-semibold ${meta.color}`}>
             {meta.label}
           </CardTitle>
-          <Badge variant="outline" className="text-xs">
-            APY — Coming Soon
-          </Badge>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant="outline" className="text-xs">
+                APY: {formatApy(apy)}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="max-w-[220px] text-xs">
+                Estimated APY based on 7-day LP share price growth.
+                Past performance does not guarantee future returns.
+              </p>
+            </TooltipContent>
+          </Tooltip>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">

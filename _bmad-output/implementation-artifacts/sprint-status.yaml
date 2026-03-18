@@ -107,7 +107,7 @@ development_status:
   5-6-create-deposit-interface: done
   5-7-create-withdrawal-interface: done
   5-7.1-fix-withdrawal-epoch-protection: done
-  5-8-implement-apy-calculation: backlog
+  5-8-implement-apy-calculation: done
   epic-5-retrospective: optional
 
   # Epic 6: Admin & Operations

@@ -39,6 +39,15 @@ export function formatPriceChange(change: number | null): string {
 }
 
 /**
+ * Format an APY value as a percentage string.
+ * Returns "—" for null (division-by-zero guard), "0.00%" for 0, "X.XX%" for values.
+ */
+export function formatApy(value: number | null): string {
+  if (value === null) return '\u2014'
+  return `${value.toFixed(2)}%`
+}
+
+/**
  * Format a timestamp as a relative "time ago" string.
  * @param publishTime - Timestamp in milliseconds (from usePythPrice)
  */

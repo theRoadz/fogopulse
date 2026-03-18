@@ -188,6 +188,7 @@ export const QUERY_KEYS = {
   feedback: (filters?: Record<string, string>) => ['feedback', filters] as const,
   feedbackDetail: (id: string) => ['feedback', id] as const,
   feedbackAdminCheck: (wallet?: string) => ['feedback-admin', wallet] as const,
+  poolApy: (asset: Asset) => ['poolApy', asset] as const,
 } as const
 
 // =============================================================================
