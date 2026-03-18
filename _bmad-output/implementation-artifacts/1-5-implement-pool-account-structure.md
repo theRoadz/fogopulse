@@ -13,15 +13,16 @@ So that per-asset liquidity pools can be created and managed.
 ## Acceptance Criteria
 
 1. **Pool Account Structure**: The Pool struct includes all required fields:
+   - `asset_mint: Pubkey` - Asset this pool tracks (e.g., BTC mint)
    - `yes_reserves: u64` - YES token reserves
    - `no_reserves: u64` - NO token reserves
    - `total_lp_shares: u64` - Total LP shares issued
-   - `asset_mint: Pubkey` - Asset this pool tracks (e.g., BTC mint)
-   - `wallet_cap_bps: u16` - Max position per wallet (copied from GlobalConfig)
-   - `side_cap_bps: u16` - Max exposure per side (copied from GlobalConfig)
+   - `pending_withdrawal_shares: u64` - Total LP shares pending withdrawal (added in Story 5-7.1)
    - `next_epoch_id: u64` - Counter for next epoch creation (starts at 0)
    - `active_epoch: Option<Pubkey>` - Current active epoch PDA, or None
    - `active_epoch_state: u8` - Cached state: 0=None, 1=Open, 2=Frozen
+   - `wallet_cap_bps: u16` - Max position per wallet (copied from GlobalConfig)
+   - `side_cap_bps: u16` - Max exposure per side (copied from GlobalConfig)
    - `is_paused: bool` - Pool-level pause flag
    - `is_frozen: bool` - Pool-level freeze flag
    - `bump: u8` - PDA bump seed

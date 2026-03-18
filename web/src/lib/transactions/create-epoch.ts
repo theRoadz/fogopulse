@@ -47,7 +47,8 @@ const PYTH_MESSAGE_OFFSET = 12
  * - yes_reserves: 8 bytes (u64)
  * - no_reserves: 8 bytes (u64)
  * - total_lp_shares: 8 bytes (u64)
- * - next_epoch_id: 8 bytes (u64) <-- offset 64
+ * - pending_withdrawal_shares: 8 bytes (u64)
+ * - next_epoch_id: 8 bytes (u64) <-- offset 72
  */
 export async function fetchPoolNextEpochId(
   connection: Connection,
@@ -58,8 +59,8 @@ export async function fetchPoolNextEpochId(
     throw new Error('Pool account not found')
   }
 
-  // Read next_epoch_id at offset 64 (8 + 32 + 8 + 8 + 8)
-  const offset = 64
+  // Read next_epoch_id at offset 72 (8 + 32 + 8 + 8 + 8 + 8)
+  const offset = 72
   const dataView = new DataView(accountInfo.data.buffer, accountInfo.data.byteOffset)
 
   // Read u64 little-endian

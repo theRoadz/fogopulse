@@ -256,8 +256,9 @@ async function fetchPoolNextEpochId(connection: Connection, poolPda: PublicKey):
   if (!accountInfo) throw new Error('Pool account not found')
 
   // Pool layout: discriminator(8) + asset_mint(32) + yes_reserves(8) + no_reserves(8) +
-  //              total_lp_shares(8) + next_epoch_id(8) + ...
-  const offset = 8 + 32 + 8 + 8 + 8  // = 64
+  //              total_lp_shares(8) + pending_withdrawal_shares(8) + next_epoch_id(8) + ...
+  // NOTE: pending_withdrawal_shares was added in Story 5-7.1, shifting offset from 64 to 72
+  const offset = 8 + 32 + 8 + 8 + 8 + 8  // = 72
   const nextEpochId = accountInfo.data.readBigUInt64LE(offset)
   return nextEpochId
 }

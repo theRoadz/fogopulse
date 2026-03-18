@@ -8,6 +8,101 @@
   },
   "instructions": [
     {
+      "name": "admin_close_epoch",
+      "docs": [
+        "Close an epoch account (admin only, testnet utility)",
+        "",
+        "Used to clean up orphaned epoch accounts after pool reinitialization.",
+        "Returns rent to admin."
+      ],
+      "discriminator": [
+        74,
+        152,
+        228,
+        203,
+        247,
+        35,
+        253,
+        113
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "docs": [
+            "Admin authority - must match GlobalConfig.admin"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "Pool - for PDA seed derivation"
+          ]
+        },
+        {
+          "name": "epoch",
+          "docs": [
+            "Epoch account to close — using UncheckedAccount to handle size mismatches"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  112,
+                  111,
+                  99,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "arg",
+                "path": "epoch_id"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "epoch_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "admin_close_lp_share",
       "docs": [
         "Close a stale LpShare account (admin only, testnet utility)",

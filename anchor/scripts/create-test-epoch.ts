@@ -159,6 +159,9 @@ function parsePoolAccount(data: Buffer): {
   // total_lp_shares (8 bytes, u64)
   offset += 8
 
+  // pending_withdrawal_shares (8 bytes, u64)
+  offset += 8
+
   // next_epoch_id (8 bytes, u64)
   const nextEpochId = data.readBigUInt64LE(offset)
   offset += 8

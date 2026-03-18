@@ -77,6 +77,7 @@ function decodePool(data: Buffer): {
   const yesReserves = data.readBigUInt64LE(offset); offset += 8
   const noReserves = data.readBigUInt64LE(offset); offset += 8
   const totalLpShares = data.readBigUInt64LE(offset); offset += 8
+  const pendingWithdrawalShares = data.readBigUInt64LE(offset); offset += 8 // pending_withdrawal_shares
   const nextEpochId = data.readBigUInt64LE(offset); offset += 8
 
   // Option<Pubkey>

@@ -238,6 +238,14 @@ pub mod fogopulse {
         instructions::admin_close_lp_share::handler(ctx, user)
     }
 
+    /// Close an epoch account (admin only, testnet utility)
+    ///
+    /// Used to clean up orphaned epoch accounts after pool reinitialization.
+    /// Returns rent to admin.
+    pub fn admin_close_epoch(ctx: Context<AdminCloseEpoch>, epoch_id: u64) -> Result<()> {
+        instructions::admin_close_epoch::handler(ctx, epoch_id)
+    }
+
     /// Close a pool account (admin only, testnet utility)
     ///
     /// Used when Pool struct size changes and accounts need to be recreated.
