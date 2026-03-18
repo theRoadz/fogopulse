@@ -98,8 +98,8 @@ development_status:
   epic-4-retrospective: optional
 
   # Epic 5: Liquidity Provision
-  epic-5: backlog
-  5-1-implement-lpshare-account-structure: backlog
+  epic-5: in-progress
+  5-1-implement-lpshare-account-structure: done
   5-2-implement-deposit-liquidity-instruction: backlog
   5-3-implement-request-withdrawal-instruction: backlog
   5-4-implement-process-withdrawal-instruction: backlog
