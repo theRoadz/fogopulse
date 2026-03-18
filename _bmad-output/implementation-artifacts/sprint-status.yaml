@@ -103,7 +103,7 @@ development_status:
   5-2-implement-deposit-liquidity-instruction: done
   5-3-implement-request-withdrawal-instruction: done
   5-4-implement-process-withdrawal-instruction: done
-  5-5-create-lp-dashboard: backlog
+  5-5-create-lp-dashboard: done
   5-6-create-deposit-interface: backlog
   5-7-create-withdrawal-interface: backlog
   5-8-implement-apy-calculation: backlog

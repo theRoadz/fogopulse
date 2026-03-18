@@ -50,6 +50,19 @@ export function derivePositionPda(epochPda: PublicKey, userPubkey: PublicKey): P
 }
 
 /**
+ * Derive LpShare PDA from user public key and pool PDA
+ *
+ * Seeds: ["lp_share", user, pool]
+ */
+export function deriveLpSharePda(userPubkey: PublicKey, poolPda: PublicKey): PublicKey {
+  const [pda] = PublicKey.findProgramAddressSync(
+    [SEEDS.LP_SHARE, userPubkey.toBuffer(), poolPda.toBuffer()],
+    PROGRAM_ID
+  )
+  return pda
+}
+
+/**
  * Derive user's USDC Associated Token Account (ATA)
  *
  * Uses SPL Token's getAssociatedTokenAddressSync for standard ATA derivation.

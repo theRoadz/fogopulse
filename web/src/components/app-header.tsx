@@ -23,6 +23,7 @@ const overflowLinks = [
 ]
 
 const utilityLinks = [
+  { label: 'LP', href: '/lp' },
   { label: 'Faucet', href: '/faucet' },
   { label: 'Feedback', href: '/feedback' },
 ]
