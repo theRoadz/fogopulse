@@ -360,6 +360,7 @@ Claude Opus 4.6 (1M context)
 - 2026-03-17: Redesign — My Trades rows as collapsible cards with inline claim buttons and expandable settlement details
 - 2026-03-17: Vercel deploy fix — Added `export const dynamic = 'force-dynamic'` to `web/src/app/history/page.tsx` because `HistoryFeature` uses `useSearchParams()` which causes prerender errors during static generation
 - 2026-03-17: Layout fix — Footer was rendering inline with trade rows when many trades loaded. Root cause: `app-layout.tsx` used `min-h-screen` which allowed page to grow beyond viewport, pushing footer into content flow. Fix: changed outer div to `h-screen overflow-hidden` and `<main>` to `flex-1 overflow-y-auto` so main scrolls internally and footer stays pinned at viewport bottom
+- 2026-03-18: Reverted layout fix — the `h-screen overflow-hidden` approach looked ugly; restored original `min-h-screen` + `flex-grow` layout
 
 ### File List
 
@@ -381,5 +382,5 @@ Claude Opus 4.6 (1M context)
 - web/src/lib/constants.ts — Added `tradingHistory` query key to QUERY_KEYS
 - web/src/hooks/index.ts — Added barrel export for `use-trading-history`
 - web/src/components/trading/trading-layout.tsx — Swapped `MultiAssetPositionsPanel` for `PositionsAndTradesPanel`
-- web/src/components/app-layout.tsx — Fixed layout to use `h-screen overflow-hidden` with scrollable main area so footer stays pinned at viewport bottom
+- web/src/components/app-layout.tsx — Reverted to original `min-h-screen` + `flex-grow` layout
 - _bmad-output/implementation-artifacts/sprint-status.yaml — Status updated
