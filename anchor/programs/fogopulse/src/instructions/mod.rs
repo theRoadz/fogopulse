@@ -15,6 +15,7 @@ pub mod process_withdrawal;
 pub mod request_withdrawal;
 pub mod sell_position;
 pub mod settle_epoch;
+pub mod pause_pool;
 pub mod update_config;
 
 // Re-export Accounts structs for use in lib.rs Context<T>
@@ -39,4 +40,5 @@ pub use process_withdrawal::*;
 pub use request_withdrawal::*;
 pub use sell_position::*;
 pub use settle_epoch::*;
+pub use pause_pool::*;
 pub use update_config::*;

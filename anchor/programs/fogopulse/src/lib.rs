@@ -263,6 +263,14 @@ pub mod fogopulse {
         instructions::admin_force_close_epoch::handler(ctx)
     }
 
+    /// Pause a specific pool (admin only)
+    ///
+    /// Sets pool.is_paused = true, preventing new epoch creation
+    /// and new trades. Existing epochs continue to settle normally.
+    pub fn pause_pool(ctx: Context<PausePool>) -> Result<()> {
+        instructions::pause_pool::handler(ctx)
+    }
+
     /// Update protocol configuration (admin only)
     ///
     /// Allows admin to modify GlobalConfig parameters like oracle thresholds,

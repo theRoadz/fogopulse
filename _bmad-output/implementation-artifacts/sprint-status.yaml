@@ -113,7 +113,7 @@ development_status:
   # Epic 6: Admin & Operations
   epic-6: in-progress
   6-1-implement-update-config-instruction: done
-  6-2-implement-pause-pool-instruction: backlog
+  6-2-implement-pause-pool-instruction: in-progress
   6-3-implement-resume-pool-instruction: backlog
   6-4-implement-emergency-freeze-instruction: backlog
   6-5-create-admin-dashboard: backlog

@@ -235,6 +235,26 @@ pub struct FeesCollected {
 }
 
 #[event]
+pub struct PoolPaused {
+    /// Pool account pubkey
+    pub pool: Pubkey,
+    /// Asset mint this pool tracks
+    pub asset_mint: Pubkey,
+    /// Admin who paused the pool
+    pub admin: Pubkey,
+}
+
+#[event]
+pub struct PoolResumed {
+    /// Pool account pubkey
+    pub pool: Pubkey,
+    /// Asset mint this pool tracks
+    pub asset_mint: Pubkey,
+    /// Admin who resumed the pool
+    pub admin: Pubkey,
+}
+
+#[event]
 pub struct WithdrawalRequested {
     /// Pool account pubkey
     pub pool: Pubkey,

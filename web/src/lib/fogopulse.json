@@ -2414,6 +2414,92 @@
       ]
     },
     {
+      "name": "pause_pool",
+      "docs": [
+        "Pause a specific pool (admin only)",
+        "",
+        "Sets pool.is_paused = true, preventing new epoch creation",
+        "and new trades. Existing epochs continue to settle normally."
+      ],
+      "discriminator": [
+        160,
+        15,
+        12,
+        189,
+        160,
+        0,
+        243,
+        245
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "docs": [
+            "Admin signer — verified via GlobalConfig.has_one"
+          ],
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        },
+        {
+          "name": "global_config",
+          "docs": [
+            "GlobalConfig for admin verification"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "Pool to pause — PDA with seeds [\"pool\", asset_mint]"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.asset_mint",
+                "account": "Pool"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "process_withdrawal",
       "docs": [
         "Process a pending LP withdrawal after cooldown",
@@ -3723,6 +3809,19 @@
       ]
     },
     {
+      "name": "PoolPaused",
+      "discriminator": [
+        228,
+        218,
+        62,
+        53,
+        29,
+        211,
+        159,
+        236
+      ]
+    },
+    {
       "name": "PoolRebalanced",
       "discriminator": [
         75,
@@ -3733,6 +3832,19 @@
         42,
         34,
         141
+      ]
+    },
+    {
+      "name": "PoolResumed",
+      "discriminator": [
+        51,
+        133,
+        198,
+        21,
+        248,
+        217,
+        110,
+        149
       ]
     },
     {
@@ -5123,6 +5235,35 @@
       }
     },
     {
+      "name": "PoolPaused",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "docs": [
+              "Pool account pubkey"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "asset_mint",
+            "docs": [
+              "Asset mint this pool tracks"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "admin",
+            "docs": [
+              "Admin who paused the pool"
+            ],
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
       "name": "PoolRebalanced",
       "type": {
         "kind": "struct",
@@ -5168,6 +5309,35 @@
               "NO reserves after rebalancing"
             ],
             "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PoolResumed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "docs": [
+              "Pool account pubkey"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "asset_mint",
+            "docs": [
+              "Asset mint this pool tracks"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "admin",
+            "docs": [
+              "Admin who resumed the pool"
+            ],
+            "type": "pubkey"
           }
         ]
       }
