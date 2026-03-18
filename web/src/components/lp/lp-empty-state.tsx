@@ -4,7 +4,11 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Coins } from 'lucide-react'
 
-export function LpEmptyState() {
+interface LpEmptyStateProps {
+  onDeposit?: () => void
+}
+
+export function LpEmptyState({ onDeposit }: LpEmptyStateProps) {
   return (
     <Card>
       <CardContent className="flex flex-col items-center gap-4 py-12">
@@ -15,8 +19,8 @@ export function LpEmptyState() {
             Earn fees by providing liquidity to prediction market pools.
           </p>
         </div>
-        <Button disabled>
-          Deposit — Coming Soon
+        <Button onClick={onDeposit} disabled={!onDeposit}>
+          Deposit
         </Button>
       </CardContent>
     </Card>

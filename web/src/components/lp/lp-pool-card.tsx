@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 
 import type { PoolLpInfo } from '@/hooks/use-multi-pool-lp'
@@ -11,9 +12,10 @@ import { formatUsdcAmount } from '@/hooks/use-claimable-amount'
 
 interface LpPoolCardProps {
   info: PoolLpInfo
+  onDeposit?: () => void
 }
 
-export function LpPoolCard({ info }: LpPoolCardProps) {
+export function LpPoolCard({ info, onDeposit }: LpPoolCardProps) {
   const { asset, pool, lpShare, shareValue, earnings, isLoading } = info
   const meta = ASSET_METADATA[asset]
 
@@ -76,6 +78,12 @@ export function LpPoolCard({ info }: LpPoolCardProps) {
           <p className="text-xs text-muted-foreground">
             No position in this pool
           </p>
+        )}
+
+        {onDeposit && (
+          <Button variant="outline" size="sm" className="w-full mt-2" onClick={onDeposit}>
+            Deposit
+          </Button>
         )}
       </CardContent>
     </Card>

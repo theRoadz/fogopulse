@@ -44,6 +44,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   AlreadyClaimed: 'This position has already been claimed.',
   PositionNotWinner: 'This position did not win the epoch.',
 
+  // LP errors
+  DepositTooSmall: 'Deposit too small — would result in zero LP shares.',
+
   // Sell position errors
   InsufficientShares: 'Position does not have enough shares to sell.',
   ZeroShares: 'Please enter a valid number of shares.',
