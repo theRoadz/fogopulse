@@ -45,8 +45,12 @@ const USDC_MINT = new PublicKey('6jzddTQNDh2RPuav88r19gdSGmGnbH6EWa2NXgLV8cAy')
 
 // Instruction discriminators (read from generated IDL)
 const ADMIN_CLOSE_POOL_DISCRIMINATOR = getDiscriminator('admin_close_pool')
+const ADMIN_CLOSE_LP_SHARE_DISCRIMINATOR = getDiscriminator('admin_close_lp_share')
 const CREATE_POOL_DISCRIMINATOR = getDiscriminator('create_pool')
 const ADMIN_SEED_LIQUIDITY_DISCRIMINATOR = getDiscriminator('admin_seed_liquidity')
+
+// LpShare account discriminator (from IDL)
+const LP_SHARE_DISCRIMINATOR = Buffer.from([137, 210, 47, 236, 167, 57, 72, 145])
 
 const ASSET_MINTS = {
   BTC: new PublicKey('4hD62sQKhdkaKxMPfY4YT7pFAHh4sR2nhkNAfLaoYLuY'),
@@ -92,6 +96,35 @@ function derivePoolPda(assetMint: PublicKey): [PublicKey, number] {
     [Buffer.from('pool'), assetMint.toBuffer()],
     PROGRAM_ID
   )
+}
+
+interface LpShareInfo {
+  pubkey: PublicKey
+  user: PublicKey
+  shares: bigint
+}
+
+async function findLpSharesForPool(
+  connection: Connection,
+  poolPda: PublicKey
+): Promise<LpShareInfo[]> {
+  // LpShare layout after 8-byte discriminator:
+  //   user: Pubkey (32 bytes) at offset 8
+  //   pool: Pubkey (32 bytes) at offset 40
+  //   shares: u64 (8 bytes) at offset 72
+  const accounts = await connection.getProgramAccounts(PROGRAM_ID, {
+    filters: [
+      { memcmp: { offset: 0, bytes: LP_SHARE_DISCRIMINATOR.toString('base64'), encoding: 'base64' } },
+      { memcmp: { offset: 40, bytes: poolPda.toBase58() } },
+    ],
+  })
+
+  return accounts.map(({ pubkey, account }) => {
+    const data = account.data
+    const user = new PublicKey(data.subarray(8, 40))
+    const shares = data.readBigUInt64LE(72)
+    return { pubkey, user, shares }
+  })
 }
 
 // =============================================================================
@@ -176,6 +209,53 @@ async function main() {
       }
     }
   }
+
+  // Step 1.5: Close stale LpShare accounts
+  console.log()
+  console.log('Step 1.5: Closing stale LpShare accounts...')
+  console.log('-'.repeat(40))
+
+  let totalLpSharesClosed = 0
+
+  for (const [asset, assetMint] of Object.entries(ASSET_MINTS) as [Asset, PublicKey][]) {
+    const [poolPda] = derivePoolPda(assetMint)
+    const lpShares = await findLpSharesForPool(connection, poolPda)
+
+    if (lpShares.length === 0) {
+      console.log(`  ${asset}: No LpShare accounts found`)
+      continue
+    }
+
+    console.log(`  ${asset}: Found ${lpShares.length} LpShare account(s)`)
+
+    for (const lp of lpShares) {
+      try {
+        const data = Buffer.alloc(8 + 32)
+        ADMIN_CLOSE_LP_SHARE_DISCRIMINATOR.copy(data, 0)
+        lp.user.toBuffer().copy(data, 8)
+
+        const ix = new TransactionInstruction({
+          keys: [
+            { pubkey: wallet.publicKey, isSigner: true, isWritable: true },  // admin
+            { pubkey: globalConfigPda, isSigner: false, isWritable: false }, // global_config
+            { pubkey: poolPda, isSigner: false, isWritable: false },         // pool
+            { pubkey: lp.pubkey, isSigner: false, isWritable: true },        // lp_share
+          ],
+          programId: PROGRAM_ID,
+          data,
+        })
+
+        const tx = new Transaction().add(ix)
+        const sig = await sendAndConfirmTransaction(connection, tx, [wallet])
+        console.log(`    Closed LP for ${lp.user.toBase58().slice(0, 12)}... (${lp.shares} shares) TX: ${sig}`)
+        totalLpSharesClosed++
+      } catch (error: any) {
+        console.error(`    Failed to close LP for ${lp.user.toBase58().slice(0, 12)}...: ${error.message}`)
+      }
+    }
+  }
+
+  console.log(`  Total LpShare accounts closed: ${totalLpSharesClosed}`)
 
   // Small delay to ensure accounts are confirmed closed
   console.log()
