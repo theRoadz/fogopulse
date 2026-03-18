@@ -253,6 +253,20 @@ pub struct FeesCollected {
 }
 
 #[event]
+pub struct WithdrawalRequested {
+    /// Pool account pubkey
+    pub pool: Pubkey,
+    /// User who requested withdrawal
+    pub user: Pubkey,
+    /// Number of LP shares requested for withdrawal
+    pub shares_amount: u64,
+    /// Total LP shares user holds (including pending)
+    pub total_shares: u64,
+    /// Unix timestamp of the request
+    pub timestamp: i64,
+}
+
+#[event]
 pub struct LiquidityDeposited {
     /// Pool account pubkey
     pub pool: Pubkey,

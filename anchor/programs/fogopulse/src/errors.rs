@@ -134,4 +134,7 @@ pub enum FogoPulseError {
 
     #[msg("Deposit too small - would mint zero LP shares")]
     DepositTooSmall,
+
+    #[msg("A withdrawal request is already pending")]
+    WithdrawalAlreadyPending,
 }

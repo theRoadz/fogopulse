@@ -101,7 +101,7 @@ development_status:
   epic-5: in-progress
   5-1-implement-lpshare-account-structure: done
   5-2-implement-deposit-liquidity-instruction: done
-  5-3-implement-request-withdrawal-instruction: backlog
+  5-3-implement-request-withdrawal-instruction: done
   5-4-implement-process-withdrawal-instruction: backlog
   5-5-create-lp-dashboard: backlog
   5-6-create-deposit-interface: backlog

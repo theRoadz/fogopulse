@@ -2103,6 +2103,133 @@
       ]
     },
     {
+      "name": "request_withdrawal",
+      "docs": [
+        "Request withdrawal of LP shares from a pool",
+        "",
+        "Supports FOGO Sessions for gasless withdrawal requests.",
+        "This only marks shares as pending — no token transfers occur.",
+        "Use process_withdrawal to complete the withdrawal after cooldown."
+      ],
+      "discriminator": [
+        251,
+        85,
+        121,
+        205,
+        56,
+        201,
+        12,
+        177
+      ],
+      "accounts": [
+        {
+          "name": "signer_or_session",
+          "docs": [
+            "The user OR a session account representing the user.",
+            "Session validation is performed via extract_user()."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "docs": [
+            "Global protocol configuration",
+            "Used to check: paused, frozen"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "The pool this LP position belongs to"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.asset_mint",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "lp_share",
+          "docs": [
+            "LP share account — must exist (user must have deposited first)",
+            "NOT init_if_needed — requires existing deposit"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  112,
+                  95,
+                  115,
+                  104,
+                  97,
+                  114,
+                  101
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "user"
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "user",
+          "type": "pubkey"
+        },
+        {
+          "name": "shares_amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "sell_position",
       "docs": [
         "Sell a position before epoch settlement",
@@ -3103,6 +3230,19 @@
         208,
         130
       ]
+    },
+    {
+      "name": "WithdrawalRequested",
+      "discriminator": [
+        75,
+        207,
+        21,
+        12,
+        160,
+        102,
+        150,
+        55
+      ]
     }
   ],
   "errors": [
@@ -3305,6 +3445,11 @@
       "code": 6039,
       "name": "DepositTooSmall",
       "msg": "Deposit too small - would mint zero LP shares"
+    },
+    {
+      "code": 6040,
+      "name": "WithdrawalAlreadyPending",
+      "msg": "A withdrawal request is already pending"
     }
   ],
   "types": [
@@ -4872,6 +5017,49 @@
               "PDA bump seed"
             ],
             "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "WithdrawalRequested",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "docs": [
+              "Pool account pubkey"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "user",
+            "docs": [
+              "User who requested withdrawal"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "shares_amount",
+            "docs": [
+              "Number of LP shares requested for withdrawal"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_shares",
+            "docs": [
+              "Total LP shares user holds (including pending)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "docs": [
+              "Unix timestamp of the request"
+            ],
+            "type": "i64"
           }
         ]
       }

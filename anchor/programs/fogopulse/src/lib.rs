@@ -195,6 +195,19 @@ pub mod fogopulse {
         instructions::deposit_liquidity::handler(ctx, user, amount)
     }
 
+    /// Request withdrawal of LP shares from a pool
+    ///
+    /// Supports FOGO Sessions for gasless withdrawal requests.
+    /// This only marks shares as pending — no token transfers occur.
+    /// Use process_withdrawal to complete the withdrawal after cooldown.
+    pub fn request_withdrawal(
+        ctx: Context<RequestWithdrawal>,
+        user: Pubkey,
+        shares_amount: u64,
+    ) -> Result<()> {
+        instructions::request_withdrawal::handler(ctx, user, shares_amount)
+    }
+
     // =========================================================================
     // ADMIN INSTRUCTIONS
     // =========================================================================
