@@ -1,6 +1,19 @@
 # Story 2.12: Implement Admin Seed Liquidity
 
-Status: done
+Status: removed
+
+> **REMOVED (2026-03-18):** This instruction was deleted due to a critical LP pool drain vulnerability.
+> `admin_seed_liquidity` added USDC to pool reserves but minted **zero LP shares**. The first LP
+> depositor hit the `total_lp_shares == 0` bootstrap branch, received 1:1 shares, and owned 100%
+> of all reserves — including admin-seeded funds. Confirmed exploit: admin seeded 20K, user deposited
+> 10K, user could withdraw 30K and drain the pool to zero.
+>
+> **Resolution:** Instruction removed entirely. Initial liquidity is now deposited via the UI using
+> `deposit_liquidity` (Story 5.2), which correctly mints LP shares.
+>
+> **Deleted files:** `admin_seed_liquidity.rs`, `admin-seed-liquidity.test.ts`, `seed-pool-liquidity.ts`
+> **Edited files:** `mod.rs`, `lib.rs`, `errors.rs` (removed "use admin_seed_liquidity first"),
+> `events.rs` (removed `LiquiditySeeded` event), `reinitialize-pools.ts` (removed seed step)
 
 ## Story
 

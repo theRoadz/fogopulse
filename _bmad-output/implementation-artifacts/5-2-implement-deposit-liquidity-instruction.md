@@ -23,7 +23,7 @@ so that I can earn trading fees.
 ## Acceptance Criteria
 
 1. **Given** a pool and a user with USDC, **When** I call `deposit_liquidity` with an amount, **Then** USDC is transferred from the user's token account to the pool's USDC ATA
-2. **Given** a deposit into a pool, **When** the deposit is processed, **Then** the amount is automatically split 50/50 between `yes_reserves` and `no_reserves` (YES gets remainder for odd amounts, matching `admin_seed_liquidity` pattern)
+2. **Given** a deposit into a pool, **When** the deposit is processed, **Then** the amount is automatically split 50/50 between `yes_reserves` and `no_reserves` (YES gets remainder for odd amounts)
 3. **Given** a first-ever deposit to an empty pool (total_lp_shares == 0), **When** LP shares are calculated, **Then** `shares_minted = deposit_amount` (1:1 initial ratio)
 4. **Given** a subsequent deposit to a pool with existing LP shares, **When** LP shares are calculated, **Then** `shares_minted = (deposit_amount * total_lp_shares) / (yes_reserves + no_reserves)` (proportional to pool value)
 5. **Given** a deposit, **When** the LpShare account does not exist for this user+pool, **Then** a new LpShare PDA is initialized with seeds `["lp_share", user, pool]`
@@ -43,7 +43,7 @@ so that I can earn trading fees.
   - [x] 1.2: Follow existing event pattern (doc comments on each field)
 
 - [x] Task 2: Add LP-specific error variants to errors.rs (AC: #10, #11)
-  - [x] 2.1: Add `PoolEmpty` error — "Pool has no liquidity - use admin_seed_liquidity first" (for edge case where pool reserves are 0 but total_lp_shares > 0, which should never happen but guards against corruption)
+  - [x] 2.1: Add `PoolEmpty` error — "Pool has no liquidity" (for edge case where pool reserves are 0 but total_lp_shares > 0, which should never happen but guards against corruption)
   - [x] 2.2: Reuse existing errors: `ZeroAmount`, `BelowMinimumTrade`, `ProtocolPaused`, `ProtocolFrozen`, `PoolPaused`, `PoolFrozen`, `Overflow`, `TokenOwnerMismatch`, `InvalidMint`, `Unauthorized`, `SessionExtractionFailed`
 
 - [x] Task 3: Create `deposit_liquidity.rs` instruction file (AC: #1-#9)
@@ -63,7 +63,7 @@ so that I can earn trading fees.
     1. Extract and validate user via `extract_user(&signer_or_session)`, require user == extracted_user
     2. Check protocol not paused/frozen: `!config.paused && !config.frozen`
     3. Check pool not paused/frozen: `!pool.is_paused && !pool.is_frozen`
-    4. Validate amount > 0, amount >= MIN_TRADE_AMOUNT * 2 (same as admin_seed_liquidity)
+    4. Validate amount > 0, amount >= MIN_TRADE_AMOUNT * 2
     5. Calculate shares_minted BEFORE updating reserves (see share calculation logic below — order is critical)
     6. Validate shares_minted > 0 (reject dust deposits that round to zero shares — use `ZeroShares` error)
     7. Transfer USDC from user_usdc to pool_usdc
@@ -116,8 +116,6 @@ if pool.total_lp_shares == 0 {
 
 ### 50/50 Reserve Split Pattern
 
-Copy the exact pattern from `admin_seed_liquidity.rs`:
-
 ```rust
 let half_amount = amount / 2;
 let yes_addition = half_amount + (amount % 2); // YES gets remainder for odd amounts
@@ -164,9 +162,8 @@ LP deposits do NOT incur trading fees. The trading fee (1.8%) only applies to bu
 
 ### Pause vs Frozen Behavior
 
-Following the `admin_seed_liquidity` precedent:
 - **Frozen:** Block deposits (emergency halt)
-- **Paused:** Also block deposits (unlike admin_seed_liquidity which allows during pause, LP deposits are user-facing and should be blocked when paused)
+- **Paused:** Block deposits (user-facing instruction)
 
 Check both protocol-level AND pool-level flags:
 ```rust
@@ -235,7 +232,7 @@ Use `Box<>` for `Pool` and `GlobalConfig` accounts as established in `buy_positi
 - Modified: `anchor/programs/fogopulse/src/errors.rs` (add PoolEmpty if needed)
 - Modified: `web/src/lib/fogopulse.json` (updated IDL after build)
 - Alignment with existing instruction structure: follows `buy_position` pattern for user-facing + sessions
-- Alignment with `admin_seed_liquidity` for 50/50 reserve split logic
+- 50/50 reserve split logic (YES gets remainder for odd amounts)
 
 ### What This Story Does NOT Include
 
@@ -257,7 +254,7 @@ Use `Box<>` for `Pool` and `GlobalConfig` accounts as established in `buy_positi
 - [Source: project-context.md#Pool Token Account Pattern] - ATA with PDA owner
 - [Source: project-context.md#Stack Overflow Prevention] - Box<> for large accounts
 - [Source: Story 5.1] - LpShare account structure, PDA derivation, state/mod.rs export
-- [Source: admin_seed_liquidity.rs] - 50/50 reserve split pattern, token transfer, event emission
+- ~~[Source: admin_seed_liquidity.rs]~~ — removed (2026-03-18, LP pool drain vulnerability)
 - [Source: buy_position.rs] - Session extraction, user validation, init_if_needed pattern
 
 ### Previous Story Intelligence
@@ -311,7 +308,7 @@ Claude Opus 4.6 (1M context)
 
 ### Completion Notes List
 
-- Implemented `deposit_liquidity` instruction following `buy_position` pattern for FOGO Sessions support and `admin_seed_liquidity` pattern for 50/50 reserve split
+- Implemented `deposit_liquidity` instruction following `buy_position` pattern for FOGO Sessions support, with 50/50 reserve split
 - Share calculation uses u128 intermediate to prevent overflow (Uniswap V2 pattern)
 - Shares calculated BEFORE reserve updates to prevent dilution
 - Dust deposits rejected via `DepositTooSmall` error when shares round to zero (dedicated error, not reusing `ZeroShares` from sell_position)

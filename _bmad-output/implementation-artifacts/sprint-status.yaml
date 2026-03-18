@@ -69,7 +69,7 @@ development_status:
   2-10-add-trade-preview-calculations: done
   2-11-implement-epoch-auto-creation: done
   2-11.4-implement-advance-epoch-instruction: done
-  2-12-implement-admin-seed-liquidity: done
+  2-12-implement-admin-seed-liquidity: removed  # Removed 2026-03-18: LP pool drain vulnerability — admin_seed_liquidity minted zero LP shares, use deposit_liquidity instead
   epic-2-retrospective: optional
 
   # Epic 3: Settlement & Payouts

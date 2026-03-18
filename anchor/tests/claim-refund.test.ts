@@ -9,7 +9,7 @@
  *
  * Prerequisites:
  *   1. GlobalConfig initialized (run scripts/initialize-protocol.ts)
- *   2. Pool created with liquidity (run scripts/create-pools.ts, scripts/seed-pool-liquidity.ts)
+ *   2. Pool created with liquidity (run scripts/create-pools.ts, deposit via deposit_liquidity instruction)
  *   3. An epoch in Refunded state (use admin_force_close_epoch or wait for exact tie)
  *   4. User position exists in that epoch
  *

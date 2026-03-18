@@ -474,7 +474,7 @@ Recommended: Focus on confidence overlap integration tests; unit test tie condit
 
 ## Previous Story Learnings (from Epic 2)
 
-From Story 2.12 (admin_seed_liquidity):
+From Story 2.12 (admin_seed_liquidity — removed 2026-03-18, LP pool drain vulnerability):
 - Use VersionedTransaction pattern for Pyth transactions
 - Include explorer links in script output for easy verification
 - Follow dotenv pattern for WALLET_PATH environment variable

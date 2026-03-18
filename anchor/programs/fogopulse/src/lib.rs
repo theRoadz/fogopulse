@@ -263,15 +263,6 @@ pub mod fogopulse {
         instructions::admin_force_close_epoch::handler(ctx)
     }
 
-    /// Seed initial liquidity into a pool (admin only)
-    ///
-    /// Transfers USDC from admin wallet to pool vault and splits
-    /// the amount 50/50 between YES and NO reserves. Used to bootstrap
-    /// pools with initial liquidity for testnet trading.
-    pub fn admin_seed_liquidity(ctx: Context<AdminSeedLiquidity>, amount: u64) -> Result<()> {
-        instructions::admin_seed_liquidity::handler(ctx, amount)
-    }
-
     /// Update protocol configuration (admin only)
     ///
     /// Allows admin to modify GlobalConfig parameters like oracle thresholds,

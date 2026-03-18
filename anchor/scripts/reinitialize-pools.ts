@@ -2,18 +2,18 @@
  * Reinitialize Pools Script
  *
  * Closes existing pool accounts (to handle struct size changes) and recreates them.
- * Also recreates pool USDC ATAs if needed, and re-seeds liquidity.
+ * Also recreates pool USDC ATAs if needed.
  *
  * Steps:
  * 1. Close all existing pool accounts using admin_close_pool
  * 2. Recreate pools using create_pool
  * 3. Recreate pool USDC ATAs if they don't exist
- * 4. Optionally re-seed liquidity
+ *
+ * Note: Initial liquidity should be deposited via the UI using deposit_liquidity.
  *
  * Run from WSL:
  *   cd /mnt/d/dev/fogopulse/anchor
  *   npx tsx scripts/reinitialize-pools.ts
- *   npx tsx scripts/reinitialize-pools.ts --seed 20000   # also seed 20000 USDC per pool
  */
 
 import {
@@ -28,8 +28,6 @@ import {
 import {
   getAssociatedTokenAddress,
   createAssociatedTokenAccountInstruction,
-  TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
 } from '@solana/spl-token'
 import * as fs from 'fs'
 import * as os from 'os'
@@ -47,7 +45,6 @@ const USDC_MINT = new PublicKey('6jzddTQNDh2RPuav88r19gdSGmGnbH6EWa2NXgLV8cAy')
 const ADMIN_CLOSE_POOL_DISCRIMINATOR = getDiscriminator('admin_close_pool')
 const ADMIN_CLOSE_LP_SHARE_DISCRIMINATOR = getDiscriminator('admin_close_lp_share')
 const CREATE_POOL_DISCRIMINATOR = getDiscriminator('create_pool')
-const ADMIN_SEED_LIQUIDITY_DISCRIMINATOR = getDiscriminator('admin_seed_liquidity')
 
 // LpShare account discriminator (from IDL)
 const LP_SHARE_DISCRIMINATOR = Buffer.from([137, 210, 47, 236, 167, 57, 72, 145])
@@ -137,11 +134,6 @@ async function main() {
   console.log('='.repeat(60))
   console.log()
 
-  // Parse args
-  const args = process.argv.slice(2)
-  const seedIdx = args.indexOf('--seed')
-  const seedAmount = seedIdx >= 0 ? parseInt(args[seedIdx + 1], 10) : 0
-
   // Load wallet
   const wallet = loadWallet()
   console.log('Wallet:', wallet.publicKey.toBase58())
@@ -165,9 +157,6 @@ async function main() {
     process.exit(1)
   }
 
-  if (seedAmount > 0) {
-    console.log(`Seed amount: ${seedAmount} USDC (${seedAmount * 1_000_000} lamports) per pool`)
-  }
   console.log()
 
   // Step 1: Close existing pool accounts
@@ -333,51 +322,6 @@ async function main() {
     }
   }
 
-  // Step 4: Optionally seed liquidity
-  if (seedAmount > 0) {
-    console.log()
-    console.log(`Step 4: Seeding ${seedAmount} USDC per pool...`)
-    console.log('-'.repeat(40))
-
-    const amountLamports = BigInt(seedAmount) * BigInt(1_000_000) // USDC has 6 decimals
-
-    for (const [asset, assetMint] of Object.entries(ASSET_MINTS) as [Asset, PublicKey][]) {
-      const [poolPda] = derivePoolPda(assetMint)
-      const poolUsdcAta = await getAssociatedTokenAddress(USDC_MINT, poolPda, true)
-      const adminUsdcAta = await getAssociatedTokenAddress(USDC_MINT, wallet.publicKey)
-
-      console.log(`  ${asset}: Seeding ${seedAmount} USDC...`)
-
-      try {
-        // Build admin_seed_liquidity instruction data: discriminator + amount (u64 LE)
-        const data = Buffer.alloc(8 + 8)
-        ADMIN_SEED_LIQUIDITY_DISCRIMINATOR.copy(data, 0)
-        data.writeBigUInt64LE(amountLamports, 8)
-
-        const ix = new TransactionInstruction({
-          keys: [
-            { pubkey: wallet.publicKey, isSigner: true, isWritable: true },  // admin
-            { pubkey: globalConfigPda, isSigner: false, isWritable: false }, // global_config
-            { pubkey: poolPda, isSigner: false, isWritable: true },          // pool
-            { pubkey: poolUsdcAta, isSigner: false, isWritable: true },      // pool_usdc
-            { pubkey: adminUsdcAta, isSigner: false, isWritable: true },     // admin_usdc
-            { pubkey: USDC_MINT, isSigner: false, isWritable: false },       // usdc_mint
-            { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-            { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-          ],
-          programId: PROGRAM_ID,
-          data,
-        })
-
-        const tx = new Transaction().add(ix)
-        const sig = await sendAndConfirmTransaction(connection, tx, [wallet])
-        console.log(`  ${asset}: Seeded! TX: ${sig}`)
-      } catch (error: any) {
-        console.error(`  ${asset}: Failed: ${error.message}`)
-      }
-    }
-  }
-
   // Summary
   console.log()
   console.log('='.repeat(60))
@@ -402,9 +346,7 @@ async function main() {
   console.log('Done! Next steps:')
   console.log('  1. Copy IDL: cp target/idl/fogopulse.json ../web/src/lib/fogopulse.json')
   console.log('  2. Run verify-protocol.ts to confirm')
-  if (seedAmount === 0) {
-    console.log('  3. Seed liquidity: npx tsx scripts/seed-pool-liquidity.ts --pool BTC --amount 20000')
-  }
+  console.log('  3. Deposit initial liquidity via UI using deposit_liquidity')
 }
 
 main().catch((error) => {
