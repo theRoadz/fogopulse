@@ -153,7 +153,7 @@ export function TradePreview({ asset, className }: TradePreviewProps) {
           <span className="text-muted-foreground">
             If {isUp ? 'UP' : 'DOWN'} Wins
           </span>
-          <span className={cn('font-semibold', isUp ? 'text-green-500' : 'text-red-500')}>
+          <span className="font-semibold text-green-500">
             ~{formatCurrency(potentialPayout)}{' '}
             <span className="text-xs opacity-80">({formatPercent(profitPercent)})</span>
           </span>
