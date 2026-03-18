@@ -134,10 +134,7 @@ export const ASSET_METADATA: Record<
   FOGO: {
     label: 'FOGO',
     color: 'text-primary',
-    // FOGO does not have a Pyth Hermes price feed available.
-    // The UI gracefully handles this by showing "Price Unavailable" and "Offline" status.
-    // If a FOGO feed becomes available in the future, add the feedId here.
-    feedId: '',
+    feedId: '0x245f89fb8084840bd098d661a026032ee21062270003426797c9196d2d8d4e43',
   },
 } as const
 

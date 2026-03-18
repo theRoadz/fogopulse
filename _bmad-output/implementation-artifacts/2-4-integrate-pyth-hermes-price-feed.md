@@ -64,6 +64,7 @@ So that I can make informed trading decisions.
   - [x] Subtask 5.2: If no FOGO feed: display "Price Unavailable" gracefully
   - [x] Subtask 5.3: Add fallback logic to skip subscription for empty feedId
   - [x] Subtask 5.4: Document FOGO feed ID status in constants.ts
+  - [x] Subtask 5.5: FOGO/USD Pyth Hermes feed now available — populated feedId `0x245f89fb8084840bd098d661a026032ee21062270003426797c9196d2d8d4e43` in ASSET_METADATA
 
 - [x] Task 6: Create hooks barrel export
   - [x] Subtask 6.1: Create `web/src/hooks/index.ts` barrel file
@@ -360,7 +361,7 @@ export const ASSET_METADATA = {
     feedId: '0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d',
   },
   FOGO: {
-    feedId: '', // TODO: FOGO may not have a Pyth feed
+    feedId: '0x245f89fb8084840bd098d661a026032ee21062270003426797c9196d2d8d4e43',
   },
 }
 ```
@@ -495,13 +496,14 @@ None required - implementation proceeded without blocking issues.
 - `web/src/lib/utils.ts` - Added formatUsdPrice, formatPriceChange, formatLastUpdated utilities
 - `web/src/components/trading/chart-area.tsx` - Integrated usePythPrice hook and ConnectionStatus
 - `web/src/components/trading/index.ts` - Added ConnectionStatus to exports
-- `web/src/lib/constants.ts` - Updated FOGO feedId documentation
+- `web/src/lib/constants.ts` - Updated FOGO feedId with actual Pyth Hermes feed `0x245f89fb8084840bd098d661a026032ee21062270003426797c9196d2d8d4e43`
 - `web/package.json` - Added @pythnetwork/hermes-client dependency
 - `pnpm-lock.yaml` - Lock file updated with new dependency
 
 ## Change Log
 
 - 2026-03-12: Story 2.4 implemented - Pyth Hermes SSE price feed integration with real-time price display
+- 2026-03-18: FOGO/USD Pyth Hermes feed discovered and populated — feedId `0x245f89fb8084840bd098d661a026032ee21062270003426797c9196d2d8d4e43` added to ASSET_METADATA.FOGO, replacing empty string. FOGO price now displays live on home page and trade page.
 - 2026-03-12: Code review fixes applied:
   - Added 'connecting' state to ConnectionState type for better UX during initial connection
   - Fixed formatLastUpdated to correctly compare millisecond timestamps
