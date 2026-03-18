@@ -139,13 +139,10 @@ pub mod fogopulse {
     // These instructions support both direct wallet signatures AND session accounts.
     // The `user` parameter is validated against extract_user() in each handler.
     // See src/session.rs for the session extraction pattern.
-    //
-    // NOTE: These are STUBS for Story 1.9. Full implementation in later Epics.
 
-    /// Buy a position in an epoch (STUB - returns NotImplemented)
+    /// Buy a position in an epoch
     ///
     /// Supports FOGO Sessions for gasless trading.
-    /// Full implementation in Epic 2.
     pub fn buy_position(
         ctx: Context<BuyPosition>,
         user: Pubkey,
@@ -155,10 +152,9 @@ pub mod fogopulse {
         instructions::buy_position::handler(ctx, user, direction, amount)
     }
 
-    /// Sell a position before epoch settlement (STUB - returns NotImplemented)
+    /// Sell a position before epoch settlement
     ///
     /// Supports FOGO Sessions for gasless trading.
-    /// Full implementation in Epic 4.
     pub fn sell_position(
         ctx: Context<SellPosition>,
         user: Pubkey,
@@ -167,10 +163,9 @@ pub mod fogopulse {
         instructions::sell_position::handler(ctx, user, shares)
     }
 
-    /// Claim payout from a winning position (STUB - returns NotImplemented)
+    /// Claim payout from a winning position
     ///
     /// Supports FOGO Sessions for gasless claims.
-    /// Full implementation in Epic 3.
     pub fn claim_payout(ctx: Context<ClaimPayout>, user: Pubkey) -> Result<()> {
         instructions::claim_payout::handler(ctx, user)
     }
@@ -181,6 +176,23 @@ pub mod fogopulse {
     /// Returns original stake when epoch outcome is Refunded (exact tie).
     pub fn claim_refund(ctx: Context<ClaimRefund>, user: Pubkey) -> Result<()> {
         instructions::claim_refund::handler(ctx, user)
+    }
+
+    // =========================================================================
+    // LP INSTRUCTIONS (with FOGO Sessions support)
+    // =========================================================================
+
+    /// Deposit USDC into a pool to receive LP shares
+    ///
+    /// Supports FOGO Sessions for gasless deposits.
+    /// Deposits are split 50/50 between YES and NO reserves.
+    /// LP shares are minted proportionally to the pool's reserve value.
+    pub fn deposit_liquidity(
+        ctx: Context<DepositLiquidity>,
+        user: Pubkey,
+        amount: u64,
+    ) -> Result<()> {
+        instructions::deposit_liquidity::handler(ctx, user, amount)
     }
 
     // =========================================================================

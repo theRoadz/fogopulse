@@ -127,4 +127,11 @@ pub enum FogoPulseError {
 
     #[msg("Pool does not have sufficient reserves for this sell")]
     InsufficientPoolReserves,
+
+    // LP errors
+    #[msg("Pool has no liquidity - use admin_seed_liquidity first")]
+    PoolEmpty,
+
+    #[msg("Deposit too small - would mint zero LP shares")]
+    DepositTooSmall,
 }

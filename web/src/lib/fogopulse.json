@@ -1746,6 +1746,253 @@
       "args": []
     },
     {
+      "name": "deposit_liquidity",
+      "docs": [
+        "Deposit USDC into a pool to receive LP shares",
+        "",
+        "Supports FOGO Sessions for gasless deposits.",
+        "Deposits are split 50/50 between YES and NO reserves.",
+        "LP shares are minted proportionally to the pool's reserve value."
+      ],
+      "discriminator": [
+        245,
+        99,
+        59,
+        25,
+        151,
+        71,
+        233,
+        249
+      ],
+      "accounts": [
+        {
+          "name": "signer_or_session",
+          "docs": [
+            "The user OR a session account representing the user.",
+            "Session validation is performed via extract_user()."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "docs": [
+            "Global protocol configuration",
+            "Used to check: paused, frozen"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "The pool receiving liquidity"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.asset_mint",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "lp_share",
+          "docs": [
+            "LP share account - derived from USER wallet, not session",
+            "Uses init_if_needed to handle both new and existing LP positions"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  112,
+                  95,
+                  115,
+                  104,
+                  97,
+                  114,
+                  101
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "user"
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool_usdc",
+          "docs": [
+            "Pool's USDC ATA - owned by pool PDA"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "usdc_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "user_usdc",
+          "docs": [
+            "User's USDC ATA - source of deposit"
+          ],
+          "writable": true
+        },
+        {
+          "name": "usdc_mint",
+          "docs": [
+            "USDC mint - verified against constant"
+          ],
+          "address": "6jzddTQNDh2RPuav88r19gdSGmGnbH6EWa2NXgLV8cAy"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "user",
+          "type": "pubkey"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "initialize",
       "discriminator": [
         175,
@@ -2612,6 +2859,19 @@
       ]
     },
     {
+      "name": "LpShare",
+      "discriminator": [
+        137,
+        210,
+        47,
+        236,
+        167,
+        57,
+        72,
+        145
+      ]
+    },
+    {
       "name": "Pool",
       "discriminator": [
         241,
@@ -2741,6 +3001,19 @@
         87,
         157,
         113
+      ]
+    },
+    {
+      "name": "LiquidityDeposited",
+      "discriminator": [
+        218,
+        155,
+        74,
+        193,
+        59,
+        66,
+        94,
+        122
       ]
     },
     {
@@ -3025,6 +3298,11 @@
       "code": 6037,
       "name": "InsufficientPoolReserves",
       "msg": "Pool does not have sufficient reserves for this sell"
+    },
+    {
+      "code": 6038,
+      "name": "PoolEmpty",
+      "msg": "Pool has no liquidity - use admin_seed_liquidity first"
     }
   ],
   "types": [
@@ -3805,6 +4083,63 @@
       }
     },
     {
+      "name": "LiquidityDeposited",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "docs": [
+              "Pool account pubkey"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "user",
+            "docs": [
+              "User who deposited liquidity"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "docs": [
+              "USDC amount deposited"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "shares_minted",
+            "docs": [
+              "LP shares minted for this deposit"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_lp_shares_after",
+            "docs": [
+              "Total LP shares in pool after deposit"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "yes_reserves_after",
+            "docs": [
+              "YES reserves after deposit"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "no_reserves_after",
+            "docs": [
+              "NO reserves after deposit"
+            ],
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
       "name": "LiquiditySeeded",
       "type": {
         "kind": "struct",
@@ -3857,6 +4192,69 @@
               "NO reserves after seeding"
             ],
             "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LpShare",
+      "docs": [
+        "LpShare account - tracks a user's LP position within a specific pool",
+        "PDA Seeds: [\"lp_share\", user.key(), pool.key()]"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "docs": [
+              "Wallet address of the LP"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "pool",
+            "docs": [
+              "Reference to the pool this LP position is in"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "shares",
+            "docs": [
+              "LP shares currently owned (proportional to pool value)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "deposited_amount",
+            "docs": [
+              "Total USDC deposited over time (for tracking, not share calculation)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "pending_withdrawal",
+            "docs": [
+              "Shares pending withdrawal (locked during cooldown)"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "withdrawal_requested_at",
+            "docs": [
+              "Timestamp when withdrawal was requested (None if no pending withdrawal)"
+            ],
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "PDA bump seed"
+            ],
+            "type": "u8"
           }
         ]
       }

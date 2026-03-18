@@ -251,3 +251,21 @@ pub struct FeesCollected {
     /// Insurance portion of fee (transferred to insurance)
     pub insurance_fee: u64,
 }
+
+#[event]
+pub struct LiquidityDeposited {
+    /// Pool account pubkey
+    pub pool: Pubkey,
+    /// User who deposited liquidity
+    pub user: Pubkey,
+    /// USDC amount deposited
+    pub amount: u64,
+    /// LP shares minted for this deposit
+    pub shares_minted: u64,
+    /// Total LP shares in pool after deposit
+    pub total_lp_shares_after: u64,
+    /// YES reserves after deposit
+    pub yes_reserves_after: u64,
+    /// NO reserves after deposit
+    pub no_reserves_after: u64,
+}
