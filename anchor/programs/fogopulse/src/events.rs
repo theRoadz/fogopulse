@@ -255,6 +255,14 @@ pub struct PoolResumed {
 }
 
 #[event]
+pub struct ProtocolFrozen {
+    /// Admin who triggered the freeze
+    pub admin: Pubkey,
+    /// Unix timestamp when protocol was frozen
+    pub timestamp: i64,
+}
+
+#[event]
 pub struct WithdrawalRequested {
     /// Pool account pubkey
     pub pool: Pubkey,

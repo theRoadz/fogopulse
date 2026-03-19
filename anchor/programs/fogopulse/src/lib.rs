@@ -271,6 +271,14 @@ pub mod fogopulse {
         instructions::pause_pool::handler(ctx)
     }
 
+    /// Emergency freeze — halts ALL protocol activity
+    ///
+    /// Sets global_config.frozen = true. All instructions except
+    /// this one are blocked when frozen.
+    pub fn emergency_freeze(ctx: Context<EmergencyFreeze>) -> Result<()> {
+        instructions::emergency_freeze::handler(ctx)
+    }
+
     /// Resume a paused pool (admin only)
     ///
     /// Sets pool.is_paused = false, allowing new epoch creation

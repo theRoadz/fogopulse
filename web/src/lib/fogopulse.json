@@ -2302,6 +2302,68 @@
       ]
     },
     {
+      "name": "emergency_freeze",
+      "docs": [
+        "Emergency freeze — halts ALL protocol activity",
+        "",
+        "Sets global_config.frozen = true. All instructions except",
+        "this one are blocked when frozen."
+      ],
+      "discriminator": [
+        179,
+        69,
+        168,
+        100,
+        173,
+        7,
+        136,
+        112
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "docs": [
+            "Admin signer — verified via GlobalConfig.has_one"
+          ],
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        },
+        {
+          "name": "global_config",
+          "docs": [
+            "GlobalConfig — admin verification AND target to freeze"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "initialize",
       "discriminator": [
         175,
@@ -3960,6 +4022,19 @@
       ]
     },
     {
+      "name": "ProtocolFrozen",
+      "discriminator": [
+        223,
+        226,
+        111,
+        153,
+        217,
+        40,
+        87,
+        203
+      ]
+    },
+    {
       "name": "RefundClaimed",
       "discriminator": [
         136,
@@ -5565,6 +5640,28 @@
             "name": "timestamp",
             "docs": [
               "Unix timestamp of the sell"
+            ],
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProtocolFrozen",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "docs": [
+              "Admin who triggered the freeze"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "docs": [
+              "Unix timestamp when protocol was frozen"
             ],
             "type": "i64"
           }
