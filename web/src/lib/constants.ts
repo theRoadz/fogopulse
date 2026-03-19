@@ -220,5 +220,5 @@ export const PYTH_LAZER_FEED_IDS: Record<Asset, number> = {
   BTC: 1, // BTC/USD
   ETH: 2, // ETH/USD
   SOL: 5, // SOL/USD
-  FOGO: 1, // Placeholder - uses BTC feed
+  FOGO: 2923, // FOGO/USD (confirmed stable on Pyth Lazer)
 }

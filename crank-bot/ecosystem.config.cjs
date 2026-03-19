@@ -23,7 +23,9 @@ module.exports = {
     max_restarts: 10,
     restart_delay: 5000,
     env: {
-      NODE_ENV: 'production'
+      NODE_ENV: 'production',
+      POOL_ASSETS: 'BTC,ETH,SOL,FOGO',
+      AUTO_CREATE_EPOCH: 'true'
     }
   }]
 }

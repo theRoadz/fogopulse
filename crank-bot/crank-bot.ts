@@ -6,6 +6,9 @@
  * - ADVANCE_EPOCH: When epoch is Open and freeze_time has passed
  * - SETTLE_EPOCH: When epoch is Frozen and end_time has passed
  *
+ * Supports multi-pool concurrent execution via PoolRunner instances,
+ * sharing a single persistent Pyth WebSocket and RPC connection.
+ *
  * Run locally:
  *   npm install
  *   cp .env.example .env
@@ -18,6 +21,7 @@
  *   POLL_INTERVAL_SECONDS - Optional: Poll interval in seconds (default: 10)
  *   RPC_URL - Optional: RPC URL (default: https://testnet.fogo.io)
  *   LOG_LEVEL - Optional: Log level (default: info)
+ *   POOL_ASSETS - Optional: Comma-separated pools (default: BTC,ETH,SOL,FOGO)
  */
 
 import * as dotenv from 'dotenv'
@@ -69,7 +73,7 @@ const PYTH_FEED_IDS: Record<Asset, number> = {
   BTC: 1,
   ETH: 2,
   SOL: 5,
-  FOGO: 0, // Not available - bot will exit if FOGO pool is selected
+  FOGO: 2923, // FOGO/USD (confirmed stable on Pyth Lazer)
 }
 
 // USDC Mint (FOGO Testnet)
@@ -123,7 +127,7 @@ interface Config {
   pollIntervalSeconds: number
   idlePollIntervalSeconds: number
   rpcUrl: string
-  poolAsset: Asset
+  poolAssets: Asset[]
   logLevel: LogLevel
   autoCreateEpoch: boolean
 }
@@ -159,6 +163,28 @@ enum LogLevel {
   ERROR = 3,
 }
 
+interface ChainResult {
+  freezeTime: number
+  endTime: number
+  epochPda: PublicKey
+  epochId: bigint
+}
+
+interface SharedContext {
+  connection: Connection
+  wallet: Keypair
+  globalConfigPda: PublicKey
+  pythManager: PythPriceManager
+  config: Config
+}
+
+interface PoolLogger {
+  debug: (msg: string) => void
+  info: (msg: string) => void
+  warn: (msg: string) => void
+  error: (msg: string) => void
+}
+
 // =============================================================================
 // LOGGING
 // =============================================================================
@@ -176,6 +202,16 @@ function logAt(level: LogLevel, label: string, msg: string) {
   if (level >= currentLogLevel) {
     const timestamp = new Date().toISOString()
     console.log(`[${timestamp}] [${label}] ${msg}`)
+  }
+}
+
+function createPoolLogger(asset: Asset): PoolLogger {
+  const prefix = `[${asset}]`
+  return {
+    debug: (msg: string) => logAt(LogLevel.DEBUG, 'DEBUG', `${prefix} ${msg}`),
+    info: (msg: string) => logAt(LogLevel.INFO, 'INFO', `${prefix} ${msg}`),
+    warn: (msg: string) => logAt(LogLevel.WARN, 'WARN', `${prefix} ${msg}`),
+    error: (msg: string) => logAt(LogLevel.ERROR, 'ERROR', `${prefix} ${msg}`),
   }
 }
 
@@ -215,10 +251,27 @@ function defaultWalletPath(): string {
   return path.join(os.homedir(), '.config', 'solana', 'fogo-testnet.json')
 }
 
-function loadConfig(autoCreateOverride?: boolean): Config {
+function loadConfig(autoCreateOverride?: boolean, poolsOverride?: Asset[]): Config {
   const pythAccessToken = process.env.PYTH_ACCESS_TOKEN
+
   if (!pythAccessToken) {
     throw new Error('PYTH_ACCESS_TOKEN environment variable required. Get from https://pyth.network/developers')
+  }
+
+  // Determine pool assets: CLI --pools > POOL_ASSETS env > POOL_ASSET env > default
+  let poolAssets: Asset[]
+  if (poolsOverride) {
+    poolAssets = poolsOverride
+  } else if (process.env.POOL_ASSETS) {
+    const raw = process.env.POOL_ASSETS.replace(/['"]/g, '').trim()
+    poolAssets = raw.split(',').map(a => a.trim().toUpperCase() as Asset)
+  } else if (process.env.POOL_ASSET) {
+    const raw = process.env.POOL_ASSET.replace(/['"]/g, '').trim()
+    poolAssets = raw.includes(',')
+      ? raw.split(',').map(a => a.trim().toUpperCase() as Asset)
+      : [raw.toUpperCase() as Asset]
+  } else {
+    poolAssets = ['BTC', 'ETH', 'SOL', 'FOGO']
   }
 
   const config: Config = {
@@ -227,19 +280,23 @@ function loadConfig(autoCreateOverride?: boolean): Config {
     pollIntervalSeconds: parseInt(process.env.POLL_INTERVAL_SECONDS || '10', 10),
     idlePollIntervalSeconds: parseInt(process.env.IDLE_POLL_INTERVAL_SECONDS || '180', 10),
     rpcUrl: process.env.RPC_URL || DEFAULT_RPC_URL,
-    poolAsset: (process.env.POOL_ASSET?.toUpperCase() as Asset) || 'BTC',
+    poolAssets,
     logLevel: parseLogLevel(process.env.LOG_LEVEL || 'info'),
     autoCreateEpoch: autoCreateOverride ?? (process.env.AUTO_CREATE_EPOCH !== 'false'),
   }
 
-  // Validate
-  if (!(config.poolAsset in ASSET_MINTS)) {
-    throw new Error(`Invalid POOL_ASSET: ${config.poolAsset}. Valid options: BTC, ETH, SOL, FOGO`)
+  // Validate each asset
+  for (const asset of config.poolAssets) {
+    if (!(asset in ASSET_MINTS)) {
+      throw new Error(`Invalid pool asset: ${asset}. Valid options: BTC, ETH, SOL, FOGO`)
+    }
   }
 
-  // FOGO pool not yet supported (no Pyth feed available)
-  if (config.poolAsset === 'FOGO') {
-    throw new Error('FOGO pool not yet supported - Pyth Lazer feed not available. Use BTC, ETH, or SOL.')
+  // Deduplicate pool assets (prevent duplicate runners racing on the same pool)
+  config.poolAssets = [...new Set(config.poolAssets)]
+
+  if (config.poolAssets.length === 0) {
+    throw new Error('At least one pool asset must be configured')
   }
 
   if (config.pollIntervalSeconds < 1) {
@@ -397,6 +454,9 @@ function getPoolStateName(state: number): string {
 // PYTH ORACLE INTEGRATION
 // =============================================================================
 
+/**
+ * One-shot Pyth WebSocket fetch (used as fallback when persistent WS is down)
+ */
 async function fetchPythMessage(feedId: number, accessToken: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -415,7 +475,7 @@ async function fetchPythMessage(feedId: number, accessToken: string): Promise<Bu
     })
 
     ws.on('open', () => {
-      log.debug('Connected to Pyth Lazer WebSocket')
+      log.debug('Connected to Pyth Lazer WebSocket (one-shot)')
 
       const subscribeMsg = {
         type: 'subscribe',
@@ -456,23 +516,6 @@ async function fetchPythMessage(feedId: number, accessToken: string): Promise<Bu
           const pythMessage = Buffer.from(solanaData, 'hex')
           log.debug(`Received Pyth message: ${pythMessage.length} bytes`)
 
-          // Validate message freshness (publish_time is at offset 5 in payload, 8 bytes i64)
-          // Pyth message structure: magic(4) + sig(64) + pubkey(32) + msgSize(2) + payload
-          // Payload: channel(1) + feedCount(1) + feedId(4) + properties(1) + timestamp(8) + ...
-          const PAYLOAD_OFFSET = 4 + 64 + 32 + 2
-          const TIMESTAMP_OFFSET = PAYLOAD_OFFSET + 1 + 1 + 4 + 1  // After channel, feedCount, feedId, properties
-          if (pythMessage.length > TIMESTAMP_OFFSET + 8) {
-            const publishTimeUs = pythMessage.readBigInt64LE(TIMESTAMP_OFFSET)
-            const publishTimeSec = Number(publishTimeUs / BigInt(1_000_000))
-            const nowSec = Math.floor(Date.now() / 1000)
-            const ageSec = nowSec - publishTimeSec
-
-            if (ageSec > 60) {
-              log.warn(`Pyth message is ${ageSec}s old (max 60s) - may be stale`)
-            }
-            log.debug(`Pyth message age: ${ageSec}s`)
-          }
-
           resolve(pythMessage)
         }
       } catch (err) {
@@ -492,6 +535,222 @@ async function fetchPythMessage(feedId: number, accessToken: string): Promise<Bu
   })
 }
 
+// =============================================================================
+// PYTH PRICE MANAGER (Persistent WebSocket)
+// =============================================================================
+
+class PythPriceManager {
+  private ws: WebSocket | null = null
+  private latestMessages = new Map<number, { message: Buffer, timestamp: number }>()
+  private feedIds: number[]
+  private accessToken: string
+  private isConnected = false
+  private reconnectAttempts = 0
+  private maxReconnectAttempts = 10
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  private waiters = new Map<number, Array<(message: Buffer) => void>>()
+  // Map subscriptionId → feedId for routing messages
+  private subIdToFeedId = new Map<number, number>()
+
+  constructor(feedIds: number[], accessToken: string) {
+    this.feedIds = feedIds
+    this.accessToken = accessToken
+  }
+
+  async connect(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('PythPriceManager connection timeout after 30s'))
+      }, 30000)
+
+      this.ws = new WebSocket(PYTH_WS_URL, {
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+        },
+      })
+
+      this.ws.on('open', () => {
+        log.info('PythPriceManager: Connected to Pyth Lazer WebSocket')
+        this.isConnected = true
+        this.reconnectAttempts = 0
+
+        // Subscribe to each feed separately so each gets its own Solana message
+        this.feedIds.forEach((feedId, index) => {
+          const subId = index + 1
+          this.subIdToFeedId.set(subId, feedId)
+
+          const subscribeMsg = {
+            type: 'subscribe',
+            subscriptionId: subId,
+            priceFeedIds: [feedId],
+            properties: ['price', 'confidence'],
+            formats: ['solana'],
+            deliveryFormat: 'json',
+            channel: 'fixed_rate@200ms',
+            jsonBinaryEncoding: 'hex',
+          }
+
+          this.ws!.send(JSON.stringify(subscribeMsg))
+        })
+        log.info(`PythPriceManager: Subscribed to ${this.feedIds.length} feeds: [${this.feedIds.join(', ')}]`)
+      })
+
+      let subscribedCount = 0
+      let resolved = false
+      this.ws.on('message', (data: WebSocket.Data) => {
+        try {
+          const msg = JSON.parse(data.toString())
+
+          if (msg.type === 'subscribed') {
+            subscribedCount++
+            log.debug(`PythPriceManager: Subscription ${msg.subscriptionId} confirmed (${subscribedCount}/${this.feedIds.length})`)
+            if (subscribedCount >= this.feedIds.length && !resolved) {
+              resolved = true
+              clearTimeout(timeout)
+              log.info(`PythPriceManager: All ${this.feedIds.length} subscriptions confirmed`)
+              resolve()
+            }
+            return
+          }
+
+          if (msg.type === 'error') {
+            log.warn(`PythPriceManager: API error: ${msg.message || JSON.stringify(msg)}`)
+            return
+          }
+
+          if (msg.type === 'streamUpdated' && msg.solana) {
+            const solanaData = msg.solana.data || msg.solana
+            const pythMessage = Buffer.from(solanaData, 'hex')
+
+            // Route message to correct feed using subscriptionId
+            const msgFeedId = this.subIdToFeedId.get(msg.subscriptionId)
+            if (msgFeedId != null) {
+              this.latestMessages.set(msgFeedId, {
+                message: pythMessage,
+                timestamp: Date.now(),
+              })
+
+              // Notify any waiters for this feed
+              const feedWaiters = this.waiters.get(msgFeedId)
+              if (feedWaiters && feedWaiters.length > 0) {
+                const waiter = feedWaiters.shift()!
+                waiter(pythMessage)
+                if (feedWaiters.length === 0) {
+                  this.waiters.delete(msgFeedId)
+                }
+              }
+            }
+          }
+        } catch (err) {
+          // Ignore parse errors on streaming data
+        }
+      })
+
+      this.ws.on('error', (err) => {
+        log.warn(`PythPriceManager: WebSocket error: ${err.message}`)
+        this.isConnected = false
+        clearTimeout(timeout)
+        if (!resolved) {
+          resolved = true
+          reject(new Error(`PythPriceManager: WebSocket error: ${err.message}`))
+        }
+      })
+
+      this.ws.on('close', (code) => {
+        log.warn(`PythPriceManager: WebSocket closed (code: ${code})`)
+        this.isConnected = false
+        if (!resolved) {
+          resolved = true
+          reject(new Error(`PythPriceManager: WebSocket closed before subscriptions confirmed (code: ${code})`))
+        }
+        this.scheduleReconnect()
+      })
+    })
+  }
+
+  private scheduleReconnect(): void {
+    if (isShuttingDown || this.reconnectTimer) return
+
+    this.reconnectAttempts++
+    if (this.reconnectAttempts > this.maxReconnectAttempts) {
+      log.error('PythPriceManager: Max reconnect attempts reached, falling back to one-shot connections')
+      return
+    }
+
+    const delay = Math.min(
+      1000 * Math.pow(2, this.reconnectAttempts - 1),
+      30000
+    )
+    log.info(`PythPriceManager: Reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts})...`)
+
+    this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null
+      if (isShuttingDown) return
+      try {
+        await this.connect()
+      } catch (err: any) {
+        log.warn(`PythPriceManager: Reconnect failed: ${err.message}`)
+        this.scheduleReconnect()
+      }
+    }, delay)
+  }
+
+  async waitForFreshMessage(feedId: number, maxAgeSeconds = 10, timeoutMs = 30000): Promise<Buffer> {
+    // Check cache first
+    const cached = this.latestMessages.get(feedId)
+    if (cached) {
+      const ageMs = Date.now() - cached.timestamp
+      if (ageMs < maxAgeSeconds * 1000) {
+        return cached.message
+      }
+    }
+
+    // If persistent WS is connected, wait for next update
+    if (this.isConnected) {
+      return new Promise<Buffer>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          // Remove waiter on timeout
+          const feedWaiters = this.waiters.get(feedId)
+          if (feedWaiters) {
+            const idx = feedWaiters.indexOf(resolveHandler)
+            if (idx >= 0) feedWaiters.splice(idx, 1)
+          }
+          // Fallback to one-shot
+          log.warn(`PythPriceManager: Timeout waiting for feed ${feedId}, falling back to one-shot`)
+          fetchPythMessage(feedId, this.accessToken).then(resolve).catch(reject)
+        }, timeoutMs)
+
+        const resolveHandler = (message: Buffer) => {
+          clearTimeout(timeout)
+          resolve(message)
+        }
+
+        if (!this.waiters.has(feedId)) {
+          this.waiters.set(feedId, [])
+        }
+        this.waiters.get(feedId)!.push(resolveHandler)
+      })
+    }
+
+    // Persistent WS is down — use one-shot fallback
+    log.warn(`PythPriceManager: Persistent WS down, using one-shot fallback for feed ${feedId}`)
+    return fetchPythMessage(feedId, this.accessToken)
+  }
+
+  async disconnect(): Promise<void> {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
+    if (this.ws) {
+      this.ws.removeAllListeners()
+      this.ws.close()
+      this.ws = null
+    }
+    this.isConnected = false
+  }
+}
+
 /**
  * Create Ed25519 instruction that references data in another instruction
  */
@@ -508,7 +767,6 @@ function createEd25519Instruction(
   const signatureOffset = MAGIC_LEN
   const pubkeyOffset = MAGIC_LEN + SIGNATURE_LEN
   const messageSizeOffset = MAGIC_LEN + SIGNATURE_LEN + PUBKEY_LEN
-  const payloadOffset = MAGIC_LEN + SIGNATURE_LEN + PUBKEY_LEN + MESSAGE_SIZE_LEN
 
   const messageSize = pythMessage.readUInt16LE(messageSizeOffset)
 
@@ -540,7 +798,7 @@ function createEd25519Instruction(
   offset += 2
 
   // Message data offset (u16)
-  data.writeUInt16LE(messageOffset + payloadOffset, offset)
+  data.writeUInt16LE(messageOffset + MAGIC_LEN + SIGNATURE_LEN + PUBKEY_LEN + MESSAGE_SIZE_LEN, offset)
   offset += 2
 
   // Message data size (u16)
@@ -926,16 +1184,17 @@ async function processPendingWithdrawals(
   crankWallet: Keypair,
   globalConfigPda: PublicKey,
   poolPubkey: PublicKey,
-  poolAsset: string
+  poolAsset: string,
+  poolLog: PoolLogger
 ): Promise<number> {
   const pending = await findPendingWithdrawals(conn, poolPubkey)
 
   if (pending.length === 0) {
-    log.debug(`[${poolAsset}] No pending withdrawals to process`)
+    poolLog.debug('No pending withdrawals to process')
     return 0
   }
 
-  log.info(`[${poolAsset}] Found ${pending.length} pending withdrawal(s) to process`)
+  poolLog.info(`Found ${pending.length} pending withdrawal(s) to process`)
 
   let processed = 0
   for (const withdrawal of pending) {
@@ -943,21 +1202,21 @@ async function processPendingWithdrawals(
       const sig = await buildAndSendProcessWithdrawalTx(
         conn, crankWallet, globalConfigPda, poolPubkey, withdrawal
       )
-      log.info(`[${poolAsset}] Processed withdrawal for ${withdrawal.user.toBase58().slice(0, 8)}... (${withdrawal.pendingWithdrawalShares} shares). TX: ${sig}`)
-      log.info(`Explorer: https://explorer.fogo.io/tx/${sig}`)
+      poolLog.info(`Processed withdrawal for ${withdrawal.user.toBase58().slice(0, 8)}... (${withdrawal.pendingWithdrawalShares} shares). TX: ${sig}`)
+      poolLog.info(`Explorer: https://explorer.fogo.io/tx/${sig}`)
       processed++
     } catch (error: any) {
       // Gracefully handle expected on-chain rejections (race conditions, timing)
       if (error.message?.includes('NoPendingWithdrawal') || error.message?.includes('CooldownNotElapsed') || error.message?.includes('WithdrawalBlockedDuringEpoch')) {
-        log.debug(`[${poolAsset}] Skipping withdrawal for ${withdrawal.user.toBase58().slice(0, 8)}...: ${error.message}`)
+        poolLog.debug(`Skipping withdrawal for ${withdrawal.user.toBase58().slice(0, 8)}...: ${error.message}`)
       } else {
-        log.warn(`[${poolAsset}] Failed to process withdrawal for ${withdrawal.user.toBase58().slice(0, 8)}...: ${error.message}`)
+        poolLog.warn(`Failed to process withdrawal for ${withdrawal.user.toBase58().slice(0, 8)}...: ${error.message}`)
       }
     }
   }
 
   if (processed > 0) {
-    log.info(`[${poolAsset}] Processed ${processed}/${pending.length} pending withdrawal(s)`)
+    poolLog.info(`Processed ${processed}/${pending.length} pending withdrawal(s)`)
   }
 
   return processed
@@ -1018,182 +1277,18 @@ function sleep(ms: number): Promise<void> {
 }
 
 // =============================================================================
-// CHAINING HELPERS
-// =============================================================================
-
-interface ChainResult {
-  freezeTime: number
-  endTime: number
-  epochPda: PublicKey
-  epochId: bigint
-}
-
-/**
- * Settle the current epoch, process withdrawals, and optionally create the next epoch.
- * Returns the new epoch's timing data if a new epoch was created (for continued chaining),
- * or null if auto-create is disabled or creation failed.
- */
-async function settleAndCreateNext(
-  epochPda: PublicKey,
-  epochId: bigint,
-  feedId: number
-): Promise<ChainResult | null> {
-  log.info('Fetching Pyth price for settlement...')
-
-  const pythMessage = await withRetry(
-    () => fetchPythMessage(feedId, config.pythAccessToken),
-    'Pyth fetch'
-  )
-
-  log.info(`Settling epoch ${epochId}...`)
-
-  const sig = await withRetry(
-    () => buildAndSendSettleEpochTx(connection, wallet, globalConfigPda, poolPda, epochPda, pythMessage),
-    'Settle epoch'
-  )
-
-  log.info(`Epoch ${epochId} settled. TX: ${sig}`)
-  log.info(`Explorer: https://explorer.fogo.io/tx/${sig}`)
-
-  // Process pending withdrawals before creating next epoch
-  try {
-    await processPendingWithdrawals(connection, wallet, globalConfigPda, poolPda, config.poolAsset)
-  } catch (withdrawalError: any) {
-    log.warn(`Failed to process pending withdrawals: ${withdrawalError.message}`)
-  }
-
-  // Chain: Immediately create next epoch after settlement (if auto-create enabled)
-  if (!config.autoCreateEpoch) {
-    log.info('Auto-create disabled, skipping chained epoch creation')
-    return null
-  }
-
-  if (isShuttingDown) return null
-
-  log.info('Chaining: Creating next epoch immediately...')
-
-  // Fetch updated pool state to get nextEpochId
-  const updatedPoolAccount = await withRetry(
-    () => connection.getAccountInfo(poolPda),
-    'Fetch pool after settlement'
-  )
-  if (!updatedPoolAccount) return null
-
-  const updatedPoolData = parsePoolAccount(updatedPoolAccount.data)
-
-  // Verify pool has no active epoch (settlement cleared it)
-  if (updatedPoolData.activeEpoch !== null) {
-    log.info('Epoch already exists (another crank may have created it), skipping chained creation')
-    return null
-  }
-
-  const pythMessageForCreate = await withRetry(
-    () => fetchPythMessage(feedId, config.pythAccessToken),
-    'Pyth fetch for create'
-  )
-
-  const [newEpochPda] = deriveEpochPda(poolPda, updatedPoolData.nextEpochId)
-  log.info(`Creating epoch ${updatedPoolData.nextEpochId}...`)
-
-  try {
-    const createSig = await withRetry(
-      () => buildAndSendCreateEpochTx(connection, wallet, globalConfigPda, poolPda, newEpochPda, pythMessageForCreate),
-      'Create epoch'
-    )
-
-    log.info(`Epoch ${updatedPoolData.nextEpochId} created. TX: ${createSig}`)
-    log.info(`Explorer: https://explorer.fogo.io/tx/${createSig}`)
-
-    // Fetch the new epoch to get timing data for continued chaining
-    const newEpochAccount = await withRetry(
-      () => connection.getAccountInfo(newEpochPda),
-      'Fetch new epoch for chaining'
-    )
-    if (newEpochAccount) {
-      const newEpochData = parseEpochAccount(newEpochAccount.data)
-      return {
-        freezeTime: Number(newEpochData.freezeTime),
-        endTime: Number(newEpochData.endTime),
-        epochPda: newEpochPda,
-        epochId: newEpochData.epochId,
-      }
-    }
-  } catch (chainError: any) {
-    // Another crank may have created the epoch - this is normal in concurrent operation
-    log.warn(`Chained epoch creation failed (another crank may have processed): ${chainError.message}`)
-  }
-
-  return null
-}
-
-/**
- * Run the deterministic chain loop: advance → sleep(endTime) → settle → create → sleep(freezeTime) → ...
- * Continues until shutdown, error, or auto-create is disabled.
- */
-async function runChainLoop(
-  initialFreezeTime: number,
-  initialEndTime: number,
-  initialEpochPda: PublicKey,
-  initialEpochId: bigint,
-  feedId: number
-): Promise<void> {
-  let freezeTime = initialFreezeTime
-  let endTime = initialEndTime
-  let epochPda = initialEpochPda
-  let epochId = initialEpochId
-
-  while (!isShuttingDown) {
-    // Wait until freezeTime
-    const nowSec1 = Math.floor(Date.now() / 1000)
-    const waitToFreeze = Math.max(0, (freezeTime - nowSec1) * 1000)
-    if (waitToFreeze > 0) {
-      log.info(`Chaining: Waiting ${Math.ceil(waitToFreeze / 1000)}s until freezeTime...`)
-      await sleep(waitToFreeze)
-    }
-    if (isShuttingDown) break
-
-    // Advance to Frozen
-    log.info(`Chaining: Advancing epoch ${epochId} to Frozen...`)
-    const advSig = await withRetry(
-      () => buildAndSendAdvanceEpochTx(connection, wallet, globalConfigPda, poolPda, epochPda),
-      'Advance epoch'
-    )
-    log.info(`Epoch ${epochId} advanced to Frozen. TX: ${advSig}`)
-    log.info(`Explorer: https://explorer.fogo.io/tx/${advSig}`)
-
-    // Wait until endTime
-    const nowSec2 = Math.floor(Date.now() / 1000)
-    const waitToEnd = Math.max(0, (endTime - nowSec2) * 1000)
-    if (waitToEnd > 0) {
-      log.info(`Chaining: Waiting ${Math.ceil(waitToEnd / 1000)}s until endTime for settlement...`)
-      await sleep(waitToEnd)
-    }
-    if (isShuttingDown) break
-
-    // Settle and create next
-    const chainResult = await settleAndCreateNext(epochPda, epochId, feedId)
-    if (!chainResult) break  // Auto-create disabled, creation failed, or shutdown
-
-    // Continue chain with the new epoch
-    freezeTime = chainResult.freezeTime
-    endTime = chainResult.endTime
-    epochPda = chainResult.epochPda
-    epochId = chainResult.epochId
-  }
-}
-
-// =============================================================================
 // STATE MACHINE
 // =============================================================================
 
 function determineAction(
   poolData: PoolData,
   epochData: EpochData | null,
-  currentTime: number
+  currentTime: number,
+  autoCreateEpoch: boolean
 ): Action {
   // No active epoch - check if auto-create is enabled
   if (poolData.activeEpoch === null) {
-    if (config.autoCreateEpoch) {
+    if (autoCreateEpoch) {
       return Action.CREATE_EPOCH
     }
     return Action.NONE  // Skip creation, stay idle
@@ -1220,16 +1315,392 @@ function determineAction(
 }
 
 // =============================================================================
-// MAIN LOOP
+// POOL RUNNER
 // =============================================================================
 
 let isShuttingDown = false
-let config: Config
-let connection: Connection
-let wallet: Keypair
-let globalConfigPda: PublicKey
-let poolPda: PublicKey
-let cycleCount = 0
+
+class PoolRunner {
+  private shared: SharedContext
+  private poolAsset: Asset
+  private poolPda: PublicKey
+  private feedId: number
+  private log: PoolLogger
+  private cycleCount = 0
+
+  constructor(shared: SharedContext, poolAsset: Asset) {
+    this.shared = shared
+    this.poolAsset = poolAsset
+    this.feedId = PYTH_FEED_IDS[poolAsset]
+    this.log = createPoolLogger(poolAsset)
+
+    const assetMint = ASSET_MINTS[poolAsset]
+    ;[this.poolPda] = derivePoolPda(assetMint)
+
+    this.log.info(`Pool PDA: ${this.poolPda.toBase58()}`)
+    this.log.info(`Feed ID: ${this.feedId}`)
+  }
+
+  async start(): Promise<void> {
+    this.log.info('Starting pool runner...')
+
+    // Dynamic poll intervals
+    const IDLE_POLL_INTERVAL_MS = this.shared.config.idlePollIntervalSeconds * 1000
+    const NORMAL_POLL_INTERVAL_MS = this.shared.config.pollIntervalSeconds * 1000
+    const FROZEN_POLL_INTERVAL_MS = 2000
+
+    while (!isShuttingDown) {
+      try {
+        const result = await this.runCycle()
+
+        if (!isShuttingDown) {
+          let pollInterval: number
+          if (result.nextActionMs != null && result.nextActionMs > 0) {
+            // Sleep precisely until the next action time (+ 500ms buffer)
+            pollInterval = result.nextActionMs + 500
+          } else if (result.state === POOL_STATE.None) {
+            pollInterval = IDLE_POLL_INTERVAL_MS
+          } else if (result.state === POOL_STATE.Frozen) {
+            pollInterval = FROZEN_POLL_INTERVAL_MS
+          } else {
+            pollInterval = NORMAL_POLL_INTERVAL_MS
+          }
+          await sleep(pollInterval)
+        }
+      } catch (error: any) {
+        if (isCriticalError(error)) {
+          this.log.error(`Critical error: ${error.message}`)
+          isShuttingDown = true
+          return
+        }
+
+        this.log.error(`Unhandled error in pool runner: ${error.message}`)
+        if (error.stack) {
+          this.log.debug(`Stack trace: ${error.stack}`)
+        }
+        if (!isShuttingDown) {
+          await sleep(RETRY_CONFIG.baseDelayMs)
+        }
+      }
+    }
+
+    this.log.info('Pool runner stopped.')
+  }
+
+  private async settleAndCreateNext(
+    epochPda: PublicKey,
+    epochId: bigint
+  ): Promise<ChainResult | null> {
+    this.log.info('Fetching Pyth price for settlement...')
+
+    const pythMessage = await withRetry(
+      () => this.shared.pythManager.waitForFreshMessage(this.feedId),
+      'Pyth fetch'
+    )
+
+    this.log.info(`Settling epoch ${epochId}...`)
+
+    const sig = await withRetry(
+      () => buildAndSendSettleEpochTx(this.shared.connection, this.shared.wallet, this.shared.globalConfigPda, this.poolPda, epochPda, pythMessage),
+      'Settle epoch'
+    )
+
+    this.log.info(`Epoch ${epochId} settled. TX: ${sig}`)
+    this.log.info(`Explorer: https://explorer.fogo.io/tx/${sig}`)
+
+    // Process pending withdrawals before creating next epoch
+    try {
+      await processPendingWithdrawals(this.shared.connection, this.shared.wallet, this.shared.globalConfigPda, this.poolPda, this.poolAsset, this.log)
+    } catch (withdrawalError: any) {
+      this.log.warn(`Failed to process pending withdrawals: ${withdrawalError.message}`)
+    }
+
+    // Chain: Immediately create next epoch after settlement (if auto-create enabled)
+    if (!this.shared.config.autoCreateEpoch) {
+      this.log.info('Auto-create disabled, skipping chained epoch creation')
+      return null
+    }
+
+    if (isShuttingDown) return null
+
+    this.log.info('Chaining: Creating next epoch immediately...')
+
+    // Fetch updated pool state to get nextEpochId
+    const updatedPoolAccount = await withRetry(
+      () => this.shared.connection.getAccountInfo(this.poolPda),
+      'Fetch pool after settlement'
+    )
+    if (!updatedPoolAccount) return null
+
+    const updatedPoolData = parsePoolAccount(updatedPoolAccount.data)
+
+    // Verify pool has no active epoch (settlement cleared it)
+    if (updatedPoolData.activeEpoch !== null) {
+      this.log.info('Epoch already exists (another crank may have created it), skipping chained creation')
+      return null
+    }
+
+    const pythMessageForCreate = await withRetry(
+      () => this.shared.pythManager.waitForFreshMessage(this.feedId),
+      'Pyth fetch for create'
+    )
+
+    const [newEpochPda] = deriveEpochPda(this.poolPda, updatedPoolData.nextEpochId)
+    this.log.info(`Creating epoch ${updatedPoolData.nextEpochId}...`)
+
+    try {
+      const createSig = await withRetry(
+        () => buildAndSendCreateEpochTx(this.shared.connection, this.shared.wallet, this.shared.globalConfigPda, this.poolPda, newEpochPda, pythMessageForCreate),
+        'Create epoch'
+      )
+
+      this.log.info(`Epoch ${updatedPoolData.nextEpochId} created. TX: ${createSig}`)
+      this.log.info(`Explorer: https://explorer.fogo.io/tx/${createSig}`)
+
+      // Fetch the new epoch to get timing data for continued chaining
+      const newEpochAccount = await withRetry(
+        () => this.shared.connection.getAccountInfo(newEpochPda),
+        'Fetch new epoch for chaining'
+      )
+      if (newEpochAccount) {
+        const newEpochData = parseEpochAccount(newEpochAccount.data)
+        return {
+          freezeTime: Number(newEpochData.freezeTime),
+          endTime: Number(newEpochData.endTime),
+          epochPda: newEpochPda,
+          epochId: newEpochData.epochId,
+        }
+      }
+    } catch (chainError: any) {
+      // Another crank may have created the epoch - this is normal in concurrent operation
+      this.log.warn(`Chained epoch creation failed (another crank may have processed): ${chainError.message}`)
+    }
+
+    return null
+  }
+
+  private async runChainLoop(
+    initialFreezeTime: number,
+    initialEndTime: number,
+    initialEpochPda: PublicKey,
+    initialEpochId: bigint
+  ): Promise<void> {
+    let freezeTime = initialFreezeTime
+    let endTime = initialEndTime
+    let epochPda = initialEpochPda
+    let epochId = initialEpochId
+
+    while (!isShuttingDown) {
+      // Wait until freezeTime
+      const nowSec1 = Math.floor(Date.now() / 1000)
+      const waitToFreeze = Math.max(0, (freezeTime - nowSec1) * 1000)
+      if (waitToFreeze > 0) {
+        this.log.info(`Chaining: Waiting ${Math.ceil(waitToFreeze / 1000)}s until freezeTime...`)
+        await sleep(waitToFreeze)
+      }
+      if (isShuttingDown) break
+
+      // Advance to Frozen
+      this.log.info(`Chaining: Advancing epoch ${epochId} to Frozen...`)
+      const advSig = await withRetry(
+        () => buildAndSendAdvanceEpochTx(this.shared.connection, this.shared.wallet, this.shared.globalConfigPda, this.poolPda, epochPda),
+        'Advance epoch'
+      )
+      this.log.info(`Epoch ${epochId} advanced to Frozen. TX: ${advSig}`)
+      this.log.info(`Explorer: https://explorer.fogo.io/tx/${advSig}`)
+
+      // Wait until endTime
+      const nowSec2 = Math.floor(Date.now() / 1000)
+      const waitToEnd = Math.max(0, (endTime - nowSec2) * 1000)
+      if (waitToEnd > 0) {
+        this.log.info(`Chaining: Waiting ${Math.ceil(waitToEnd / 1000)}s until endTime for settlement...`)
+        await sleep(waitToEnd)
+      }
+      if (isShuttingDown) break
+
+      // Settle and create next
+      const chainResult = await this.settleAndCreateNext(epochPda, epochId)
+      if (!chainResult) break  // Auto-create disabled, creation failed, or shutdown
+
+      // Continue chain with the new epoch
+      freezeTime = chainResult.freezeTime
+      endTime = chainResult.endTime
+      epochPda = chainResult.epochPda
+      epochId = chainResult.epochId
+    }
+  }
+
+  private async runCycle(): Promise<{ state: number, nextActionMs?: number }> {
+    this.cycleCount++
+    const currentTime = Math.floor(Date.now() / 1000)
+
+    try {
+      // Fetch pool account (with retry for transient network errors)
+      const poolAccount = await withRetry(
+        () => this.shared.connection.getAccountInfo(this.poolPda),
+        'Fetch pool account'
+      )
+      if (!poolAccount) {
+        this.log.error('Pool not found. Ensure pool is created.')
+        return { state: POOL_STATE.None }
+      }
+
+      const poolData = parsePoolAccount(poolAccount.data)
+
+      // Fetch epoch account if active (with retry for transient network errors)
+      let epochData: EpochData | null = null
+      if (poolData.activeEpoch) {
+        const epochAccount = await withRetry(
+          () => this.shared.connection.getAccountInfo(poolData.activeEpoch!),
+          'Fetch epoch account'
+        )
+        if (epochAccount) {
+          epochData = parseEpochAccount(epochAccount.data)
+        }
+      }
+
+      // Determine action
+      const action = determineAction(poolData, epochData, currentTime, this.shared.config.autoCreateEpoch)
+
+      // Log current state
+      const stateStr = getPoolStateName(poolData.activeEpochState)
+      if (action === Action.NONE) {
+        if (epochData) {
+          const waitTarget = poolData.activeEpochState === POOL_STATE.Open
+            ? Number(epochData.freezeTime)
+            : Number(epochData.endTime)
+          const waitSecs = Math.max(0, waitTarget - currentTime)
+          this.log.debug(`Cycle ${this.cycleCount}: ${stateStr}, waiting ${waitSecs}s`)
+          return { state: poolData.activeEpochState, nextActionMs: waitSecs * 1000 }
+        } else {
+          this.log.debug(`Cycle ${this.cycleCount}: ${stateStr}`)
+        }
+        return { state: poolData.activeEpochState }
+      }
+
+      this.log.info(`Cycle ${this.cycleCount}: ${stateStr} → Action: ${action}`)
+
+      // Execute action
+      switch (action) {
+        case Action.CREATE_EPOCH: {
+          this.log.info('Fetching Pyth price for epoch creation...')
+
+          const pythMessage = await withRetry(
+            () => this.shared.pythManager.waitForFreshMessage(this.feedId),
+            'Pyth fetch'
+          )
+
+          const [epochPda] = deriveEpochPda(this.poolPda, poolData.nextEpochId)
+          this.log.info(`Creating epoch ${poolData.nextEpochId}...`)
+
+          const sig = await withRetry(
+            () => buildAndSendCreateEpochTx(this.shared.connection, this.shared.wallet, this.shared.globalConfigPda, this.poolPda, epochPda, pythMessage),
+            'Create epoch'
+          )
+
+          this.log.info(`Epoch ${poolData.nextEpochId} created. TX: ${sig}`)
+          this.log.info(`Explorer: https://explorer.fogo.io/tx/${sig}`)
+
+          // Chain: Fetch epoch times and run deterministic lifecycle loop
+          if (!isShuttingDown) {
+            const newEpochAccount = await withRetry(
+              () => this.shared.connection.getAccountInfo(epochPda),
+              'Fetch new epoch for chaining'
+            )
+            if (newEpochAccount) {
+              const newEpochData = parseEpochAccount(newEpochAccount.data)
+              await this.runChainLoop(
+                Number(newEpochData.freezeTime),
+                Number(newEpochData.endTime),
+                epochPda,
+                newEpochData.epochId
+              )
+            }
+          }
+          break
+        }
+
+        case Action.ADVANCE_EPOCH: {
+          this.log.info(`Advancing epoch ${epochData!.epochId} to Frozen...`)
+
+          const sig = await withRetry(
+            () => buildAndSendAdvanceEpochTx(this.shared.connection, this.shared.wallet, this.shared.globalConfigPda, this.poolPda, poolData.activeEpoch!),
+            'Advance epoch'
+          )
+
+          this.log.info(`Epoch ${epochData!.epochId} advanced to Frozen. TX: ${sig}`)
+          this.log.info(`Explorer: https://explorer.fogo.io/tx/${sig}`)
+
+          // Chain: Sleep until endTime then settle
+          if (!isShuttingDown) {
+            const nowSec = Math.floor(Date.now() / 1000)
+            const endTimeSec = Number(epochData!.endTime)
+            const waitMs = Math.max(0, (endTimeSec - nowSec) * 1000)
+
+            if (waitMs > 0) {
+              this.log.info(`Chaining: Waiting ${Math.ceil(waitMs / 1000)}s until endTime for settlement...`)
+              await sleep(waitMs)
+            }
+
+            if (!isShuttingDown) {
+              const chainResult = await this.settleAndCreateNext(poolData.activeEpoch!, epochData!.epochId)
+
+              // If a new epoch was created, continue the chain loop
+              if (chainResult && !isShuttingDown) {
+                await this.runChainLoop(
+                  chainResult.freezeTime,
+                  chainResult.endTime,
+                  chainResult.epochPda,
+                  chainResult.epochId
+                )
+              }
+            }
+          }
+          break
+        }
+
+        case Action.SETTLE_EPOCH: {
+          const chainResult = await this.settleAndCreateNext(poolData.activeEpoch!, epochData!.epochId)
+
+          // If a new epoch was created, continue the chain loop
+          if (chainResult && !isShuttingDown) {
+            await this.runChainLoop(
+              chainResult.freezeTime,
+              chainResult.endTime,
+              chainResult.epochPda,
+              chainResult.epochId
+            )
+          }
+          break
+        }
+      }
+
+      // Return current state (after actions, state may have changed - return Open for new epoch)
+      return { state: POOL_STATE.Open }
+
+    } catch (error: any) {
+      if (isCriticalError(error)) {
+        this.log.error(`Critical error: ${error.message}`)
+        isShuttingDown = true
+        return { state: POOL_STATE.None }
+      }
+
+      this.log.error(`Cycle ${this.cycleCount} failed: ${error.message}`)
+      if (error.stack) {
+        this.log.debug(`Stack trace: ${error.stack}`)
+      }
+      if (error.logs) {
+        this.log.debug('Program logs:')
+        error.logs.forEach((l: string) => this.log.debug(`  ${l}`))
+      }
+      return { state: POOL_STATE.None }
+    }
+  }
+}
+
+// =============================================================================
+// MAIN
+// =============================================================================
 
 function setupSignalHandlers() {
   const shutdown = (signal: string) => {
@@ -1240,180 +1711,6 @@ function setupSignalHandlers() {
 
   process.on('SIGINT', () => shutdown('SIGINT'))
   process.on('SIGTERM', () => shutdown('SIGTERM'))
-}
-
-// Returns the current pool state for dynamic poll interval
-async function runCycle(): Promise<number> {
-  cycleCount++
-  const currentTime = Math.floor(Date.now() / 1000)
-
-  try {
-    // Fetch pool account (with retry for transient network errors)
-    const poolAccount = await withRetry(
-      () => connection.getAccountInfo(poolPda),
-      'Fetch pool account'
-    )
-    if (!poolAccount) {
-      log.error('Pool not found. Ensure pool is created.')
-      return POOL_STATE.None
-    }
-
-    const poolData = parsePoolAccount(poolAccount.data)
-
-    // Fetch epoch account if active (with retry for transient network errors)
-    let epochData: EpochData | null = null
-    if (poolData.activeEpoch) {
-      const epochAccount = await withRetry(
-        () => connection.getAccountInfo(poolData.activeEpoch!),
-        'Fetch epoch account'
-      )
-      if (epochAccount) {
-        epochData = parseEpochAccount(epochAccount.data)
-      }
-    }
-
-    // Determine action
-    const action = determineAction(poolData, epochData, currentTime)
-
-    // Log current state
-    const stateStr = getPoolStateName(poolData.activeEpochState)
-    if (action === Action.NONE) {
-      if (epochData) {
-        const waitTarget = poolData.activeEpochState === POOL_STATE.Open
-          ? Number(epochData.freezeTime)
-          : Number(epochData.endTime)
-        const waitSecs = Math.max(0, waitTarget - currentTime)
-        log.debug(`Cycle ${cycleCount}: ${stateStr}, waiting ${waitSecs}s`)
-      } else {
-        log.debug(`Cycle ${cycleCount}: ${stateStr}`)
-      }
-      return poolData.activeEpochState
-    }
-
-    log.info(`Cycle ${cycleCount}: ${stateStr} → Action: ${action}`)
-
-    // Execute action
-    switch (action) {
-      case Action.CREATE_EPOCH: {
-        const feedId = PYTH_FEED_IDS[config.poolAsset]
-        log.info('Fetching Pyth price for epoch creation...')
-
-        const pythMessage = await withRetry(
-          () => fetchPythMessage(feedId, config.pythAccessToken),
-          'Pyth fetch'
-        )
-
-        const [epochPda] = deriveEpochPda(poolPda, poolData.nextEpochId)
-        log.info(`Creating epoch ${poolData.nextEpochId}...`)
-
-        const sig = await withRetry(
-          () => buildAndSendCreateEpochTx(connection, wallet, globalConfigPda, poolPda, epochPda, pythMessage),
-          'Create epoch'
-        )
-
-        log.info(`Epoch ${poolData.nextEpochId} created. TX: ${sig}`)
-        log.info(`Explorer: https://explorer.fogo.io/tx/${sig}`)
-
-        // Chain: Fetch epoch times and run deterministic lifecycle loop
-        if (!isShuttingDown) {
-          const newEpochAccount = await withRetry(
-            () => connection.getAccountInfo(epochPda),
-            'Fetch new epoch for chaining'
-          )
-          if (newEpochAccount) {
-            const newEpochData = parseEpochAccount(newEpochAccount.data)
-            await runChainLoop(
-              Number(newEpochData.freezeTime),
-              Number(newEpochData.endTime),
-              epochPda,
-              newEpochData.epochId,
-              feedId
-            )
-          }
-        }
-        break
-      }
-
-      case Action.ADVANCE_EPOCH: {
-        const feedId = PYTH_FEED_IDS[config.poolAsset]
-        log.info(`Advancing epoch ${epochData!.epochId} to Frozen...`)
-
-        const sig = await withRetry(
-          () => buildAndSendAdvanceEpochTx(connection, wallet, globalConfigPda, poolPda, poolData.activeEpoch!),
-          'Advance epoch'
-        )
-
-        log.info(`Epoch ${epochData!.epochId} advanced to Frozen. TX: ${sig}`)
-        log.info(`Explorer: https://explorer.fogo.io/tx/${sig}`)
-
-        // Chain: Sleep until endTime then settle
-        if (!isShuttingDown) {
-          const nowSec = Math.floor(Date.now() / 1000)
-          const endTimeSec = Number(epochData!.endTime)
-          const waitMs = Math.max(0, (endTimeSec - nowSec) * 1000)
-
-          if (waitMs > 0) {
-            log.info(`Chaining: Waiting ${Math.ceil(waitMs / 1000)}s until endTime for settlement...`)
-            await sleep(waitMs)
-          }
-
-          if (!isShuttingDown) {
-            const chainResult = await settleAndCreateNext(poolData.activeEpoch!, epochData!.epochId, feedId)
-
-            // If a new epoch was created, continue the chain loop
-            if (chainResult && !isShuttingDown) {
-              await runChainLoop(
-                chainResult.freezeTime,
-                chainResult.endTime,
-                chainResult.epochPda,
-                chainResult.epochId,
-                feedId
-              )
-            }
-          }
-        }
-        break
-      }
-
-      case Action.SETTLE_EPOCH: {
-        const feedId = PYTH_FEED_IDS[config.poolAsset]
-
-        const chainResult = await settleAndCreateNext(poolData.activeEpoch!, epochData!.epochId, feedId)
-
-        // If a new epoch was created, continue the chain loop
-        if (chainResult && !isShuttingDown) {
-          await runChainLoop(
-            chainResult.freezeTime,
-            chainResult.endTime,
-            chainResult.epochPda,
-            chainResult.epochId,
-            feedId
-          )
-        }
-        break
-      }
-    }
-
-    // Return current state (after actions, state may have changed - return Open for new epoch)
-    return POOL_STATE.Open
-
-  } catch (error: any) {
-    if (isCriticalError(error)) {
-      log.error(`Critical error: ${error.message}`)
-      isShuttingDown = true
-      return POOL_STATE.None
-    }
-
-    log.error(`Cycle ${cycleCount} failed: ${error.message}`)
-    if (error.stack) {
-      log.debug(`Stack trace: ${error.stack}`)
-    }
-    if (error.logs) {
-      log.debug('Program logs:')
-      error.logs.forEach((l: string) => log.debug(`  ${l}`))
-    }
-    return POOL_STATE.None
-  }
 }
 
 async function main() {
@@ -1428,6 +1725,7 @@ async function main() {
   const hasNoEpochFlag = args.includes('--no-epoch')
 
   let autoCreateOverride: boolean | undefined
+  let poolsOverride: Asset[] | undefined
 
   if (hasEpochFlag) {
     autoCreateOverride = true
@@ -1439,9 +1737,16 @@ async function main() {
   }
   // else: env var is set, let loadConfig handle it (autoCreateOverride stays undefined)
 
+  // Parse --pools flag
+  const poolsIdx = args.indexOf('--pools')
+  if (poolsIdx !== -1 && args[poolsIdx + 1]) {
+    poolsOverride = args[poolsIdx + 1].split(',').map(a => a.trim().toUpperCase() as Asset)
+  }
+
   // Load configuration
+  let config: Config
   try {
-    config = loadConfig(autoCreateOverride)
+    config = loadConfig(autoCreateOverride, poolsOverride)
   } catch (error: any) {
     console.error('Configuration error:', error.message)
     process.exit(1)
@@ -1449,12 +1754,13 @@ async function main() {
 
   currentLogLevel = config.logLevel
 
-  log.info(`Pool: ${config.poolAsset}`)
+  log.info(`Pools: ${config.poolAssets.join(', ')}`)
   log.info(`RPC: ${config.rpcUrl}`)
   log.info(`Poll interval: ${config.pollIntervalSeconds}s`)
   log.info(`Auto-create epochs: ${config.autoCreateEpoch ? 'enabled' : 'disabled'}`)
 
   // Load wallet
+  let wallet: Keypair
   try {
     wallet = loadWallet(config.walletPath)
     log.info(`Wallet: ${wallet.publicKey.toBase58().slice(0, 8)}...${wallet.publicKey.toBase58().slice(-4)}`)
@@ -1464,64 +1770,62 @@ async function main() {
   }
 
   // Setup connection
-  connection = new Connection(config.rpcUrl, 'confirmed')
+  const connection = new Connection(config.rpcUrl, 'confirmed')
 
   // Check balance
   const balance = await connection.getBalance(wallet.publicKey)
   log.info(`Balance: ${(balance / 1e9).toFixed(4)} SOL`)
 
-  if (balance < 0.01 * 1e9) {
-    log.error('Insufficient balance. Get SOL from https://faucet.fogo.io/')
+  const minBalance = 0.01 * config.poolAssets.length * 1e9
+  if (balance < minBalance) {
+    log.error(`Insufficient balance. Need at least ${(minBalance / 1e9).toFixed(2)} SOL for ${config.poolAssets.length} pool(s). Get SOL from https://faucet.fogo.io/`)
     process.exit(1)
   }
 
-  // Derive PDAs
-  ;[globalConfigPda] = deriveGlobalConfigPda()
-  const assetMint = ASSET_MINTS[config.poolAsset]
-  ;[poolPda] = derivePoolPda(assetMint)
-
+  // Derive global config PDA
+  const [globalConfigPda] = deriveGlobalConfigPda()
   log.info(`GlobalConfig: ${globalConfigPda.toBase58()}`)
-  log.info(`Pool: ${poolPda.toBase58()}`)
 
   // Setup signal handlers
   setupSignalHandlers()
 
-  log.info('Starting main loop...')
-  console.log()
+  // Create PythPriceManager with feeds for all configured pools
+  const feedIds = [...new Set(config.poolAssets.map(a => PYTH_FEED_IDS[a]))]
+  const pythManager = new PythPriceManager(feedIds, config.pythAccessToken)
 
-  // Dynamic poll intervals
-  const IDLE_POLL_INTERVAL_MS = config.idlePollIntervalSeconds * 1000  // 3min when no epoch
-  const NORMAL_POLL_INTERVAL_MS = config.pollIntervalSeconds * 1000  // 10s when Open
-  const FROZEN_POLL_INTERVAL_MS = 2000  // 2s when frozen (fallback for bot restarts)
-
-  // Main loop with crash resilience
-  while (!isShuttingDown) {
-    try {
-      const currentState = await runCycle()
-
-      if (!isShuttingDown) {
-        // Dynamic polling based on state
-        const pollInterval =
-          currentState === POOL_STATE.None
-            ? IDLE_POLL_INTERVAL_MS      // No epoch running - slow poll
-            : currentState === POOL_STATE.Frozen
-              ? FROZEN_POLL_INTERVAL_MS  // Waiting for settlement - fast poll
-              : NORMAL_POLL_INTERVAL_MS  // Open state - normal poll
-        await sleep(pollInterval)
-      }
-    } catch (error: any) {
-      // Catch ANY unhandled error and continue instead of crashing
-      log.error(`Unhandled error in main loop: ${error.message}`)
-      if (error.stack) {
-        log.debug(`Stack trace: ${error.stack}`)
-      }
-      // Wait before retrying to avoid tight error loops
-      if (!isShuttingDown) {
-        await sleep(RETRY_CONFIG.baseDelayMs)
-      }
-    }
+  try {
+    await pythManager.connect()
+  } catch (err: any) {
+    log.warn(`PythPriceManager initial connection failed: ${err.message}. Will use one-shot fallback.`)
   }
 
+  // Create shared context
+  const shared: SharedContext = {
+    connection,
+    wallet,
+    globalConfigPda,
+    pythManager,
+    config,
+  }
+
+  // Launch pool runners
+  const runners = config.poolAssets.map(asset => new PoolRunner(shared, asset))
+
+  log.info(`Launching ${runners.length} pool runner(s)...`)
+  console.log()
+
+  // Run all pool runners concurrently with crash isolation
+  const results = await Promise.allSettled(runners.map(r => r.start()))
+
+  // Log any runner failures
+  results.forEach((result, i) => {
+    if (result.status === 'rejected') {
+      log.error(`Pool runner ${config.poolAssets[i]} crashed: ${result.reason}`)
+    }
+  })
+
+  // Cleanup
+  await pythManager.disconnect()
   log.info('Crank bot stopped.')
 }
 

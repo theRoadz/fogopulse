@@ -184,7 +184,7 @@ export function EpochStatusDisplay({ asset, className }: EpochStatusDisplayProps
             variant="default"
             size="sm"
             onClick={createEpoch}
-            disabled={!connected || isCreating || asset !== 'BTC'}
+            disabled={!connected || isCreating}
             className="gap-2"
           >
             {isCreating ? (

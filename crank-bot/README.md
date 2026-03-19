@@ -5,6 +5,8 @@ Standalone bot that manages the full epoch lifecycle for FogoPulse:
 - **ADVANCE_EPOCH**: Transitions Open → Frozen at freeze_time
 - **SETTLE_EPOCH**: Settles epoch at end_time with Pyth oracle price
 
+Supports **multi-pool concurrent execution** — runs independent pool runners for BTC, ETH, SOL, and FOGO simultaneously in a single process, sharing a persistent Pyth WebSocket connection.
+
 ## Prerequisites
 
 - Node.js 18+
@@ -32,6 +34,37 @@ npx tsx crank-bot.ts --epoch      # Enable epoch auto-creation
 npx tsx crank-bot.ts --no-epoch   # Disable epoch auto-creation
 ```
 
+## Multi-Pool Configuration
+
+By default, the bot manages all 4 pools concurrently: BTC, ETH, SOL, FOGO.
+
+```bash
+# Run all pools (default)
+POOL_ASSETS=BTC,ETH,SOL,FOGO npx tsx crank-bot.ts --epoch
+
+# Run specific pools
+POOL_ASSETS=BTC,SOL npx tsx crank-bot.ts --epoch
+
+# CLI flag overrides env var
+npx tsx crank-bot.ts --epoch --pools BTC,ETH
+
+# Legacy single-pool mode (backward compatible)
+POOL_ASSET=BTC npx tsx crank-bot.ts --epoch
+```
+
+**Config priority:** `--pools` CLI flag > `POOL_ASSETS` env var > `POOL_ASSET` env var > default (all 4)
+
+Each pool gets an independent runner with:
+- Its own cycle counter and polling interval
+- Pool-prefixed logs (e.g., `[BTC] Cycle 1: ...`, `[ETH] Cycle 3: ...`)
+- Independent error handling (one pool's failure doesn't affect others)
+- Independent deterministic chaining (create → advance → settle → create)
+
+All runners share:
+- Single persistent Pyth WebSocket (with auto-reconnect)
+- Single RPC connection
+- Single wallet
+
 ## Environment Variables
 
 | Variable | Required | Default | Description |
@@ -41,7 +74,8 @@ npx tsx crank-bot.ts --no-epoch   # Disable epoch auto-creation
 | `POLL_INTERVAL_SECONDS` | No | 10 | How often to check pool state (Open) |
 | `IDLE_POLL_INTERVAL_SECONDS` | No | 180 | Poll interval when no epoch (3 min) |
 | `RPC_URL` | No | https://testnet.fogo.io | Solana RPC endpoint |
-| `POOL_ASSET` | No | BTC | Pool to monitor (BTC, ETH, SOL) |
+| `POOL_ASSETS` | No | BTC,ETH,SOL,FOGO | Comma-separated pools to monitor |
+| `POOL_ASSET` | No | BTC | Legacy single-pool (used if POOL_ASSETS not set) |
 | `LOG_LEVEL` | No | info | Log verbosity (debug, info, warn, error) |
 | `AUTO_CREATE_EPOCH` | No | true | Auto-create epochs (set to 'false' to disable) |
 
@@ -51,6 +85,7 @@ npx tsx crank-bot.ts --no-epoch   # Disable epoch auto-creation
 |------|-------------|
 | `--epoch` | Enable epoch auto-creation (overrides env var, skips prompt) |
 | `--no-epoch` | Disable epoch auto-creation (overrides env var, skips prompt) |
+| `--pools BTC,ETH` | Override which pools to run (overrides env vars) |
 
 **Priority:** CLI flag > env var > interactive prompt
 
@@ -148,43 +183,45 @@ sudo systemctl stop fogopulse-crank
 
 ## How It Works
 
-The bot runs a continuous polling loop:
+The bot runs independent pool runners concurrently:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        POLL CYCLE                           │
+│                    CRANK BOT STARTUP                         │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼
-                    ┌─────────────────┐
-                    │  Fetch Pool     │
-                    │  Account State  │
-                    └────────┬────────┘
-                             │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+       ┌────────────┐  ┌────────────┐  ┌────────────┐
+       │ PoolRunner │  │ PoolRunner │  │ PoolRunner │  ...
+       │   [BTC]    │  │   [ETH]    │  │   [SOL]    │
+       └─────┬──────┘  └─────┬──────┘  └─────┬──────┘
+             │               │               │
+             ▼               ▼               ▼
+      Independent      Independent      Independent
+      polling loop     polling loop     polling loop
+```
+
+Each runner follows this state machine per cycle:
+
+```
          ┌───────────────────┼───────────────────┐
          ▼                   ▼                   ▼
     ┌─────────┐        ┌──────────┐        ┌──────────┐
     │ No Epoch│        │   Open   │        │  Frozen  │
-    │ (None)  │        │  State   │        │  State   │
     └────┬────┘        └────┬─────┘        └────┬─────┘
          │                  │                   │
          ▼                  ▼                   ▼
-  CREATE_EPOCH        freeze_time?         end_time?
-    (Pyth)               passed?            passed?
-         │              │       │            │       │
-         │             YES      NO          YES      NO
-         │              │       │            │       │
-         │              ▼       ▼            ▼       ▼
-         │         ADVANCE   WAIT       SETTLE    WAIT
-         │          EPOCH               EPOCH
-         │              │               (Pyth)
-         └──────────────┴────────────────────┘
-                        │
-                        ▼
-                 SLEEP(POLL_INTERVAL)
-                        │
-                        └──────────► REPEAT
+  CREATE_EPOCH        ADVANCE_EPOCH        SETTLE_EPOCH
+    (Pyth)               │                  (Pyth)
+         │                ▼                   │
+         └──────► CHAIN LOOP ◄────────────────┘
+                  (deterministic)
 ```
+
+**Deterministic chaining:** Once a CREATE is triggered, the bot chains:
+create → sleep(freezeTime) → advance → sleep(endTime) → settle → create → ...
+without polling, until shutdown or error.
 
 ## Running with PM2 (Recommended for Development)
 
@@ -221,23 +258,27 @@ pm2 kill
 
 ## Error Handling
 
-- **Crash resilience**: Main loop catches unhandled errors and continues
+- **Crash resilience**: Each pool runner catches unhandled errors and continues independently
 - **Retry logic**: 3 attempts with exponential backoff (1s, 2s, 4s)
 - **Auto-restart**: PM2 (dev) or systemd (prod) restarts on crash
 - **Recoverable errors**: RPC/Pyth timeouts → retry next cycle
-- **Critical errors**: Insufficient balance, missing wallet → exit
+- **Critical errors**: Insufficient balance, missing wallet → all runners exit
+- **Pyth WS fallback**: If persistent WebSocket drops, auto-reconnects with backoff; individual price fetches fall back to one-shot connections
 
 ## Logs
 
-Example output:
+Example output (multi-pool):
 ```
-[2026-03-14T12:00:00.000Z] [INFO] Pool: BTC
-[2026-03-14T12:00:00.100Z] [INFO] Wallet: 7xK...3nM
-[2026-03-14T12:00:00.200Z] [INFO] Balance: 0.5000 SOL
-[2026-03-14T12:00:01.000Z] [INFO] Cycle 1: None → Action: CREATE_EPOCH
-[2026-03-14T12:00:01.500Z] [INFO] Fetching Pyth price for epoch creation...
-[2026-03-14T12:00:05.000Z] [INFO] Epoch 5 created. TX: 3xK...2mN
-[2026-03-14T12:00:05.100Z] [INFO] Explorer: https://explorer.fogo.io/tx/3xK...2mN
+[2026-03-18T12:00:00.000Z] [INFO] Pools: BTC, ETH, SOL, FOGO
+[2026-03-18T12:00:00.100Z] [INFO] Wallet: 7xK...3nM
+[2026-03-18T12:00:00.200Z] [INFO] Balance: 0.5000 SOL
+[2026-03-18T12:00:00.300Z] [INFO] PythPriceManager: Connected to Pyth Lazer WebSocket
+[2026-03-18T12:00:00.400Z] [INFO] PythPriceManager: Subscribed to feeds: [1, 2, 5, 2923]
+[2026-03-18T12:00:01.000Z] [INFO] [BTC] Cycle 1: None → Action: CREATE_EPOCH
+[2026-03-18T12:00:01.100Z] [INFO] [ETH] Cycle 1: Open, waiting 120s
+[2026-03-18T12:00:01.500Z] [INFO] [BTC] Epoch 5 created. TX: 3xK...2mN
+[2026-03-18T12:00:02.000Z] [INFO] [SOL] Cycle 1: Frozen → Action: SETTLE_EPOCH
+[2026-03-18T12:00:02.100Z] [INFO] [FOGO] Cycle 1: None → Action: CREATE_EPOCH
 ```
 
 ## Troubleshooting
@@ -249,10 +290,13 @@ Set your Pyth token in `.env` file or environment.
 The pool hasn't been created yet. Run pool creation scripts first.
 
 ### "Insufficient balance"
-Get testnet SOL from https://faucet.fogo.io/
+Get testnet SOL from https://faucet.fogo.io/. With multi-pool, you need at least 0.01 SOL per pool.
 
 ### Transaction fails with "InvalidEpochState"
 Another crank may have already processed this action. Normal during concurrent operation.
+
+### "PythPriceManager: WebSocket closed"
+The persistent connection dropped. Auto-reconnect is built in. Individual fetches fall back to one-shot connections.
 
 ## License
 
