@@ -373,3 +373,7 @@ Modified files:
 - web/src/lib/constants.ts (added QUERY_KEYS.settlementHistory)
 - web/src/components/trading/epoch-status-display.tsx (removed settlement history collapsible sections; retained LastSettlementSection)
 - web/src/app/layout.tsx (added History nav link)
+
+## Change Log
+
+- **2026-03-19** — [Story 7.9](7-9-fix-force-closed-epoch-ui-visibility.md): Fixed `tryFetchSettledEpoch` in `epoch-utils.ts` to handle force-closed epochs (state=Refunded with no settlement data). Fixed `settlement-history-row.tsx` to show "Force Closed" display and use `endTime` fallback for time-ago. Changed force-closed detection from `settlementPrice === 0` to `rawEpochData.settlementPrice === null`.

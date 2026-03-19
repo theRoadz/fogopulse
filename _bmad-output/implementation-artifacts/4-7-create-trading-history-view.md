@@ -384,3 +384,7 @@ Claude Opus 4.6 (1M context)
 - web/src/components/trading/trading-layout.tsx — Swapped `MultiAssetPositionsPanel` for `PositionsAndTradesPanel`
 - web/src/components/app-layout.tsx — Reverted to original `min-h-screen` + `flex-grow` layout
 - _bmad-output/implementation-artifacts/sprint-status.yaml — Status updated
+
+## Change Log
+
+- **2026-03-19** — [Story 7.9](7-9-fix-force-closed-epoch-ui-visibility.md): Fixed `classifyPosition()` in `use-trading-history.ts` to handle claimed refunds (force-closed epochs where `rawEpochData.outcome === Outcome.Refunded`). Fixed `settlementTime` to use `endTime` as fallback when `settlementPublishTime` is 0.
