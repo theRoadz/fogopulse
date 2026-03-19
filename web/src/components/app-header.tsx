@@ -13,8 +13,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useWallet } from '@solana/wallet-adapter-react'
 import { ASSETS } from '@/types/assets'
 import { ASSET_METADATA } from '@/lib/constants'
+import { useIsAdmin } from '@/hooks/use-is-admin'
 
 const overflowLinks = [
   { label: 'Balance', href: '/account' },
@@ -31,6 +33,8 @@ const utilityLinks = [
 export function AppHeader() {
   const pathname = usePathname()
   const [showMenu, setShowMenu] = useState(false)
+  const { publicKey } = useWallet()
+  const { isAdmin } = useIsAdmin()
 
   function isActive(path: string) {
     return path === '/' ? pathname === '/' : pathname.startsWith(path)
@@ -81,6 +85,14 @@ export function AppHeader() {
               {label}
             </Link>
           ))}
+          {publicKey && isAdmin && (
+            <Link
+              className={`text-sm hover:text-neutral-500 dark:hover:text-white ${isActive('/admin') ? 'text-neutral-500 dark:text-white' : ''}`}
+              href="/admin"
+            >
+              Admin
+            </Link>
+          )}
           <ModeToggle />
           <ClusterUiSelect />
           <WalletButton />
@@ -142,6 +154,19 @@ export function AppHeader() {
                   ))}
                 </ul>
               </div>
+
+              {/* Admin link (mobile) */}
+              {publicKey && isAdmin && (
+                <div className="border-t dark:border-neutral-800 pt-4">
+                  <Link
+                    className={`hover:text-neutral-500 dark:hover:text-white block text-lg py-2 ${isActive('/admin') ? 'text-neutral-500 dark:text-white' : ''}`}
+                    href="/admin"
+                    onClick={() => setShowMenu(false)}
+                  >
+                    Admin
+                  </Link>
+                </div>
+              )}
 
               {/* Overflow links */}
               <div className="border-t dark:border-neutral-800 pt-4">
