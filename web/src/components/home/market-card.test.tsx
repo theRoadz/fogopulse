@@ -209,4 +209,38 @@ describe('MarketCard', () => {
     render(<MarketCard asset="BTC" />)
     expect(screen.getByText('--:--')).toBeInTheDocument()
   })
+
+  describe('compact mode', () => {
+    it('hides PoolDepth when compact is true', () => {
+      render(<MarketCard asset="BTC" compact />)
+      expect(screen.queryByTestId('pool-depth')).not.toBeInTheDocument()
+    })
+
+    it('shows PoolDepth when compact is false', () => {
+      render(<MarketCard asset="BTC" compact={false} />)
+      expect(screen.getByTestId('pool-depth')).toBeInTheDocument()
+    })
+
+    it('applies compact spacing to card content', () => {
+      render(<MarketCard asset="BTC" compact />)
+      const content = screen.getByTestId('card-content')
+      expect(content.className).toContain('space-y-1')
+    })
+
+    it('applies default spacing without compact', () => {
+      render(<MarketCard asset="BTC" />)
+      const content = screen.getByTestId('card-content')
+      expect(content.className).toContain('space-y-2')
+    })
+
+    it('hides price section when compact is true', () => {
+      render(<MarketCard asset="BTC" compact />)
+      expect(screen.queryByTestId('live-price')).not.toBeInTheDocument()
+    })
+
+    it('shows price section when compact is false', () => {
+      render(<MarketCard asset="BTC" />)
+      expect(screen.getByTestId('live-price')).toBeInTheDocument()
+    })
+  })
 })

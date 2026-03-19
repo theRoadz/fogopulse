@@ -37,9 +37,10 @@ function formatCountdown(seconds: number): string {
 
 interface MarketCardProps {
   asset: Asset
+  compact?: boolean
 }
 
-export function MarketCard({ asset }: MarketCardProps) {
+export function MarketCard({ asset, compact = false }: MarketCardProps) {
   const { poolState, isLoading: poolLoading } = usePool(asset)
   const { epochState, isLoading: epochLoading, noEpochStatus } = useEpoch(asset)
   const { price, connectionState } = usePythPrice(asset)
@@ -52,7 +53,7 @@ export function MarketCard({ asset }: MarketCardProps) {
 
   return (
     <Link href={tradePath} className="block group" data-testid={`market-card-${asset}`}>
-      <Card className={`border-l-4 ${ASSET_BORDER_COLORS[asset]} transition-colors group-hover:border-l-primary/80 h-full py-4 gap-4`}>
+      <Card className={`border-l-4 ${ASSET_BORDER_COLORS[asset]} transition-colors group-hover:border-l-primary/80 h-full ${compact ? 'py-3 gap-3' : 'py-4 gap-4'}`}>
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle className={meta.color} data-testid="asset-label">{meta.label}</CardTitle>
           {epochState.epoch ? (
@@ -62,20 +63,22 @@ export function MarketCard({ asset }: MarketCardProps) {
           )}
         </CardHeader>
 
-        <CardContent className="space-y-2">
-          {/* Live Price */}
-          <div>
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">Price</span>
-            {isLoading ? (
-              <Skeleton className="h-7 w-28 mt-1" data-testid="price-skeleton" />
-            ) : hasNoFeed ? (
-              <p className="text-base font-mono font-semibold text-muted-foreground" data-testid="price-unavailable">Price Unavailable</p>
-            ) : hasPriceFeed ? (
-              <p className="text-base font-mono font-semibold" data-testid="live-price">{formatPrice(price.price)}</p>
-            ) : (
-              <Skeleton className="h-7 w-28 mt-1" data-testid="price-skeleton" />
-            )}
-          </div>
+        <CardContent className={compact ? 'space-y-1' : 'space-y-2'}>
+          {/* Live Price — hidden in compact mode (shown in Oracle Health instead) */}
+          {!compact && (
+            <div>
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">Price</span>
+              {isLoading ? (
+                <Skeleton className="h-7 w-28 mt-1" data-testid="price-skeleton" />
+              ) : hasNoFeed ? (
+                <p className="text-base font-mono font-semibold text-muted-foreground" data-testid="price-unavailable">Price Unavailable</p>
+              ) : hasPriceFeed ? (
+                <p className="text-base font-mono font-semibold" data-testid="live-price">{formatPrice(price.price)}</p>
+              ) : (
+                <Skeleton className="h-7 w-28 mt-1" data-testid="price-skeleton" />
+              )}
+            </div>
+          )}
 
           {/* Probability Bar */}
           {isLoading ? (
@@ -85,7 +88,7 @@ export function MarketCard({ asset }: MarketCardProps) {
           )}
 
           {/* Pool Depth */}
-          <PoolDepth totalLiquidity={poolState.totalLiquidity} isLoading={isLoading} />
+          {!compact && <PoolDepth totalLiquidity={poolState.totalLiquidity} isLoading={isLoading} />}
 
           {/* Epoch Countdown */}
           <div className="flex items-center justify-between">
@@ -103,7 +106,7 @@ export function MarketCard({ asset }: MarketCardProps) {
         </CardContent>
 
         <CardFooter>
-          <Button className="w-full" variant="outline" asChild>
+          <Button className="w-full" variant="outline" size={compact ? 'sm' : 'default'} asChild>
             <span data-testid="trade-link">Trade {asset}</span>
           </Button>
         </CardFooter>

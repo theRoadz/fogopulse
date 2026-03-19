@@ -11,6 +11,16 @@ jest.mock('./market-card', () => ({
   ),
 }))
 
+// Mock HomeOracleHealthCard
+jest.mock('./home-oracle-health-card', () => ({
+  HomeOracleHealthCard: () => <div data-testid="oracle-health">Oracle Health</div>,
+}))
+
+// Mock PythTechSection
+jest.mock('./pyth-tech-section', () => ({
+  PythTechSection: () => <div data-testid="pyth-tech">Pyth Tech</div>,
+}))
+
 // Mock assets
 jest.mock('@/types/assets', () => ({
   ASSETS: ['BTC', 'ETH', 'SOL', 'FOGO'],
@@ -26,7 +36,7 @@ describe('HomeFeature', () => {
 
   it('renders the subtitle', () => {
     render(<HomeFeature />)
-    expect(screen.getByText('Prediction Markets on FOGO Chain')).toBeInTheDocument()
+    expect(screen.getByText('Binary Prediction Markets on FOGO Chain')).toBeInTheDocument()
   })
 
   it('renders all 4 market cards', () => {
@@ -37,15 +47,19 @@ describe('HomeFeature', () => {
     expect(screen.getByTestId('market-card-FOGO')).toBeInTheDocument()
   })
 
-  it('has responsive grid classes', () => {
+  it('renders the Oracle Health card', () => {
     render(<HomeFeature />)
-    const grid = screen.getByTestId('market-grid')
-    expect(grid.className).toContain('grid-cols-1')
-    expect(grid.className).toContain('md:grid-cols-2')
+    expect(screen.getByTestId('oracle-health')).toBeInTheDocument()
+  })
+
+  it('renders the Pyth Tech section', () => {
+    render(<HomeFeature />)
+    expect(screen.getByTestId('pyth-tech')).toBeInTheDocument()
   })
 
   it('renders footer text about epochs and Pyth', () => {
     render(<HomeFeature />)
-    expect(screen.getByText('All markets use 5-minute epochs. Prices powered by Pyth Oracle.')).toBeInTheDocument()
+    expect(screen.getByText(/Pyth Hermes.*real-time streaming/)).toBeInTheDocument()
+    expect(screen.getByText(/Pyth Lazer.*on-chain settlement/)).toBeInTheDocument()
   })
 })
