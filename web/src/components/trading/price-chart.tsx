@@ -248,24 +248,23 @@ export function PriceChart({ asset, data, targetPrice, className }: PriceChartPr
         seriesRef.current.setData(data)
         scrollToRight()
       } else if (data.length > prevLength) {
-        // New data point(s) added - use efficient update()
+        // New point added, no trimming yet - use efficient update()
         const lastPoint = data[data.length - 1]
         if (lastPoint) {
           seriesRef.current.update(lastPoint)
-          scrollToRight() // Keep window scrolled to right
+          scrollToRight()
         }
-      } else if (data.length === prevLength) {
-        // Same length but possibly updated value (duplicate timestamp case)
-        const lastPoint = data[data.length - 1]
-        if (lastPoint) {
-          seriesRef.current.update(lastPoint)
-        }
+      } else {
+        // Same length (trim+add) or value update — resync with setData
+        seriesRef.current.setData(data)
+        scrollToRight()
       }
-      // Note: data.length < prevLength shouldn't happen with current usePriceHistory impl
 
       dataLengthRef.current = data.length
     } catch (error) {
-      setChartError(error instanceof Error ? error.message : 'Failed to update chart data')
+      console.warn('[PriceChart] Data update error:', error instanceof Error ? error.message : error)
+      // Attempt recovery by resyncing full data on next render
+      dataLengthRef.current = 0
     }
   }, [data, scrollToRight])
 
