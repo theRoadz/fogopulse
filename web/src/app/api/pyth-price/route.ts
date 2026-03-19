@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { PythLazerClient } from '@pythnetwork/pyth-lazer-sdk'
 
 // Valid feed IDs (BTC=1, ETH=2, SOL=5)
-const VALID_FEED_IDS = new Set([1, 2, 5])
+const VALID_FEED_IDS = new Set([1, 2, 5, 2923])
 
 // Timeout for WebSocket connection (30 seconds)
 const TIMEOUT_MS = 30000
