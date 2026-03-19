@@ -251,6 +251,109 @@ describe('SettlementHistoryRow', () => {
     expect(screen.getByTestId('settlement-status-panel')).toHaveTextContent('Epoch #42 Settlement')
   })
 
+  it('should render "Force Closed" for force-closed refunded epoch', () => {
+    const forceClosedRaw: EpochData = {
+      pool: poolPda,
+      epochId: BigInt(99),
+      state: EpochState.Refunded,
+      startTime: 1710496500,
+      endTime: 1710497400,
+      freezeTime: 1710497385,
+      startPrice: BigInt(6917398000000),
+      startConfidence: BigInt(4847879),
+      startPublishTime: 1710496800,
+      settlementPrice: null,
+      settlementConfidence: null,
+      settlementPublishTime: null,
+      outcome: Outcome.Refunded,
+      yesTotalAtSettlement: null,
+      noTotalAtSettlement: null,
+      bump: 255,
+    }
+    const settlement = createMockSettlement({
+      epochId: BigInt(99),
+      state: EpochState.Refunded,
+      outcome: Outcome.Refunded,
+      settlementPrice: 0,
+      settlementPublishTime: 0,
+      priceDelta: 0,
+      priceDeltaPercent: '+0.00%',
+      rawEpochData: forceClosedRaw,
+    })
+
+    render(
+      <SettlementHistoryRow
+        settlement={settlement}
+        position={null}
+        isWalletConnected={false}
+        asset="BTC"
+      />
+    )
+
+    expect(screen.getByTestId('price-range')).toHaveTextContent('Force Closed')
+    expect(screen.queryByTestId('price-delta')).not.toBeInTheDocument()
+  })
+
+  it('should render normal price range for non-force-closed refunded epoch', () => {
+    const settlement = createMockSettlement({
+      state: EpochState.Refunded,
+      outcome: Outcome.Refunded,
+      settlementPrice: 69180.12,
+    })
+
+    render(
+      <SettlementHistoryRow
+        settlement={settlement}
+        position={null}
+        isWalletConnected={false}
+        asset="BTC"
+      />
+    )
+
+    expect(screen.getByTestId('price-range')).toHaveTextContent('$69173.98 → $69180.12')
+    expect(screen.getByTestId('price-delta')).toBeInTheDocument()
+  })
+
+  it('should use endTime as fallback for time-ago when settlementPublishTime is 0', () => {
+    const forceClosedRaw: EpochData = {
+      pool: poolPda,
+      epochId: BigInt(99),
+      state: EpochState.Refunded,
+      startTime: 1710496500,
+      endTime: Math.floor(Date.now() / 1000) - 120,
+      freezeTime: 1710497385,
+      startPrice: BigInt(6917398000000),
+      startConfidence: BigInt(4847879),
+      startPublishTime: 1710496800,
+      settlementPrice: null,
+      settlementConfidence: null,
+      settlementPublishTime: null,
+      outcome: Outcome.Refunded,
+      yesTotalAtSettlement: null,
+      noTotalAtSettlement: null,
+      bump: 255,
+    }
+    const settlement = createMockSettlement({
+      state: EpochState.Refunded,
+      outcome: Outcome.Refunded,
+      settlementPrice: 0,
+      settlementPublishTime: 0,
+      rawEpochData: forceClosedRaw,
+    })
+
+    render(
+      <SettlementHistoryRow
+        settlement={settlement}
+        position={null}
+        isWalletConnected={false}
+        asset="BTC"
+      />
+    )
+
+    // endTime was set to ~2 minutes ago
+    expect(screen.getByTestId('time-ago').textContent).toMatch(/\d+m ago/)
+  })
+
   it('should have data-testid attribute', () => {
     render(
       <SettlementHistoryRow

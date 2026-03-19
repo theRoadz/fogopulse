@@ -148,6 +148,43 @@ describe('tryFetchSettledEpoch', () => {
     expect(result).toBeNull()
   })
 
+  it('should return force-closed epoch data when state is Refunded but no settlement data', async () => {
+    const mockProgram = {
+      account: {
+        epoch: {
+          fetch: jest.fn().mockResolvedValue(
+            createMockEpochAccount({
+              state: { refunded: {} },
+              outcome: null,
+              settlementPrice: null,
+              settlementConfidence: null,
+              settlementPublishTime: null,
+              yesTotalAtSettlement: null,
+              noTotalAtSettlement: null,
+            })
+          ),
+        },
+      },
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await tryFetchSettledEpoch(mockProgram as any, poolPda, BigInt(7))
+
+    expect(result).not.toBeNull()
+    expect(result!.epochId).toBe(BigInt(7))
+    expect(result!.state).toBe(EpochState.Refunded)
+    expect(result!.outcome).toBe(Outcome.Refunded)
+    expect(result!.settlementPrice).toBe(0)
+    expect(result!.settlementPublishTime).toBe(0)
+    expect(result!.settlementConfidencePercent).toBe('0%')
+    expect(result!.priceDelta).toBe(0)
+    expect(result!.priceDeltaPercent).toBe('+0.00%')
+    expect(result!.yesTotalAtSettlement).toBeNull()
+    expect(result!.noTotalAtSettlement).toBeNull()
+    expect(result!.rawEpochData.settlementPrice).toBeNull()
+    expect(result!.rawEpochData.outcome).toBe(Outcome.Refunded)
+  })
+
   it('should include yesTotalAtSettlement and noTotalAtSettlement in rawEpochData', async () => {
     const mockProgram = {
       account: {

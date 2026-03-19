@@ -127,6 +127,11 @@ export function classifyPosition(
         outcome = 'sold-early'
         realizedPnl = null
         payoutAmount = null
+      } else if (settlement.rawEpochData.outcome === Outcome.Refunded) {
+        // Claimed refund — original stake returned, zero PnL
+        outcome = 'refund'
+        realizedPnl = 0n
+        payoutAmount = position.amount
       } else {
         // Claimed winner — recalculate payout for display
         outcome = 'won'
@@ -173,7 +178,9 @@ export function classifyPosition(
     outcome,
     realizedPnl,
     payoutAmount,
-    settlementTime: settlement.settlementPublishTime,
+    settlementTime: settlement.settlementPublishTime > 0
+      ? settlement.settlementPublishTime
+      : settlement.rawEpochData.endTime,
     settlement,
     position,
   }

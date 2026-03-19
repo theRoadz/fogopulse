@@ -77,7 +77,61 @@ export async function tryFetchSettledEpoch(
       return null
     }
 
+    // Handle force-closed epochs that have no settlement data.
+    // admin_force_close_epoch sets state=Refunded but leaves outcome,
+    // settlementPrice, settlementConfidence, settlementPublishTime as None.
     const outcome = parseOutcome(epochAccount.outcome)
+    const hasSettlementData =
+      outcome !== null &&
+      epochAccount.settlementPrice != null &&
+      epochAccount.settlementConfidence != null &&
+      epochAccount.settlementPublishTime != null
+
+    if (state === EpochState.Refunded && !hasSettlementData) {
+      const startPrice = BigInt(epochAccount.startPrice.toString())
+      const startConfidence = BigInt(epochAccount.startConfidence.toString())
+
+      const rawEpochData: EpochData = {
+        pool: poolPda,
+        epochId,
+        state,
+        startTime: epochAccount.startTime?.toNumber() ?? 0,
+        endTime: epochAccount.endTime?.toNumber() ?? 0,
+        freezeTime: epochAccount.freezeTime?.toNumber() ?? 0,
+        startPrice,
+        startConfidence,
+        startPublishTime: epochAccount.startPublishTime.toNumber(),
+        settlementPrice: null,
+        settlementConfidence: null,
+        settlementPublishTime: null,
+        outcome: Outcome.Refunded,
+        yesTotalAtSettlement: null,
+        noTotalAtSettlement: null,
+        bump: epochAccount.bump ?? 0,
+      }
+
+      return {
+        epochId,
+        epochPda,
+        state,
+        outcome: Outcome.Refunded,
+        startPrice: scalePrice(startPrice),
+        startConfidencePercent: formatConfidencePercent(startConfidence, startPrice),
+        startPublishTime: epochAccount.startPublishTime.toNumber(),
+        settlementPrice: 0,
+        settlementConfidencePercent: '0%',
+        settlementPublishTime: 0,
+        priceDelta: 0,
+        priceDeltaPercent: '+0.00%',
+        startConfidenceRaw: startConfidence,
+        settlementConfidenceRaw: BigInt(0),
+        yesTotalAtSettlement: null,
+        noTotalAtSettlement: null,
+        rawEpochData,
+      }
+    }
+
+    // Normal settled/refunded epoch — requires settlement data
     if (!outcome) return null
 
     const settlementPrice = epochAccount.settlementPrice

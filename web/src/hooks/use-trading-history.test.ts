@@ -139,6 +139,56 @@ describe('classifyPosition', () => {
     expect(entry.amountInvested).toBe(0n)
   })
 
+  it('classifies a claimed refund (claimed with Refunded outcome)', () => {
+    const epochData = makeEpochData({
+      state: EpochState.Refunded,
+      outcome: Outcome.Refunded,
+      settlementPrice: null,
+      settlementConfidence: null,
+      settlementPublishTime: null,
+      yesTotalAtSettlement: null,
+      noTotalAtSettlement: null,
+    })
+    const settlement = makeSettlement({
+      state: EpochState.Refunded,
+      outcome: Outcome.Refunded,
+      settlementPrice: 0,
+      settlementPublishTime: 0,
+      yesTotalAtSettlement: null,
+      noTotalAtSettlement: null,
+      rawEpochData: epochData,
+    })
+    const position = makePosition({
+      direction: 'up',
+      claimed: true,
+      shares: 10_000_000n,
+      amount: 10_000_000n,
+    })
+    const entry = classifyPosition('BTC', settlement, position)
+
+    expect(entry.outcome).toBe('refund')
+    expect(entry.realizedPnl).toBe(0n)
+    expect(entry.payoutAmount).toBe(10_000_000n)
+  })
+
+  it('uses endTime as fallback for settlementTime when settlementPublishTime is 0', () => {
+    const epochData = makeEpochData({
+      state: EpochState.Refunded,
+      outcome: Outcome.Refunded,
+      endTime: 1500,
+    })
+    const settlement = makeSettlement({
+      state: EpochState.Refunded,
+      outcome: Outcome.Refunded,
+      settlementPublishTime: 0,
+      rawEpochData: epochData,
+    })
+    const position = makePosition()
+    const entry = classifyPosition('BTC', settlement, position)
+
+    expect(entry.settlementTime).toBe(1500)
+  })
+
   it('classifies a claimed winner (claimed with shares > 0n)', () => {
     const settlement = makeSettlement()
     const position = makePosition({

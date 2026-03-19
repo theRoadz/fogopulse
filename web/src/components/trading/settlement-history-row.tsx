@@ -161,25 +161,37 @@ export function SettlementHistoryRow({
             {outcomeStyle.label}
           </Badge>
 
-          {/* Prices */}
-          <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline" data-testid="price-range">
-            {formatUsdPrice(settlement.startPrice)} → {formatUsdPrice(settlement.settlementPrice)}
-          </span>
+          {/* Prices — force-closed epochs have no settlement price */}
+          {settlement.outcome === Outcome.Refunded && settlement.rawEpochData.settlementPrice === null ? (
+            <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline" data-testid="price-range">
+              {formatUsdPrice(settlement.startPrice)} — Force Closed
+            </span>
+          ) : (
+            <>
+              <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline" data-testid="price-range">
+                {formatUsdPrice(settlement.startPrice)} → {formatUsdPrice(settlement.settlementPrice)}
+              </span>
 
-          {/* Price delta */}
-          <span
-            className={cn(
-              'shrink-0 text-xs font-medium',
-              settlement.priceDelta >= 0 ? 'text-up' : 'text-down'
-            )}
-            data-testid="price-delta"
-          >
-            {settlement.priceDeltaPercent}
-          </span>
+              {/* Price delta */}
+              <span
+                className={cn(
+                  'shrink-0 text-xs font-medium',
+                  settlement.priceDelta >= 0 ? 'text-up' : 'text-down'
+                )}
+                data-testid="price-delta"
+              >
+                {settlement.priceDeltaPercent}
+              </span>
+            </>
+          )}
 
-          {/* Time ago */}
+          {/* Time ago — force-closed epochs use endTime as fallback */}
           <span className="ml-auto shrink-0 text-xs text-muted-foreground" data-testid="time-ago">
-            {formatTimeAgo(settlement.settlementPublishTime)}
+            {formatTimeAgo(
+              settlement.settlementPublishTime > 0
+                ? settlement.settlementPublishTime
+                : settlement.rawEpochData.endTime
+            )}
           </span>
 
           {/* User position (only if wallet connected and has position) */}
