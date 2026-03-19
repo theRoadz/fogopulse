@@ -117,7 +117,7 @@ development_status:
   6-3-implement-resume-pool-instruction: done
   6-4-implement-emergency-freeze-instruction: done
   6-5-create-admin-dashboard: done
-  6-6-create-configuration-panel: backlog
+  6-6-create-configuration-panel: done
   6-7-create-pool-management-ui: backlog
   6-8-create-emergency-controls-ui: backlog
   6-9-add-metrics-and-monitoring: backlog

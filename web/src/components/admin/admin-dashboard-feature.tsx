@@ -5,6 +5,7 @@ import { useWallet } from '@solana/wallet-adapter-react'
 import { useAdminAuth } from '@/hooks/use-admin-auth'
 import { ASSETS } from '@/types/assets'
 import { SystemStatusCard } from '@/components/admin/system-status-card'
+import { ConfigurationPanel } from '@/components/admin/configuration-panel'
 import { PoolOverviewCard } from '@/components/admin/pool-overview-card'
 import { OracleHealthCard } from '@/components/admin/oracle-health-card'
 import { AlertsSection } from '@/components/admin/alerts-section'
@@ -66,6 +67,7 @@ export function AdminDashboardFeature() {
       <h1 className="text-2xl font-bold mb-6">Admin Dashboard</h1>
       <AlertsSection />
       <SystemStatusCard />
+      <ConfigurationPanel />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
         {ASSETS.map((asset) => (
           <PoolOverviewCard key={asset} asset={asset} />
