@@ -25,7 +25,6 @@ const overflowLinks = [
 ]
 
 const utilityLinks = [
-  { label: 'LP', href: '/lp' },
   { label: 'Faucet', href: '/faucet' },
   { label: 'Feedback', href: '/feedback' },
 ]
@@ -69,6 +68,12 @@ export function AppHeader() {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+          <Link
+            className={`text-sm font-medium hover:text-neutral-500 dark:hover:text-white ${isActive('/lp') ? 'text-neutral-500 dark:text-white' : ''}`}
+            href="/lp"
+          >
+            Pools
+          </Link>
         </div>
 
         <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setShowMenu(!showMenu)}>
@@ -136,6 +141,17 @@ export function AppHeader() {
                     </li>
                   ))}
                 </ul>
+              </div>
+
+              {/* Pools link */}
+              <div className="border-t dark:border-neutral-800 pt-4">
+                <Link
+                  className={`hover:text-neutral-500 dark:hover:text-white block text-lg py-2 ${isActive('/lp') ? 'text-neutral-500 dark:text-white' : ''}`}
+                  href="/lp"
+                  onClick={() => setShowMenu(false)}
+                >
+                  Pools
+                </Link>
               </div>
 
               {/* Utility links */}
