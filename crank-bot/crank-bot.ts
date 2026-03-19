@@ -1018,6 +1018,171 @@ function sleep(ms: number): Promise<void> {
 }
 
 // =============================================================================
+// CHAINING HELPERS
+// =============================================================================
+
+interface ChainResult {
+  freezeTime: number
+  endTime: number
+  epochPda: PublicKey
+  epochId: bigint
+}
+
+/**
+ * Settle the current epoch, process withdrawals, and optionally create the next epoch.
+ * Returns the new epoch's timing data if a new epoch was created (for continued chaining),
+ * or null if auto-create is disabled or creation failed.
+ */
+async function settleAndCreateNext(
+  epochPda: PublicKey,
+  epochId: bigint,
+  feedId: number
+): Promise<ChainResult | null> {
+  log.info('Fetching Pyth price for settlement...')
+
+  const pythMessage = await withRetry(
+    () => fetchPythMessage(feedId, config.pythAccessToken),
+    'Pyth fetch'
+  )
+
+  log.info(`Settling epoch ${epochId}...`)
+
+  const sig = await withRetry(
+    () => buildAndSendSettleEpochTx(connection, wallet, globalConfigPda, poolPda, epochPda, pythMessage),
+    'Settle epoch'
+  )
+
+  log.info(`Epoch ${epochId} settled. TX: ${sig}`)
+  log.info(`Explorer: https://explorer.fogo.io/tx/${sig}`)
+
+  // Process pending withdrawals before creating next epoch
+  try {
+    await processPendingWithdrawals(connection, wallet, globalConfigPda, poolPda, config.poolAsset)
+  } catch (withdrawalError: any) {
+    log.warn(`Failed to process pending withdrawals: ${withdrawalError.message}`)
+  }
+
+  // Chain: Immediately create next epoch after settlement (if auto-create enabled)
+  if (!config.autoCreateEpoch) {
+    log.info('Auto-create disabled, skipping chained epoch creation')
+    return null
+  }
+
+  if (isShuttingDown) return null
+
+  log.info('Chaining: Creating next epoch immediately...')
+
+  // Fetch updated pool state to get nextEpochId
+  const updatedPoolAccount = await withRetry(
+    () => connection.getAccountInfo(poolPda),
+    'Fetch pool after settlement'
+  )
+  if (!updatedPoolAccount) return null
+
+  const updatedPoolData = parsePoolAccount(updatedPoolAccount.data)
+
+  // Verify pool has no active epoch (settlement cleared it)
+  if (updatedPoolData.activeEpoch !== null) {
+    log.info('Epoch already exists (another crank may have created it), skipping chained creation')
+    return null
+  }
+
+  const pythMessageForCreate = await withRetry(
+    () => fetchPythMessage(feedId, config.pythAccessToken),
+    'Pyth fetch for create'
+  )
+
+  const [newEpochPda] = deriveEpochPda(poolPda, updatedPoolData.nextEpochId)
+  log.info(`Creating epoch ${updatedPoolData.nextEpochId}...`)
+
+  try {
+    const createSig = await withRetry(
+      () => buildAndSendCreateEpochTx(connection, wallet, globalConfigPda, poolPda, newEpochPda, pythMessageForCreate),
+      'Create epoch'
+    )
+
+    log.info(`Epoch ${updatedPoolData.nextEpochId} created. TX: ${createSig}`)
+    log.info(`Explorer: https://explorer.fogo.io/tx/${createSig}`)
+
+    // Fetch the new epoch to get timing data for continued chaining
+    const newEpochAccount = await withRetry(
+      () => connection.getAccountInfo(newEpochPda),
+      'Fetch new epoch for chaining'
+    )
+    if (newEpochAccount) {
+      const newEpochData = parseEpochAccount(newEpochAccount.data)
+      return {
+        freezeTime: Number(newEpochData.freezeTime),
+        endTime: Number(newEpochData.endTime),
+        epochPda: newEpochPda,
+        epochId: newEpochData.epochId,
+      }
+    }
+  } catch (chainError: any) {
+    // Another crank may have created the epoch - this is normal in concurrent operation
+    log.warn(`Chained epoch creation failed (another crank may have processed): ${chainError.message}`)
+  }
+
+  return null
+}
+
+/**
+ * Run the deterministic chain loop: advance → sleep(endTime) → settle → create → sleep(freezeTime) → ...
+ * Continues until shutdown, error, or auto-create is disabled.
+ */
+async function runChainLoop(
+  initialFreezeTime: number,
+  initialEndTime: number,
+  initialEpochPda: PublicKey,
+  initialEpochId: bigint,
+  feedId: number
+): Promise<void> {
+  let freezeTime = initialFreezeTime
+  let endTime = initialEndTime
+  let epochPda = initialEpochPda
+  let epochId = initialEpochId
+
+  while (!isShuttingDown) {
+    // Wait until freezeTime
+    const nowSec1 = Math.floor(Date.now() / 1000)
+    const waitToFreeze = Math.max(0, (freezeTime - nowSec1) * 1000)
+    if (waitToFreeze > 0) {
+      log.info(`Chaining: Waiting ${Math.ceil(waitToFreeze / 1000)}s until freezeTime...`)
+      await sleep(waitToFreeze)
+    }
+    if (isShuttingDown) break
+
+    // Advance to Frozen
+    log.info(`Chaining: Advancing epoch ${epochId} to Frozen...`)
+    const advSig = await withRetry(
+      () => buildAndSendAdvanceEpochTx(connection, wallet, globalConfigPda, poolPda, epochPda),
+      'Advance epoch'
+    )
+    log.info(`Epoch ${epochId} advanced to Frozen. TX: ${advSig}`)
+    log.info(`Explorer: https://explorer.fogo.io/tx/${advSig}`)
+
+    // Wait until endTime
+    const nowSec2 = Math.floor(Date.now() / 1000)
+    const waitToEnd = Math.max(0, (endTime - nowSec2) * 1000)
+    if (waitToEnd > 0) {
+      log.info(`Chaining: Waiting ${Math.ceil(waitToEnd / 1000)}s until endTime for settlement...`)
+      await sleep(waitToEnd)
+    }
+    if (isShuttingDown) break
+
+    // Settle and create next
+    const chainResult = await settleAndCreateNext(epochPda, epochId, feedId)
+    if (!chainResult) break  // Auto-create disabled, creation failed, or shutdown
+
+    // Continue chain with the new epoch
+    freezeTime = chainResult.freezeTime
+    endTime = chainResult.endTime
+    epochPda = chainResult.epochPda
+    epochId = chainResult.epochId
+  }
+}
+
+// =============================================================================
 // STATE MACHINE
 // =============================================================================
 
@@ -1148,10 +1313,29 @@ async function runCycle(): Promise<number> {
 
         log.info(`Epoch ${poolData.nextEpochId} created. TX: ${sig}`)
         log.info(`Explorer: https://explorer.fogo.io/tx/${sig}`)
+
+        // Chain: Fetch epoch times and run deterministic lifecycle loop
+        if (!isShuttingDown) {
+          const newEpochAccount = await withRetry(
+            () => connection.getAccountInfo(epochPda),
+            'Fetch new epoch for chaining'
+          )
+          if (newEpochAccount) {
+            const newEpochData = parseEpochAccount(newEpochAccount.data)
+            await runChainLoop(
+              Number(newEpochData.freezeTime),
+              Number(newEpochData.endTime),
+              epochPda,
+              newEpochData.epochId,
+              feedId
+            )
+          }
+        }
         break
       }
 
       case Action.ADVANCE_EPOCH: {
+        const feedId = PYTH_FEED_IDS[config.poolAsset]
         log.info(`Advancing epoch ${epochData!.epochId} to Frozen...`)
 
         const sig = await withRetry(
@@ -1161,76 +1345,50 @@ async function runCycle(): Promise<number> {
 
         log.info(`Epoch ${epochData!.epochId} advanced to Frozen. TX: ${sig}`)
         log.info(`Explorer: https://explorer.fogo.io/tx/${sig}`)
+
+        // Chain: Sleep until endTime then settle
+        if (!isShuttingDown) {
+          const nowSec = Math.floor(Date.now() / 1000)
+          const endTimeSec = Number(epochData!.endTime)
+          const waitMs = Math.max(0, (endTimeSec - nowSec) * 1000)
+
+          if (waitMs > 0) {
+            log.info(`Chaining: Waiting ${Math.ceil(waitMs / 1000)}s until endTime for settlement...`)
+            await sleep(waitMs)
+          }
+
+          if (!isShuttingDown) {
+            const chainResult = await settleAndCreateNext(poolData.activeEpoch!, epochData!.epochId, feedId)
+
+            // If a new epoch was created, continue the chain loop
+            if (chainResult && !isShuttingDown) {
+              await runChainLoop(
+                chainResult.freezeTime,
+                chainResult.endTime,
+                chainResult.epochPda,
+                chainResult.epochId,
+                feedId
+              )
+            }
+          }
+        }
         break
       }
 
       case Action.SETTLE_EPOCH: {
         const feedId = PYTH_FEED_IDS[config.poolAsset]
-        log.info('Fetching Pyth price for settlement...')
 
-        const pythMessage = await withRetry(
-          () => fetchPythMessage(feedId, config.pythAccessToken),
-          'Pyth fetch'
-        )
+        const chainResult = await settleAndCreateNext(poolData.activeEpoch!, epochData!.epochId, feedId)
 
-        log.info(`Settling epoch ${epochData!.epochId}...`)
-
-        const sig = await withRetry(
-          () => buildAndSendSettleEpochTx(connection, wallet, globalConfigPda, poolPda, poolData.activeEpoch!, pythMessage),
-          'Settle epoch'
-        )
-
-        log.info(`Epoch ${epochData!.epochId} settled. TX: ${sig}`)
-        log.info(`Explorer: https://explorer.fogo.io/tx/${sig}`)
-
-        // Process pending withdrawals before creating next epoch
-        try {
-          await processPendingWithdrawals(connection, wallet, globalConfigPda, poolPda, config.poolAsset)
-        } catch (withdrawalError: any) {
-          log.warn(`Failed to process pending withdrawals: ${withdrawalError.message}`)
-        }
-
-        // Chain: Immediately create next epoch after settlement (if auto-create enabled)
-        if (config.autoCreateEpoch) {
-          log.info('Chaining: Creating next epoch immediately...')
-
-          // Fetch updated pool state to get nextEpochId (with retry for transient network errors)
-          const updatedPoolAccount = await withRetry(
-            () => connection.getAccountInfo(poolPda),
-            'Fetch pool after settlement'
+        // If a new epoch was created, continue the chain loop
+        if (chainResult && !isShuttingDown) {
+          await runChainLoop(
+            chainResult.freezeTime,
+            chainResult.endTime,
+            chainResult.epochPda,
+            chainResult.epochId,
+            feedId
           )
-          if (updatedPoolAccount) {
-            const updatedPoolData = parsePoolAccount(updatedPoolAccount.data)
-
-            // Verify pool has no active epoch (settlement cleared it)
-            // This also guards against race conditions where another crank already created an epoch
-            if (updatedPoolData.activeEpoch === null) {
-              const pythMessageForCreate = await withRetry(
-                () => fetchPythMessage(feedId, config.pythAccessToken),
-                'Pyth fetch for create'
-              )
-
-              const [newEpochPda] = deriveEpochPda(poolPda, updatedPoolData.nextEpochId)
-              log.info(`Creating epoch ${updatedPoolData.nextEpochId}...`)
-
-              try {
-                const createSig = await withRetry(
-                  () => buildAndSendCreateEpochTx(connection, wallet, globalConfigPda, poolPda, newEpochPda, pythMessageForCreate),
-                  'Create epoch'
-                )
-
-                log.info(`Epoch ${updatedPoolData.nextEpochId} created. TX: ${createSig}`)
-                log.info(`Explorer: https://explorer.fogo.io/tx/${createSig}`)
-              } catch (chainError: any) {
-                // Another crank may have created the epoch - this is normal in concurrent operation
-                log.warn(`Chained epoch creation failed (another crank may have processed): ${chainError.message}`)
-              }
-            } else {
-              log.info('Epoch already exists (another crank may have created it), skipping chained creation')
-            }
-          }
-        } else {
-          log.info('Auto-create disabled, skipping chained epoch creation')
         }
         break
       }
@@ -1334,7 +1492,7 @@ async function main() {
   // Dynamic poll intervals
   const IDLE_POLL_INTERVAL_MS = config.idlePollIntervalSeconds * 1000  // 3min when no epoch
   const NORMAL_POLL_INTERVAL_MS = config.pollIntervalSeconds * 1000  // 10s when Open
-  const FROZEN_POLL_INTERVAL_MS = 5000  // 5s when frozen (waiting for end_time)
+  const FROZEN_POLL_INTERVAL_MS = 2000  // 2s when frozen (fallback for bot restarts)
 
   // Main loop with crash resilience
   while (!isShuttingDown) {

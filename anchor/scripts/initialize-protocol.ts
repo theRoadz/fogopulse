@@ -51,7 +51,7 @@ const PARAMS = {
   oracleConfidenceThresholdStartBps: 25,   // 0.25% max confidence ratio for epoch start
   oracleConfidenceThresholdSettleBps: 80,  // 0.8% max confidence ratio for settlement
   oracleStalenessThresholdStart: 3,        // 3 seconds max age for start
-  oracleStalenessThresholdSettle: 10,      // 10 seconds max age for settlement
+  oracleStalenessThresholdSettle: 15,      // 15 seconds max age for settlement
 
   // Other
   allowHedging: false,          // MVP: users can only hold ONE direction per epoch

@@ -7,12 +7,31 @@ Sprint: Backlog
 
 ## Overview
 
-The crank bot (`crank-bot/crank-bot.ts`) currently manages the epoch lifecycle (create, advance, settle) for a **single pool** at a time, defaulting to BTC via the `POOL_ASSET` env var. To support all 4 markets simultaneously, the bot needs to be extended to run independent pool runners concurrently within a single process, sharing a persistent Pyth WebSocket connection, wallet, and RPC connection.
+The crank bot (`crank-bot/crank-bot.ts`) currently manages the epoch lifecycle (create, advance, settle) and LP withdrawal processing for a **single pool** at a time, defaulting to BTC via the `POOL_ASSET` env var. To support all 4 markets simultaneously, the bot needs to be extended to run independent pool runners concurrently within a single process, sharing a persistent Pyth WebSocket connection, wallet, and RPC connection.
 
 Additionally, the FOGO Pyth Lazer feed ID needs to be updated from a placeholder (`0`/`1`) to its actual value (`2923`), which is now confirmed stable on Pyth Lazer.
 
 **FRs Covered:** FR1 (multi-asset support), operational automation
 **Dependencies:** Story 7.5 (epoch creation enabled for all markets)
+
+### Already Implemented (commit be511cb)
+
+The following was added as part of Stories 5.7/5.7.1 and is already in the codebase:
+- **Withdrawal processing** — `findPendingWithdrawals()`, `buildAndSendProcessWithdrawalTx()`, `processPendingWithdrawals()` (~190 lines)
+- **`crank_process_withdrawal` instruction support** — permissionless, crank bot pays TX fee
+- **Pool layout update** — `pending_withdrawal_shares` field handled in `parsePoolAccount()`
+- **Chained withdrawal processing** — runs between `settle_epoch` and `create_epoch` in `runCycle()`
+- **`@solana/spl-token` dependency** — already added to package.json
+- **Pool-prefixed logging** in withdrawal functions (e.g., `[${poolAsset}]` pattern)
+
+### Remaining Work (this story)
+
+- Multi-pool concurrent execution (PoolRunner class)
+- Persistent PythPriceManager (shared WebSocket)
+- FOGO feed ID fix (0 → 2923)
+- Config changes (POOL_ASSETS env var, --pools CLI flag)
+- Pool-prefixed logging for ALL functions (not just withdrawal)
+- Deployment config updates
 
 ## Story
 
@@ -30,13 +49,14 @@ so that all markets stay active without running separate bot instances per pool.
 6. **Given** the bot starts with `--pools BTC,SOL`, **When** it launches, **Then** only BTC and SOL runners are started (CLI overrides env vars)
 7. **Given** FOGO is included in the pool list, **When** an epoch is created/settled, **Then** it uses Pyth Lazer feed ID `2923` (not the placeholder `1`)
 8. **Given** the persistent Pyth WebSocket disconnects, **When** a pool runner needs oracle data, **Then** it falls back to a one-shot WebSocket connection (current behavior) and the persistent connection auto-reconnects
+9. **Given** the bot settles an epoch on any pool, **When** pending LP withdrawals exist for that pool, **Then** it processes them before creating the next epoch (already implemented, must be preserved in PoolRunner)
 
 ## Tasks / Subtasks
 
 - [ ] Task 1: Fix FOGO Pyth Lazer feed ID (AC: #7)
-  - [ ] 1.1: In `crank-bot/crank-bot.ts` line 71, change `FOGO: 0` to `FOGO: 2923`
-  - [ ] 1.2: In `web/src/lib/constants.ts` line 215, change `FOGO: 1` to `FOGO: 2923`
-  - [ ] 1.3: Remove the FOGO block in `loadConfig()` (lines 234-237 of crank-bot.ts)
+  - [ ] 1.1: In `crank-bot/crank-bot.ts` ~line 72, change `FOGO: 0` to `FOGO: 2923`
+  - [ ] 1.2: In `web/src/lib/constants.ts` ~line 215, change `FOGO: 1` to `FOGO: 2923`
+  - [ ] 1.3: Remove the FOGO block in `loadConfig()` (~lines 247-249 of crank-bot.ts)
 
 - [ ] Task 2: Implement `PythPriceManager` class (AC: #5, #8)
   - [ ] 2.1: Create class with persistent WebSocket to `wss://pyth-lazer-0.dourolabs.app/v1/stream`
@@ -57,14 +77,16 @@ so that all markets stay active without running separate bot instances per pool.
 - [ ] Task 4: Create pool-prefixed logger (AC: #1)
   - [ ] 4.1: Implement `createPoolLogger(asset: Asset)` that returns a logger prepending `[BTC]`/`[ETH]`/`[SOL]`/`[FOGO]`
   - [ ] 4.2: Format: `[2026-03-18T10:00:01Z] [INFO] [BTC] Cycle 42: Action: ADVANCE_EPOCH`
+  - [ ] 4.3: Migrate ALL log calls in `runCycle()`, `buildAndSendCreateEpochTx()`, `buildAndSendAdvanceEpochTx()`, `buildAndSendSettleEpochTx()` to use pool-prefixed logger (withdrawal functions already use it)
 
-- [ ] Task 5: Extract `PoolRunner` class (AC: #1, #3, #4)
+- [ ] Task 5: Extract `PoolRunner` class (AC: #1, #3, #4, #9)
   - [ ] 5.1: Create `SharedContext` interface (connection, wallet, globalConfigPda, pythManager, config)
   - [ ] 5.2: Create `PoolRunner` class wrapping current `runCycle()` + while-loop
   - [ ] 5.3: Each runner derives its own `poolPda` from asset mint
   - [ ] 5.4: Each runner maintains independent poll intervals per pool state (None/Open/Frozen)
   - [ ] 5.5: Each runner has its own try/catch — non-critical errors logged and continued
   - [ ] 5.6: Add `onCriticalError` callback to signal `main()` to stop all runners
+  - [ ] 5.7: Ensure `processPendingWithdrawals()` is called per-pool in the settle→create chain (preserve existing behavior)
 
 - [ ] Task 6: Refactor `main()` for multi-pool orchestration (AC: #1, #4)
   - [ ] 6.1: Create `SharedContext` with shared connection, wallet, PythPriceManager
@@ -72,7 +94,7 @@ so that all markets stay active without running separate bot instances per pool.
   - [ ] 6.3: Use `Promise.allSettled(runners.map(r => r.start()))` for crash isolation
   - [ ] 6.4: Critical errors (insufficient funds) set `isShuttingDown` for all runners
   - [ ] 6.5: Balance check: warn if < 0.01 SOL per configured pool
-  - [ ] 6.6: Remove module-level global state (`poolPda`, etc.) — moved into PoolRunner
+  - [ ] 6.6: Remove module-level global state (`poolPda`, `config.poolAsset`, etc.) — moved into PoolRunner
 
 - [ ] Task 7: Update deployment configs and docs (AC: #1)
   - [ ] 7.1: Update `ecosystem.config.cjs` env to use `POOL_ASSETS: 'BTC,ETH,SOL,FOGO'`
@@ -80,11 +102,12 @@ so that all markets stay active without running separate bot instances per pool.
   - [ ] 7.3: Update `README.md` multi-pool configuration section
 
 - [ ] Task 8: Verification and smoke testing
-  - [ ] 8.1: Run with `POOL_ASSETS=BTC` — verify identical behavior to current bot
+  - [ ] 8.1: Run with `POOL_ASSETS=BTC` — verify identical behavior to current bot (including withdrawal processing)
   - [ ] 8.2: Run with `POOL_ASSETS=BTC,ETH,SOL,FOGO` — verify all 4 pools log independently
   - [ ] 8.3: Verify Pyth WS connects once and receives updates for all 4 feeds
   - [ ] 8.4: Verify FOGO epochs create/settle using feed 2923
   - [ ] 8.5: Verify one pool failure doesn't crash others
+  - [ ] 8.6: Verify withdrawal processing works per-pool after settlement
 
 ## Dev Notes
 
@@ -132,6 +155,15 @@ class PythPriceManager {
 }
 ```
 
+### Existing Withdrawal Processing (preserve as-is)
+
+The following functions already exist and must be preserved in the `PoolRunner` refactor:
+- `findPendingWithdrawals(conn, poolPubkey)` — scans LpShare accounts via `getProgramAccounts` with memcmp filters
+- `buildAndSendProcessWithdrawalTx(conn, crankWallet, globalConfigPda, poolPubkey, withdrawal)` — sends `crank_process_withdrawal` IX
+- `processPendingWithdrawals(conn, crankWallet, globalConfigPda, poolPubkey, poolAsset)` — orchestrates the above, called between settle and create
+
+These already use the `[${poolAsset}]` log prefix pattern. When moving into `PoolRunner`, pass the runner's asset and pool PDA.
+
 ### Config Priority
 
 `--pools CLI flag` > `POOL_ASSETS env var` > `POOL_ASSET env var` > default (`BTC,ETH,SOL,FOGO`)
@@ -142,6 +174,7 @@ class PythPriceManager {
 - Do NOT change instruction discriminators or on-chain logic
 - Do NOT add new Solana instructions
 - Do NOT change the Pyth Lazer verification flow (Ed25519)
+- Do NOT modify the withdrawal processing logic (already tested and working)
 
 ### File List
 

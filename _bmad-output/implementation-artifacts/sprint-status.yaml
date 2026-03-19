@@ -133,3 +133,6 @@ development_status:
   7-6-multi-pool-crank-bot: backlog
   7-7-oracle-health-pyth-lazer: backlog
   7-8-fix-hedging-direction-pda: done
+  7-9-fix-force-closed-epoch-ui-visibility: done
+  7-10-homepage-redesign-pyth-showcase: done
+  7-11-deterministic-crank-bot-settlement: review
