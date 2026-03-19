@@ -271,6 +271,14 @@ pub mod fogopulse {
         instructions::pause_pool::handler(ctx)
     }
 
+    /// Resume a paused pool (admin only)
+    ///
+    /// Sets pool.is_paused = false, allowing new epoch creation
+    /// and new trades to resume.
+    pub fn resume_pool(ctx: Context<ResumePool>) -> Result<()> {
+        instructions::resume_pool::handler(ctx)
+    }
+
     /// Update protocol configuration (admin only)
     ///
     /// Allows admin to modify GlobalConfig parameters like oracle thresholds,

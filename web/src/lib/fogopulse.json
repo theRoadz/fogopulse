@@ -2872,6 +2872,92 @@
       ]
     },
     {
+      "name": "resume_pool",
+      "docs": [
+        "Resume a paused pool (admin only)",
+        "",
+        "Sets pool.is_paused = false, allowing new epoch creation",
+        "and new trades to resume."
+      ],
+      "discriminator": [
+        52,
+        182,
+        28,
+        44,
+        146,
+        165,
+        190,
+        119
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "docs": [
+            "Admin signer — verified via GlobalConfig.has_one"
+          ],
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        },
+        {
+          "name": "global_config",
+          "docs": [
+            "GlobalConfig for admin verification"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "Pool to resume — PDA with seeds [\"pool\", asset_mint]"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.asset_mint",
+                "account": "Pool"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "sell_position",
       "docs": [
         "Sell a position before epoch settlement",
