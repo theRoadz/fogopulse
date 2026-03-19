@@ -37,13 +37,19 @@ export function deriveEpochPda(poolPda: PublicKey, epochId: bigint): PublicKey {
 }
 
 /**
- * Derive UserPosition PDA from epoch PDA and user public key
+ * Derive UserPosition PDA from epoch PDA, user public key, and direction
  *
- * Seeds: ["position", epoch, user]
+ * Seeds: ["position", epoch, user, direction_byte]
+ * Direction byte: Up = 0, Down = 1 (matches Borsh enum order)
  */
-export function derivePositionPda(epochPda: PublicKey, userPubkey: PublicKey): PublicKey {
+export function derivePositionPda(
+  epochPda: PublicKey,
+  userPubkey: PublicKey,
+  direction: 'up' | 'down'
+): PublicKey {
+  const directionByte = direction === 'up' ? 0 : 1
   const [pda] = PublicKey.findProgramAddressSync(
-    [SEEDS.POSITION, epochPda.toBuffer(), userPubkey.toBuffer()],
+    [SEEDS.POSITION, epochPda.toBuffer(), userPubkey.toBuffer(), Buffer.from([directionByte])],
     PROGRAM_ID
   )
   return pda

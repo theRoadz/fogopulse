@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { Fragment, useMemo } from 'react'
 import { History, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import type { Asset } from '@/types/assets'
 import { useSettlementHistory } from '@/hooks/use-settlement-history'
-import { useUserPositionsBatch } from '@/hooks/use-user-positions-batch'
+import { useUserPositionsBatch, positionKey } from '@/hooks/use-user-positions-batch'
 import { useWalletConnection } from '@/hooks'
 
 import { SettlementHistoryRow } from './settlement-history-row'
@@ -95,15 +95,43 @@ export function SettlementHistoryList({ asset, className }: SettlementHistoryLis
 
       <ScrollArea className="max-h-[400px]">
         <div className="space-y-0.5">
-          {history.map((settlement) => (
-            <SettlementHistoryRow
-              key={settlement.epochId.toString()}
-              settlement={settlement}
-              position={positions.get(settlement.epochPda.toBase58()) ?? null}
-              isWalletConnected={connected}
-              asset={asset}
-            />
-          ))}
+          {history.map((settlement) => {
+            const epochKey = settlement.epochPda.toBase58()
+            // Check both directions — show a row for each existing position
+            const upPos = positions.get(positionKey(epochKey, 'up')) ?? null
+            const downPos = positions.get(positionKey(epochKey, 'down')) ?? null
+
+            // If user has positions in both directions (hedging), render separate rows
+            if (upPos && downPos) {
+              return (
+                <Fragment key={settlement.epochId.toString()}>
+                  <SettlementHistoryRow
+                    settlement={settlement}
+                    position={upPos}
+                    isWalletConnected={connected}
+                    asset={asset}
+                  />
+                  <SettlementHistoryRow
+                    settlement={settlement}
+                    position={downPos}
+                    isWalletConnected={connected}
+                    asset={asset}
+                  />
+                </Fragment>
+              )
+            }
+
+            // Single position or no position — render one row
+            return (
+              <SettlementHistoryRow
+                key={settlement.epochId.toString()}
+                settlement={settlement}
+                position={upPos ?? downPos}
+                isWalletConnected={connected}
+                asset={asset}
+              />
+            )
+          })}
         </div>
 
         {/* Load more button */}

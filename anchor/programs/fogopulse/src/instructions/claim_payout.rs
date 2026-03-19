@@ -13,7 +13,7 @@
 //! an instruction argument and validate it matches `extract_user()` in the handler.
 //!
 //! ```text
-//! PDA seeds: ["position", epoch, user_wallet]  // NOT signer_or_session
+//! PDA seeds: ["position", epoch, user_wallet, direction_byte]  // NOT signer_or_session
 //! ```
 //!
 //! # Payout Calculation
@@ -51,7 +51,7 @@ use crate::state::{Direction, Epoch, EpochState, GlobalConfig, Outcome, Pool, Us
 /// Position PDA uses `user` (the actual wallet pubkey), NOT `signer_or_session`.
 /// This ensures the same position is accessed whether user signs directly or via session.
 #[derive(Accounts)]
-#[instruction(user: Pubkey)]
+#[instruction(user: Pubkey, direction: Direction)]
 pub struct ClaimPayout<'info> {
     /// The user OR a session account representing the user.
     /// Session validation is performed via extract_user().
@@ -89,7 +89,7 @@ pub struct ClaimPayout<'info> {
     /// Must match outcome direction and not be already claimed
     #[account(
         mut,
-        seeds = [b"position", epoch.key().as_ref(), user.as_ref()],
+        seeds = [b"position", epoch.key().as_ref(), user.as_ref(), &[direction as u8]],
         bump = position.bump,
         constraint = !position.claimed @ FogoPulseError::AlreadyClaimed,
     )]
@@ -133,7 +133,7 @@ pub struct ClaimPayout<'info> {
 /// 5. Transfer USDC from pool to user using PDA seeds
 /// 6. Mark position as claimed
 /// 7. Emit PayoutClaimed event
-pub fn handler(ctx: Context<ClaimPayout>, user: Pubkey) -> Result<()> {
+pub fn handler(ctx: Context<ClaimPayout>, user: Pubkey, direction: Direction) -> Result<()> {
     // 1. Extract and validate user via FOGO Sessions pattern
     let extracted_user = extract_user(&ctx.accounts.signer_or_session)?;
     require!(user == extracted_user, FogoPulseError::Unauthorized);
@@ -148,6 +148,13 @@ pub fn handler(ctx: Context<ClaimPayout>, user: Pubkey) -> Result<()> {
 
     // 3. Validate position direction matches winning outcome
     let position = &mut ctx.accounts.position;
+
+    // Defense-in-depth: verify passed direction matches stored direction
+    require!(
+        position.direction == direction,
+        FogoPulseError::InvalidDirection
+    );
+
     let is_winner = match outcome {
         Outcome::Up => position.direction == Direction::Up,
         Outcome::Down => position.direction == Direction::Down,

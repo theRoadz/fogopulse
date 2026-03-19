@@ -16,6 +16,7 @@ import { derivePositionPda, deriveUserUsdcAta } from '@/lib/pda'
 interface BuildSellPositionParams {
   asset: Asset
   epochPda: PublicKey
+  direction: 'up' | 'down'
   shares: bigint
   userPubkey: PublicKey
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -23,13 +24,21 @@ interface BuildSellPositionParams {
 }
 
 /**
+ * Convert frontend direction string to Anchor enum format
+ */
+function toAnchorDirection(direction: 'up' | 'down'): { up: Record<string, never> } | { down: Record<string, never> } {
+  return direction === 'up' ? { up: {} } : { down: {} }
+}
+
+/**
  * Build the sell_position instruction
  *
  * ## Instruction Arguments
  *
- * The sell_position instruction takes 2 arguments:
+ * The sell_position instruction takes 3 arguments:
  * 1. `user` (Pubkey) - The actual user wallet pubkey
- * 2. `shares` (u64) - Number of shares to sell
+ * 2. `direction` (enum) - Position direction (Up or Down)
+ * 3. `shares` (u64) - Number of shares to sell
  *
  * ## Account order (must match sell_position.rs):
  * 1. signer_or_session - User wallet OR session account (signer, mut)
@@ -49,14 +58,14 @@ interface BuildSellPositionParams {
 export async function buildSellPositionInstruction(
   params: BuildSellPositionParams
 ): Promise<TransactionInstruction> {
-  const { asset, epochPda, shares, userPubkey, program } = params
+  const { asset, epochPda, direction, shares, userPubkey, program } = params
 
   // Get pool PDA and pool USDC ATA from hardcoded constants (DO NOT derive at runtime)
   const poolPda = POOL_PDAS[asset]
   const poolUsdcAta = POOL_USDC_ATAS[asset]
 
-  // Derive position PDA from epoch + user (runtime derivation required)
-  const positionPda = derivePositionPda(epochPda, userPubkey)
+  // Derive position PDA from epoch + user + direction (runtime derivation required)
+  const positionPda = derivePositionPda(epochPda, userPubkey, direction)
 
   // Derive user's USDC ATA (runtime derivation required)
   const userUsdcAta = deriveUserUsdcAta(userPubkey)
@@ -64,7 +73,7 @@ export async function buildSellPositionInstruction(
   // Build instruction using Anchor's IDL
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const methodBuilder = (program.methods as any)
-    .sellPosition(userPubkey, new BN(shares.toString()))
+    .sellPosition(userPubkey, toAnchorDirection(direction), new BN(shares.toString()))
     .accounts({
       signerOrSession: userPubkey,
       config: GLOBAL_CONFIG_PDA,

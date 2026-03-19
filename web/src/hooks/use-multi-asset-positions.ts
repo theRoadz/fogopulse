@@ -9,7 +9,7 @@ import type { PoolData } from '@/types/pool'
 import type { PositionPnL } from '@/lib/trade-preview'
 import { calculatePositionPnL } from '@/lib/trade-preview'
 import { usePool } from '@/hooks/use-pool'
-import { useUserPositionsBatch } from '@/hooks/use-user-positions-batch'
+import { useUserPositionsBatch, positionKey } from '@/hooks/use-user-positions-batch'
 
 export interface AssetPositionInfo {
   asset: Asset
@@ -77,31 +77,56 @@ export function useMultiAssetPositions(): MultiAssetPositionsResult {
       { asset: 'FOGO', epochPda: fogoEpochPda, pool: fogoPool.pool, poolLoading: fogoPool.isLoading },
     ]
 
-    return assets.map(({ asset, epochPda, pool, poolLoading }) => {
-      const position = epochPda
-        ? positionsMap.get(epochPda.toBase58()) ?? null
-        : null
+    // For each asset, check both Up and Down positions
+    const result: AssetPositionInfo[] = []
+    for (const { asset, epochPda, pool, poolLoading } of assets) {
+      const directions: Array<'up' | 'down'> = ['up', 'down']
+      for (const dir of directions) {
+        const position = epochPda
+          ? positionsMap.get(positionKey(epochPda.toBase58(), dir)) ?? null
+          : null
 
-      let pnl: PositionPnL | null = null
-      if (position && pool && position.shares > 0n) {
-        pnl = calculatePositionPnL(
-          position.shares,
-          position.amount,
-          position.direction,
-          pool.yesReserves,
-          pool.noReserves
-        )
+        // Only include entries where position exists
+        if (!position) continue
+
+        let pnl: PositionPnL | null = null
+        if (pool && position.shares > 0n) {
+          pnl = calculatePositionPnL(
+            position.shares,
+            position.amount,
+            position.direction,
+            pool.yesReserves,
+            pool.noReserves
+          )
+        }
+
+        result.push({
+          asset,
+          position,
+          pool,
+          epochPda,
+          pnl,
+          isLoading: poolLoading || positionsLoading,
+        })
       }
 
-      return {
-        asset,
-        position,
-        pool,
-        epochPda,
-        pnl,
-        isLoading: poolLoading || positionsLoading,
+      // If no position in either direction, still include a placeholder entry
+      const hasAnyPosition = epochPda && (
+        positionsMap.has(positionKey(epochPda.toBase58(), 'up')) ||
+        positionsMap.has(positionKey(epochPda.toBase58(), 'down'))
+      )
+      if (!hasAnyPosition) {
+        result.push({
+          asset,
+          position: null,
+          pool,
+          epochPda,
+          pnl: null,
+          isLoading: poolLoading || positionsLoading,
+        })
       }
-    })
+    }
+    return result
   }, [
     btcEpochPda, ethEpochPda, solEpochPda, fogoEpochPda,
     btcPool.pool, ethPool.pool, solPool.pool, fogoPool.pool,

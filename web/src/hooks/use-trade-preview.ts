@@ -96,7 +96,7 @@ export interface TradePreviewData {
 export function useTradePreview(asset: Asset): TradePreviewData | null {
   const { pool, isLoading } = usePool(asset)
   const { direction, amount } = useTradeStore()
-  const { position: userPosition } = useUserPosition(pool?.activeEpoch ?? null)
+  const { position: userPosition } = useUserPosition(pool?.activeEpoch ?? null, direction ?? 'up')
 
   return useMemo(() => {
     // Pool is still loading - check first to avoid stale data during refresh

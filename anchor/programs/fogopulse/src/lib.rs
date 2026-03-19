@@ -168,24 +168,25 @@ pub mod fogopulse {
     pub fn sell_position(
         ctx: Context<SellPosition>,
         user: Pubkey,
+        direction: Direction,
         shares: u64,
     ) -> Result<()> {
-        instructions::sell_position::handler(ctx, user, shares)
+        instructions::sell_position::handler(ctx, user, direction, shares)
     }
 
     /// Claim payout from a winning position
     ///
     /// Supports FOGO Sessions for gasless claims.
-    pub fn claim_payout(ctx: Context<ClaimPayout>, user: Pubkey) -> Result<()> {
-        instructions::claim_payout::handler(ctx, user)
+    pub fn claim_payout(ctx: Context<ClaimPayout>, user: Pubkey, direction: Direction) -> Result<()> {
+        instructions::claim_payout::handler(ctx, user, direction)
     }
 
     /// Claim refund from a refunded epoch
     ///
     /// Supports FOGO Sessions for gasless claims.
     /// Returns original stake when epoch outcome is Refunded (exact tie).
-    pub fn claim_refund(ctx: Context<ClaimRefund>, user: Pubkey) -> Result<()> {
-        instructions::claim_refund::handler(ctx, user)
+    pub fn claim_refund(ctx: Context<ClaimRefund>, user: Pubkey, direction: Direction) -> Result<()> {
+        instructions::claim_refund::handler(ctx, user, direction)
     }
 
     // =========================================================================

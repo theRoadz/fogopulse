@@ -14,6 +14,7 @@ import { useProgram } from '@/hooks/use-program'
 interface SellPositionParams {
   asset: Asset
   epochPda: PublicKey
+  direction: 'up' | 'down'
   shares: bigint
   userPubkey: string // Pass publicKey.toString() to avoid stale closure in onSuccess
   isFullExit: boolean // Used for success toast message
@@ -43,7 +44,7 @@ export function useSellPosition() {
   const program = useProgram()
 
   const mutation = useMutation<SellPositionResult, Error, SellPositionParams>({
-    mutationFn: async ({ asset, epochPda, shares, userPubkey }) => {
+    mutationFn: async ({ asset, epochPda, direction, shares, userPubkey }) => {
       if (!publicKey) {
         throw new Error('Wallet not connected')
       }
@@ -59,6 +60,7 @@ export function useSellPosition() {
       const instruction = await buildSellPositionInstruction({
         asset,
         epochPda,
+        direction,
         shares,
         userPubkey: publicKey,
         program,

@@ -104,12 +104,18 @@ function deriveEpochPda(poolPda: PublicKey, epochId: bigint): [PublicKey, number
   )
 }
 
-function derivePositionPda(epochPda: PublicKey, userPubkey: PublicKey): [PublicKey, number] {
+function derivePositionPda(epochPda: PublicKey, userPubkey: PublicKey, direction: number): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from('position'), epochPda.toBuffer(), userPubkey.toBuffer()],
+    [Buffer.from('position'), epochPda.toBuffer(), userPubkey.toBuffer(), Buffer.from([direction])],
     PROGRAM_ID
   )
 }
+
+// Direction enum values
+const DIRECTION = {
+  Up: 0,
+  Down: 1,
+} as const
 
 /**
  * Parse Pool account data to extract asset_mint
@@ -210,17 +216,19 @@ function buildClaimRefundInstruction(
   poolUsdcAta: PublicKey,
   userUsdcAta: PublicKey,
   userPubkey: PublicKey,
+  direction: number,
 ): TransactionInstruction {
-  // Instruction data: discriminator + user pubkey
+  // Instruction data: discriminator + user pubkey + direction byte
   const data = Buffer.concat([
     CLAIM_REFUND_DISCRIMINATOR,
     userPubkey.toBuffer(),
+    Buffer.from([direction]),
   ])
 
   const keys = [
     { pubkey: signerOrSession, isSigner: true, isWritable: true },
     { pubkey: globalConfigPda, isSigner: false, isWritable: false },
-    { pubkey: poolPda, isSigner: false, isWritable: true },
+    { pubkey: poolPda, isSigner: false, isWritable: false },  // Pool not modified by claim_refund
     { pubkey: epochPda, isSigner: false, isWritable: false },
     { pubkey: positionPda, isSigner: false, isWritable: true },
     { pubkey: poolUsdcAta, isSigner: false, isWritable: true },
@@ -301,14 +309,17 @@ async function main() {
   const assetMint = ASSET_MINTS[selectedPool]
   const [poolPda] = derivePoolPda(assetMint)
   const [epochPda] = deriveEpochPda(poolPda, epochId)
-  const [positionPda] = derivePositionPda(epochPda, wallet.publicKey)
+  // Try both directions to find user's position
+  const [upPositionPda] = derivePositionPda(epochPda, wallet.publicKey, DIRECTION.Up)
+  const [downPositionPda] = derivePositionPda(epochPda, wallet.publicKey, DIRECTION.Down)
 
   console.log()
   console.log('PDAs:')
   console.log('  GlobalConfig:', globalConfigPda.toString())
   console.log(`  ${selectedPool} Pool:`, poolPda.toString())
   console.log('  Epoch:', epochPda.toString())
-  console.log('  Position:', positionPda.toString())
+  console.log('  Position (Up):', upPositionPda.toString())
+  console.log('  Position (Down):', downPositionPda.toString())
 
   // Fetch pool account to verify it exists and get asset_mint
   const poolAccountInfo = await connection.getAccountInfo(poolPda)
@@ -334,11 +345,22 @@ async function main() {
     process.exit(1)
   }
 
-  // Fetch position account
-  const positionAccountInfo = await connection.getAccountInfo(positionPda)
-  if (!positionAccountInfo) {
-    console.error('ERROR: No position found for this wallet in this epoch.')
-    process.exit(1)
+  // Fetch position accounts (try both directions)
+  let positionPda: PublicKey
+  let positionDirection: number
+  let positionAccountInfo = await connection.getAccountInfo(upPositionPda)
+  if (positionAccountInfo) {
+    positionPda = upPositionPda
+    positionDirection = DIRECTION.Up
+  } else {
+    positionAccountInfo = await connection.getAccountInfo(downPositionPda)
+    if (positionAccountInfo) {
+      positionPda = downPositionPda
+      positionDirection = DIRECTION.Down
+    } else {
+      console.error('ERROR: No position found for this wallet in this epoch (checked both Up and Down).')
+      process.exit(1)
+    }
   }
 
   const positionData = parsePositionAccount(positionAccountInfo.data)
@@ -382,6 +404,7 @@ async function main() {
     poolUsdcAta,
     userUsdcAta,
     wallet.publicKey,
+    positionDirection,
   )
 
   // Build transaction

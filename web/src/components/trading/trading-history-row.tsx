@@ -91,6 +91,7 @@ export function TradingHistoryRow({ entry, className }: TradingHistoryRowProps) 
       asset: entry.asset,
       type: entry.outcome === 'won' ? 'payout' : 'refund',
       epochPda: entry.epochPda,
+      direction: entry.direction,
       userPubkey: publicKey.toString(),
       displayAmount,
     })

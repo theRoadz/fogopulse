@@ -14,9 +14,17 @@ import { derivePositionPda, deriveUserUsdcAta } from '@/lib/pda'
 interface BuildClaimInstructionParams {
   asset: Asset
   epochPda: PublicKey
+  direction: 'up' | 'down'
   userPubkey: PublicKey
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   program: Program<any>
+}
+
+/**
+ * Convert frontend direction string to Anchor enum format
+ */
+function toAnchorDirection(direction: 'up' | 'down'): { up: Record<string, never> } | { down: Record<string, never> } {
+  return direction === 'up' ? { up: {} } : { down: {} }
 }
 
 /**
@@ -40,16 +48,16 @@ interface BuildClaimInstructionParams {
 export async function buildClaimPayoutInstruction(
   params: BuildClaimInstructionParams
 ): Promise<TransactionInstruction> {
-  const { asset, epochPda, userPubkey, program } = params
+  const { asset, epochPda, direction, userPubkey, program } = params
 
   const poolPda = POOL_PDAS[asset]
   const poolUsdcAta = POOL_USDC_ATAS[asset]
-  const positionPda = derivePositionPda(epochPda, userPubkey)
+  const positionPda = derivePositionPda(epochPda, userPubkey, direction)
   const userUsdcAta = deriveUserUsdcAta(userPubkey)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const methodBuilder = (program.methods as any)
-    .claimPayout(userPubkey)
+    .claimPayout(userPubkey, toAnchorDirection(direction))
     .accounts({
       signerOrSession: userPubkey,
       config: GLOBAL_CONFIG_PDA,
@@ -76,16 +84,16 @@ export async function buildClaimPayoutInstruction(
 export async function buildClaimRefundInstruction(
   params: BuildClaimInstructionParams
 ): Promise<TransactionInstruction> {
-  const { asset, epochPda, userPubkey, program } = params
+  const { asset, epochPda, direction, userPubkey, program } = params
 
   const poolPda = POOL_PDAS[asset]
   const poolUsdcAta = POOL_USDC_ATAS[asset]
-  const positionPda = derivePositionPda(epochPda, userPubkey)
+  const positionPda = derivePositionPda(epochPda, userPubkey, direction)
   const userUsdcAta = deriveUserUsdcAta(userPubkey)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const methodBuilder = (program.methods as any)
-    .claimRefund(userPubkey)
+    .claimRefund(userPubkey, toAnchorDirection(direction))
     .accounts({
       signerOrSession: userPubkey,
       config: GLOBAL_CONFIG_PDA,

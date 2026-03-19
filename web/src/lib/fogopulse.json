@@ -646,32 +646,7 @@
             "User's position account - derived from USER wallet, not session",
             "Uses init_if_needed to handle both new and existing positions"
           ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  115,
-                  105,
-                  116,
-                  105,
-                  111,
-                  110
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "epoch"
-              },
-              {
-                "kind": "arg",
-                "path": "user"
-              }
-            ]
-          }
+          "writable": true
         },
         {
           "name": "user_usdc",
@@ -1123,32 +1098,7 @@
             "User's position to claim - derived from USER wallet, not session",
             "Must match outcome direction and not be already claimed"
           ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  115,
-                  105,
-                  116,
-                  105,
-                  111,
-                  110
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "epoch"
-              },
-              {
-                "kind": "arg",
-                "path": "user"
-              }
-            ]
-          }
+          "writable": true
         },
         {
           "name": "pool_usdc",
@@ -1274,6 +1224,14 @@
         {
           "name": "user",
           "type": "pubkey"
+        },
+        {
+          "name": "direction",
+          "type": {
+            "defined": {
+              "name": "Direction"
+            }
+          }
         }
       ]
     },
@@ -1394,32 +1352,7 @@
             "User's position to refund - derived from USER wallet, not session",
             "Boxed to prevent stack overflow with 11 accounts"
           ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  115,
-                  105,
-                  116,
-                  105,
-                  111,
-                  110
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "epoch"
-              },
-              {
-                "kind": "arg",
-                "path": "user"
-              }
-            ]
-          }
+          "writable": true
         },
         {
           "name": "pool_usdc",
@@ -1545,6 +1478,14 @@
         {
           "name": "user",
           "type": "pubkey"
+        },
+        {
+          "name": "direction",
+          "type": {
+            "defined": {
+              "name": "Direction"
+            }
+          }
         }
       ]
     },
@@ -3139,32 +3080,7 @@
             "User's existing position - derived from USER wallet, not session",
             "Must have shares to sell"
           ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  115,
-                  105,
-                  116,
-                  105,
-                  111,
-                  110
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "epoch"
-              },
-              {
-                "kind": "arg",
-                "path": "user"
-              }
-            ]
-          }
+          "writable": true
         },
         {
           "name": "user_usdc",
@@ -3478,6 +3394,14 @@
         {
           "name": "user",
           "type": "pubkey"
+        },
+        {
+          "name": "direction",
+          "type": {
+            "defined": {
+              "name": "Direction"
+            }
+          }
         },
         {
           "name": "shares",
@@ -5832,7 +5756,7 @@
       "name": "UserPosition",
       "docs": [
         "UserPosition account - tracks a user's position within a specific epoch",
-        "PDA Seeds: [\"position\", epoch.key(), user.key()]"
+        "PDA Seeds: [\"position\", epoch.key(), user.key(), direction_byte]"
       ],
       "type": {
         "kind": "struct",

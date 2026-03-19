@@ -330,7 +330,7 @@ async function executeTradeTransaction(
 GlobalConfig: ["global_config"]
 Pool:         ["pool", asset_mint]
 Epoch:        ["epoch", pool, epoch_id.to_le_bytes()]
-UserPosition: ["position", epoch, user]
+UserPosition: ["position", epoch, user, direction_byte]
 LpShare:      ["lp_share", user, pool]
 ```
 

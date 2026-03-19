@@ -22,6 +22,8 @@ interface ClaimButtonProps {
   epoch: EpochData | null
   /** Epoch PDA for transaction building */
   epochPda: PublicKey | null
+  /** Position direction to claim */
+  direction: 'up' | 'down'
   /** Pool data for freeze check */
   pool: PoolData | null
   /** Additional CSS classes */
@@ -39,9 +41,9 @@ interface ClaimButtonProps {
  * - No wallet/no position: nothing rendered
  * - Frozen: "Claims temporarily disabled" message
  */
-export function ClaimButton({ asset, epoch, epochPda, pool, className }: ClaimButtonProps) {
+export function ClaimButton({ asset, epoch, epochPda, direction, pool, className }: ClaimButtonProps) {
   const { publicKey } = useWallet()
-  const { position, isLoading: isPositionLoading } = useUserPosition(epochPda)
+  const { position, isLoading: isPositionLoading } = useUserPosition(epochPda, direction)
   const { claimState, displayAmount } = useClaimableAmount(epoch, position)
   const claimMutation = useClaimPosition()
 
@@ -104,6 +106,7 @@ export function ClaimButton({ asset, epoch, epochPda, pool, className }: ClaimBu
       asset,
       type: isPayout ? 'payout' : 'refund',
       epochPda,
+      direction,
       userPubkey: publicKey.toString(),
       displayAmount,
     })

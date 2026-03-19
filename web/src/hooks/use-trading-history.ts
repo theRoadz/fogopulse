@@ -200,24 +200,28 @@ async function fetchAssetTradingHistory(
     const settlement = await tryFetchSettledEpoch(program, poolPda, currentId)
     if (settlement) {
       consecutiveNulls = 0
-      // Check if user has a position in this epoch
-      const positionPda = derivePositionPda(settlement.epochPda, userPubkey)
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const acct = await (program.account as any).userPosition.fetch(positionPda)
-        const position: UserPositionData = {
-          user: acct.user as PublicKey,
-          epoch: acct.epoch as PublicKey,
-          direction: parseDirection(acct.direction),
-          amount: BigInt(acct.amount.toString()),
-          shares: BigInt(acct.shares.toString()),
-          entryPrice: BigInt(acct.entryPrice.toString()),
-          claimed: acct.claimed,
-          bump: acct.bump,
+      // Check if user has positions in this epoch (both directions)
+      const directions: Array<'up' | 'down'> = ['up', 'down']
+      for (const dir of directions) {
+        if (entries.length >= totalLimit) break
+        const positionPda = derivePositionPda(settlement.epochPda, userPubkey, dir)
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const acct = await (program.account as any).userPosition.fetch(positionPda)
+          const position: UserPositionData = {
+            user: acct.user as PublicKey,
+            epoch: acct.epoch as PublicKey,
+            direction: parseDirection(acct.direction),
+            amount: BigInt(acct.amount.toString()),
+            shares: BigInt(acct.shares.toString()),
+            entryPrice: BigInt(acct.entryPrice.toString()),
+            claimed: acct.claimed,
+            bump: acct.bump,
+          }
+          entries.push(classifyPosition(asset, settlement, position))
+        } catch {
+          // No position in this epoch/direction — skip
         }
-        entries.push(classifyPosition(asset, settlement, position))
-      } catch {
-        // No position in this epoch — skip
       }
     } else {
       consecutiveNulls++

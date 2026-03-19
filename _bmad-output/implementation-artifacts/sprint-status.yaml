@@ -122,3 +122,14 @@ development_status:
   6-8-create-emergency-controls-ui: backlog
   6-9-add-metrics-and-monitoring: backlog
   epic-6-retrospective: optional
+
+  # Epic 7: Platform Polish & UX
+  epic-7: in-progress
+  7-1-implement-usdc-testnet-faucet: done
+  7-2-community-feedback-tracker: backlog
+  7-3-header-navigation-restructure: done
+  7-4-remove-asset-tabs-from-trade-page: done
+  7-5-enable-epoch-creation-all-markets: done
+  7-6-multi-pool-crank-bot: backlog
+  7-7-oracle-health-pyth-lazer: backlog
+  7-8-fix-hedging-direction-pda: done

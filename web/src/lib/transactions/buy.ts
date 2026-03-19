@@ -111,8 +111,8 @@ export async function buildBuyPositionInstruction(
   // Derive epoch PDA from pool + epochId
   const epochPda = deriveEpochPda(poolPda, epochId)
 
-  // Derive position PDA from epoch + user
-  const positionPda = derivePositionPda(epochPda, userPubkey)
+  // Derive position PDA from epoch + user + direction
+  const positionPda = derivePositionPda(epochPda, userPubkey, direction)
 
   // Derive user's USDC ATA
   const userUsdcAta = deriveUserUsdcAta(userPubkey)

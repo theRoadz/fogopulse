@@ -122,9 +122,9 @@ function deriveEpochPda(poolPda: PublicKey, epochId: bigint): [PublicKey, number
   )
 }
 
-function derivePositionPda(epochPda: PublicKey, userPubkey: PublicKey): [PublicKey, number] {
+function derivePositionPda(epochPda: PublicKey, userPubkey: PublicKey, direction: number): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from('position'), epochPda.toBuffer(), userPubkey.toBuffer()],
+    [Buffer.from('position'), epochPda.toBuffer(), userPubkey.toBuffer(), Buffer.from([direction])],
     PROGRAM_ID
   )
 }
@@ -311,11 +311,13 @@ function buildClaimPayoutInstruction(
   poolUsdcAta: PublicKey,
   userUsdcAta: PublicKey,
   userPubkey: PublicKey,
+  direction: number,
 ): TransactionInstruction {
-  // Instruction data: discriminator + user pubkey
+  // Instruction data: discriminator + user pubkey + direction byte
   const data = Buffer.concat([
     CLAIM_PAYOUT_DISCRIMINATOR,
     userPubkey.toBuffer(),
+    Buffer.from([direction]),
   ])
 
   const keys = [
@@ -402,14 +404,17 @@ async function main() {
   const assetMint = ASSET_MINTS[selectedPool]
   const [poolPda] = derivePoolPda(assetMint)
   const [epochPda] = deriveEpochPda(poolPda, epochId)
-  const [positionPda] = derivePositionPda(epochPda, wallet.publicKey)
+  // Try both directions to find user's position
+  const [upPositionPda] = derivePositionPda(epochPda, wallet.publicKey, DIRECTION.Up)
+  const [downPositionPda] = derivePositionPda(epochPda, wallet.publicKey, DIRECTION.Down)
 
   console.log()
   console.log('PDAs:')
   console.log('  GlobalConfig:', globalConfigPda.toString())
   console.log(`  ${selectedPool} Pool:`, poolPda.toString())
   console.log('  Epoch:', epochPda.toString())
-  console.log('  Position:', positionPda.toString())
+  console.log('  Position (Up):', upPositionPda.toString())
+  console.log('  Position (Down):', downPositionPda.toString())
 
   // Fetch pool account to verify it exists
   const poolAccountInfo = await connection.getAccountInfo(poolPda)
@@ -449,11 +454,19 @@ async function main() {
     process.exit(1)
   }
 
-  // Fetch position account
-  const positionAccountInfo = await connection.getAccountInfo(positionPda)
-  if (!positionAccountInfo) {
-    console.error('ERROR: No position found for this wallet in this epoch.')
-    process.exit(1)
+  // Fetch position accounts (try both directions)
+  let positionPda: PublicKey
+  let positionAccountInfo = await connection.getAccountInfo(upPositionPda)
+  if (positionAccountInfo) {
+    positionPda = upPositionPda
+  } else {
+    positionAccountInfo = await connection.getAccountInfo(downPositionPda)
+    if (positionAccountInfo) {
+      positionPda = downPositionPda
+    } else {
+      console.error('ERROR: No position found for this wallet in this epoch (checked both Up and Down).')
+      process.exit(1)
+    }
   }
 
   const positionData = parsePositionAccount(positionAccountInfo.data)
@@ -520,6 +533,7 @@ async function main() {
     poolUsdcAta,
     userUsdcAta,
     wallet.publicKey,
+    positionData.direction,
   )
 
   // Build transaction

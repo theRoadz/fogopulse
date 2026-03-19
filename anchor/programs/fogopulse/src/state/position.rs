@@ -11,7 +11,7 @@ pub enum Direction {
 }
 
 /// UserPosition account - tracks a user's position within a specific epoch
-/// PDA Seeds: ["position", epoch.key(), user.key()]
+/// PDA Seeds: ["position", epoch.key(), user.key(), direction_byte]
 #[account]
 #[derive(InitSpace, Debug)]
 pub struct UserPosition {

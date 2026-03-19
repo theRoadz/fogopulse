@@ -15,6 +15,7 @@ interface ClaimPositionParams {
   asset: Asset
   type: 'payout' | 'refund'
   epochPda: PublicKey
+  direction: 'up' | 'down'
   userPubkey: string // Pass publicKey.toString() to avoid stale closure in onSuccess
   displayAmount: string // Human-readable USDC amount for toast
 }
@@ -41,7 +42,7 @@ export function useClaimPosition() {
   const program = useProgram()
 
   const mutation = useMutation<ClaimPositionResult, Error, ClaimPositionParams>({
-    mutationFn: async ({ asset, type, epochPda, userPubkey }) => {
+    mutationFn: async ({ asset, type, epochPda, direction, userPubkey }) => {
       if (!publicKey) {
         throw new Error('Wallet not connected')
       }
@@ -61,6 +62,7 @@ export function useClaimPosition() {
       const instruction = await buildInstruction({
         asset,
         epochPda,
+        direction,
         userPubkey: publicKey,
         program,
       })
@@ -111,6 +113,8 @@ export function useClaimPosition() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.pool(asset) })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.lastSettledEpoch(asset) })
       queryClient.invalidateQueries({ queryKey: ['position'] })
+      queryClient.invalidateQueries({ queryKey: ['positions'] })
+      queryClient.invalidateQueries({ queryKey: ['positionsBatch'] })
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.usdcBalance(userPubkey),
       })

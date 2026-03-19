@@ -13,7 +13,7 @@
 //! an instruction argument and validate it matches `extract_user()` in the handler.
 //!
 //! ```text
-//! PDA seeds: ["position", epoch, user_wallet]  // NOT signer_or_session
+//! PDA seeds: ["position", epoch, user_wallet, direction_byte]  // NOT signer_or_session
 //! ```
 //!
 //! # Refund vs Payout
@@ -31,7 +31,7 @@ use crate::constants::USDC_MINT;
 use crate::errors::FogoPulseError;
 use crate::events::RefundClaimed;
 use crate::session::extract_user;
-use crate::state::{Epoch, EpochState, GlobalConfig, Pool, UserPosition};
+use crate::state::{Direction, Epoch, EpochState, GlobalConfig, Pool, UserPosition};
 
 /// Claim Refund accounts
 ///
@@ -45,7 +45,7 @@ use crate::state::{Epoch, EpochState, GlobalConfig, Pool, UserPosition};
 /// - Paused: Claims are ALLOWED (existing commitments must be honored)
 /// - Frozen: Claims are BLOCKED (emergency halt)
 #[derive(Accounts)]
-#[instruction(user: Pubkey)]
+#[instruction(user: Pubkey, direction: Direction)]
 pub struct ClaimRefund<'info> {
     /// The user OR a session account representing the user.
     /// Session validation is performed via extract_user().
@@ -83,7 +83,7 @@ pub struct ClaimRefund<'info> {
     /// Boxed to prevent stack overflow with 11 accounts
     #[account(
         mut,
-        seeds = [b"position", epoch.key().as_ref(), user.as_ref()],
+        seeds = [b"position", epoch.key().as_ref(), user.as_ref(), &[direction as u8]],
         bump = position.bump,
         constraint = !position.claimed @ FogoPulseError::AlreadyClaimed,
     )]
@@ -125,13 +125,20 @@ pub struct ClaimRefund<'info> {
 /// 3. Transfer USDC from pool to user using PDA seeds
 /// 4. Mark position as claimed
 /// 5. Emit RefundClaimed event
-pub fn handler(ctx: Context<ClaimRefund>, user: Pubkey) -> Result<()> {
+pub fn handler(ctx: Context<ClaimRefund>, user: Pubkey, direction: Direction) -> Result<()> {
     // 1. Extract and validate user
     let extracted_user = extract_user(&ctx.accounts.signer_or_session)?;
     require!(user == extracted_user, FogoPulseError::Unauthorized);
 
     // 2. Get position amount (original stake to refund)
     let position = &mut ctx.accounts.position;
+
+    // Defense-in-depth: verify passed direction matches stored direction
+    require!(
+        position.direction == direction,
+        FogoPulseError::InvalidDirection
+    );
+
     let refund_amount = position.amount;
 
     // 3. Transfer USDC from pool to user

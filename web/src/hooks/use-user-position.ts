@@ -65,14 +65,14 @@ interface UseUserPositionResult {
  * @param epochPda - The epoch PDA to check position for
  * @returns User position data or null
  */
-export function useUserPosition(epochPda: PublicKey | null): UseUserPositionResult {
+export function useUserPosition(epochPda: PublicKey | null, direction: PositionDirection = 'up'): UseUserPositionResult {
   const { publicKey } = useWallet()
   const program = useProgram()
 
   const positionPda = useMemo(() => {
     if (!epochPda || !publicKey) return null
-    return derivePositionPda(epochPda, publicKey)
-  }, [epochPda, publicKey])
+    return derivePositionPda(epochPda, publicKey, direction)
+  }, [epochPda, publicKey, direction])
 
   const fetchPosition = useCallback(async (): Promise<UserPositionData | null> => {
     if (!positionPda) return null
@@ -103,7 +103,7 @@ export function useUserPosition(epochPda: PublicKey | null): UseUserPositionResu
     error,
     refetch,
   } = useQuery({
-    queryKey: ['position', epochPda?.toString(), publicKey?.toString()],
+    queryKey: ['position', epochPda?.toString(), publicKey?.toString(), direction],
     queryFn: fetchPosition,
     enabled: positionPda !== null,
     staleTime: 5000,

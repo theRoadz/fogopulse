@@ -13,7 +13,7 @@
 //! an instruction argument and validate it matches `extract_user()` in the handler.
 //!
 //! ```text
-//! PDA seeds: ["position", epoch, user_wallet]  // NOT signer_or_session
+//! PDA seeds: ["position", epoch, user_wallet, direction_byte]  // NOT signer_or_session
 //! ```
 //!
 //! # Inverse CPMM Formula
@@ -45,7 +45,7 @@ use crate::utils::calculate_fee_split;
 ///
 /// CRITICAL: Uses Box<> for large accounts to prevent stack overflow.
 #[derive(Accounts)]
-#[instruction(user: Pubkey, shares: u64)]
+#[instruction(user: Pubkey, direction: Direction, shares: u64)]
 pub struct SellPosition<'info> {
     /// The user OR a session account representing the user.
     /// Session validation is performed via extract_user().
@@ -85,7 +85,7 @@ pub struct SellPosition<'info> {
     /// Must have shares to sell
     #[account(
         mut,
-        seeds = [b"position", epoch.key().as_ref(), user.as_ref()],
+        seeds = [b"position", epoch.key().as_ref(), user.as_ref(), &[direction as u8]],
         bump = position.bump,
     )]
     pub position: Account<'info, UserPosition>,
@@ -135,6 +135,7 @@ pub struct SellPosition<'info> {
 ///
 /// # Arguments
 /// * `user` - The actual user wallet pubkey (validated against extract_user)
+/// * `direction` - Position direction (Up or Down) for PDA derivation and defense-in-depth check
 /// * `shares` - Number of shares to sell (use position.shares for full exit)
 ///
 /// # Flow
@@ -154,7 +155,7 @@ pub struct SellPosition<'info> {
 /// 14. Update pool reserves
 /// 15. Update position (partial reduction or full exit with claimed=true)
 /// 16. Emit FeesCollected + PositionSold events
-pub fn handler(ctx: Context<SellPosition>, user: Pubkey, shares: u64) -> Result<()> {
+pub fn handler(ctx: Context<SellPosition>, user: Pubkey, direction: Direction, shares: u64) -> Result<()> {
     // 1. Extract user pubkey - works with both direct signers and session accounts
     let extracted_user = extract_user(&ctx.accounts.signer_or_session)?;
     require!(user == extracted_user, FogoPulseError::Unauthorized);
@@ -189,8 +190,13 @@ pub fn handler(ctx: Context<SellPosition>, user: Pubkey, shares: u64) -> Result<
     // 6. Validate position not already claimed
     require!(!ctx.accounts.position.claimed, FogoPulseError::AlreadyClaimed);
 
+    // 6a. Defense-in-depth: verify passed direction matches stored direction
+    require!(
+        ctx.accounts.position.direction == direction,
+        FogoPulseError::InvalidDirection
+    );
+
     // 7. Determine direction-specific reserves
-    let direction = ctx.accounts.position.direction;
     let (same_reserves, opposite_reserves) = match direction {
         Direction::Up => (ctx.accounts.pool.yes_reserves, ctx.accounts.pool.no_reserves),
         Direction::Down => (ctx.accounts.pool.no_reserves, ctx.accounts.pool.yes_reserves),

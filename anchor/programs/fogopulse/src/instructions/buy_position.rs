@@ -13,7 +13,7 @@
 //! an instruction argument and validate it matches `extract_user()` in the handler.
 //!
 //! ```text
-//! PDA seeds: ["position", epoch, user_wallet]  // NOT signer_or_session
+//! PDA seeds: ["position", epoch, user_wallet, direction_byte]  // NOT signer_or_session
 //! ```
 //!
 //! # FOGO Sessions Token Transfer Limitation
@@ -51,7 +51,7 @@ use crate::utils::{
 /// Fee distribution accounts (treasury_usdc, insurance_usdc) are included to enable
 /// fee splitting during trade execution.
 #[derive(Accounts)]
-#[instruction(user: Pubkey)]
+#[instruction(user: Pubkey, direction: Direction)]
 pub struct BuyPosition<'info> {
     /// The user OR a session account representing the user.
     /// Session validation is performed via extract_user().
@@ -93,7 +93,7 @@ pub struct BuyPosition<'info> {
         init_if_needed,
         payer = signer_or_session,
         space = 8 + UserPosition::INIT_SPACE,
-        seeds = [b"position", epoch.key().as_ref(), user.as_ref()],
+        seeds = [b"position", epoch.key().as_ref(), user.as_ref(), &[direction as u8]],
         bump,
     )]
     pub position: Account<'info, UserPosition>,
@@ -204,19 +204,11 @@ pub fn handler(
     require!(amount > 0, FogoPulseError::ZeroAmount);
     require!(amount >= MIN_TRADE_AMOUNT, FogoPulseError::BelowMinimumTrade);
 
-    // 5. Check hedging rules and direction consistency
+    // 5. Direction is enforced by PDA seeds — each direction gets its own account.
+    // Hedging (both Up and Down on same epoch) is structurally supported via separate PDAs.
+    // allow_hedging flag is enforced client-side.
     let position = &mut ctx.accounts.position;
     let is_new_position = position.user == Pubkey::default();
-
-    if !is_new_position {
-        // Existing position - always require same direction to prevent data corruption
-        // Even if hedging is allowed, mixing directions in one position account would
-        // corrupt the shares/amount tracking. Hedging requires separate position accounts.
-        require!(
-            position.direction == direction,
-            FogoPulseError::InvalidDirection
-        );
-    }
 
     // 6. Calculate fee split
     let fee_split = calculate_fee_split(amount, config)?;

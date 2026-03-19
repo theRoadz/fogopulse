@@ -11,12 +11,17 @@ import { parseDirection } from '@/hooks/use-user-position'
 import type { UserPositionData } from '@/hooks/use-user-position'
 
 interface UseUserPositionsBatchResult {
-  /** Map of epoch PDA string → UserPositionData (only includes epochs where user has a position) */
+  /** Map of composite key (epochPda:direction) → UserPositionData (only includes positions that exist) */
   positions: Map<string, UserPositionData>
   /** Whether position data is loading */
   isLoading: boolean
   /** Error if fetch failed */
   error: Error | null
+}
+
+/** Build composite key for position lookup: "epochPda:direction" */
+export function positionKey(epochPda: string, direction: 'up' | 'down'): string {
+  return `${epochPda}:${direction}`
 }
 
 /**
@@ -47,16 +52,21 @@ export function useUserPositionsBatch(epochPdas: PublicKey[]): UseUserPositionsB
     queryFn: async (): Promise<Map<string, UserPositionData>> => {
       if (!publicKey || epochPdas.length === 0) return new Map()
 
-      // Derive all position PDAs
-      const positionPdas = epochPdas.map((epochPda) =>
-        derivePositionPda(epochPda, publicKey)
+      // Derive position PDAs for BOTH directions per epoch (Up and Down)
+      const directions: Array<'up' | 'down'> = ['up', 'down']
+      const fetchEntries = epochPdas.flatMap((epochPda) =>
+        directions.map((dir) => ({
+          epochPda,
+          direction: dir,
+          positionPda: derivePositionPda(epochPda, publicKey, dir),
+        }))
       )
 
       // Batch fetch using Promise.allSettled (follows existing codebase pattern)
       const results = await Promise.allSettled(
-        positionPdas.map((pda) =>
+        fetchEntries.map((entry) =>
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (program.account as any).userPosition.fetch(pda)
+          (program.account as any).userPosition.fetch(entry.positionPda)
         )
       )
 
@@ -65,7 +75,8 @@ export function useUserPositionsBatch(epochPdas: PublicKey[]): UseUserPositionsB
       results.forEach((result, i) => {
         if (result.status === 'fulfilled') {
           const acct = result.value
-          positions.set(epochPdas[i].toBase58(), {
+          const entry = fetchEntries[i]
+          positions.set(positionKey(entry.epochPda.toBase58(), entry.direction), {
             user: acct.user as PublicKey,
             epoch: acct.epoch as PublicKey,
             direction: parseDirection(acct.direction),
@@ -76,7 +87,7 @@ export function useUserPositionsBatch(epochPdas: PublicKey[]): UseUserPositionsB
             bump: acct.bump,
           })
         }
-        // rejected = account doesn't exist = user has no position in that epoch
+        // rejected = account doesn't exist = user has no position in that epoch/direction
       })
 
       return positions

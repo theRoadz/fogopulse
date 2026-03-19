@@ -274,12 +274,22 @@ export function SettlementStatusPanel({
 
         {/* Claim button - only when asset is provided */}
         {asset && settlementData.epochPda && (
-          <ClaimButton
-            asset={asset}
-            epoch={epochDataForClaim}
-            epochPda={settlementData.epochPda}
-            pool={pool}
-          />
+          <>
+            <ClaimButton
+              asset={asset}
+              epoch={epochDataForClaim}
+              epochPda={settlementData.epochPda}
+              direction="up"
+              pool={pool}
+            />
+            <ClaimButton
+              asset={asset}
+              epoch={epochDataForClaim}
+              epochPda={settlementData.epochPda}
+              direction="down"
+              pool={pool}
+            />
+          </>
         )}
 
         {/* Verification links */}
