@@ -75,6 +75,7 @@ jest.mock('@/lib/constants', () => ({
     SOL: { label: 'SOL', color: 'text-purple-500', feedId: 'mock' },
     FOGO: { label: 'FOGO', color: 'text-primary', feedId: '' },
   },
+  USDC_DECIMALS: 6,
 }))
 
 jest.mock('@/lib/utils', () => ({
@@ -94,6 +95,41 @@ const mockTradePreview = {
 
 jest.mock('@/hooks/use-trade-preview', () => ({
   useTradePreview: () => mockTradePreview,
+}))
+
+// Mock useGlobalConfig
+const mockGlobalConfig = {
+  config: {
+    allowHedging: false,
+    maxTradeAmount: { toNumber: () => 100_000_000 },
+  },
+  isLoading: false,
+}
+
+jest.mock('@/hooks/use-global-config', () => ({
+  useGlobalConfig: () => mockGlobalConfig,
+}))
+
+// Mock usePool
+const mockPool = {
+  pool: {
+    activeEpoch: { toString: () => 'mock-epoch-pda' },
+  },
+  isLoading: false,
+}
+
+jest.mock('@/hooks/use-pool', () => ({
+  usePool: () => mockPool,
+}))
+
+// Mock useUserPosition
+const mockUpPosition = { position: null, isLoading: false }
+const mockDownPosition = { position: null, isLoading: false }
+
+jest.mock('@/hooks/use-user-position', () => ({
+  useUserPosition: (_epochPda: unknown, direction: string) => {
+    return direction === 'up' ? mockUpPosition : mockDownPosition
+  },
 }))
 
 // Mock CapWarningBanner
@@ -211,6 +247,12 @@ describe('TradeTicket', () => {
     mockBuyPosition.isPending = false
     mockTradePreview.capStatus.hasWarning = false
     mockTradePreview.capStatus.hasError = false
+    mockGlobalConfig.config = {
+      allowHedging: false,
+      maxTradeAmount: { toNumber: () => 100_000_000 },
+    }
+    mockUpPosition.position = null
+    mockDownPosition.position = null
   })
 
   describe('rendering', () => {
@@ -307,7 +349,7 @@ describe('TradeTicket', () => {
     it('should call setAmount when amount changes', () => {
       render(<TradeTicket asset="BTC" />)
       fireEvent.change(screen.getByTestId('amount-input'), { target: { value: '50' } })
-      expect(mockTradeStore.setAmount).toHaveBeenCalledWith('50')
+      expect(mockTradeStore.setAmount).toHaveBeenCalledWith('50', 100)
     })
   })
 
@@ -351,6 +393,88 @@ describe('TradeTicket', () => {
 
       render(<TradeTicket asset="BTC" />)
       expect(screen.getByTestId('cap-warning-banner')).toBeInTheDocument()
+    })
+  })
+
+  describe('hedging enforcement', () => {
+    it('should show Hedging Disabled when user selects opposite direction with existing position', () => {
+      mockTradeStore.direction = 'up'
+      mockDownPosition.position = { shares: 1000n, direction: 'down' }
+      mockGlobalConfig.config = {
+        allowHedging: false,
+        maxTradeAmount: { toNumber: () => 100_000_000 },
+      }
+
+      render(<TradeTicket asset="BTC" />)
+      expect(screen.getByText('Hedging Disabled')).toBeInTheDocument()
+      expect(screen.getByText(/Hedging disabled — you have a Down position/i)).toBeInTheDocument()
+    })
+
+    it('should show Hedging Disabled when selecting down with existing up position', () => {
+      mockTradeStore.direction = 'down'
+      mockUpPosition.position = { shares: 500n, direction: 'up' }
+      mockGlobalConfig.config = {
+        allowHedging: false,
+        maxTradeAmount: { toNumber: () => 100_000_000 },
+      }
+
+      render(<TradeTicket asset="BTC" />)
+      expect(screen.getByText('Hedging Disabled')).toBeInTheDocument()
+      expect(screen.getByText(/Hedging disabled — you have an Up position/)).toBeInTheDocument()
+    })
+
+    it('should allow same-direction trade when hedging is disabled', () => {
+      mockTradeStore.direction = 'up'
+      mockTradeStore.amount = '10'
+      mockTradeStore.isValid = true
+      mockUpPosition.position = { shares: 500n, direction: 'up' }
+      mockDownPosition.position = null
+      mockGlobalConfig.config = {
+        allowHedging: false,
+        maxTradeAmount: { toNumber: () => 100_000_000 },
+      }
+
+      render(<TradeTicket asset="BTC" />)
+      expect(screen.getByText('Place Trade')).toBeInTheDocument()
+    })
+
+    it('should allow opposite-direction trade when hedging is enabled', () => {
+      mockTradeStore.direction = 'up'
+      mockTradeStore.amount = '10'
+      mockTradeStore.isValid = true
+      mockDownPosition.position = { shares: 1000n, direction: 'down' }
+      mockGlobalConfig.config = {
+        allowHedging: true,
+        maxTradeAmount: { toNumber: () => 100_000_000 },
+      }
+
+      render(<TradeTicket asset="BTC" />)
+      expect(screen.getByText('Place Trade')).toBeInTheDocument()
+    })
+
+    it('should allow trade when opposite position exists with zero shares', () => {
+      mockTradeStore.direction = 'up'
+      mockTradeStore.amount = '10'
+      mockTradeStore.isValid = true
+      mockDownPosition.position = { shares: 0n, direction: 'down' }
+      mockGlobalConfig.config = {
+        allowHedging: false,
+        maxTradeAmount: { toNumber: () => 100_000_000 },
+      }
+
+      render(<TradeTicket asset="BTC" />)
+      expect(screen.getByText('Place Trade')).toBeInTheDocument()
+    })
+
+    it('should allow trading when no existing position regardless of hedging flag', () => {
+      mockTradeStore.direction = 'up'
+      mockTradeStore.amount = '10'
+      mockTradeStore.isValid = true
+      mockUpPosition.position = null
+      mockDownPosition.position = null
+
+      render(<TradeTicket asset="BTC" />)
+      expect(screen.getByText('Place Trade')).toBeInTheDocument()
     })
   })
 

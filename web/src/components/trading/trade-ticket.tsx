@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useEpoch, useUsdcBalance, useBuyPosition } from '@/hooks'
 import { useGlobalConfig } from '@/hooks/use-global-config'
+import { usePool } from '@/hooks/use-pool'
+import { useUserPosition } from '@/hooks/use-user-position'
 import { USDC_DECIMALS } from '@/lib/constants'
 import { useTradeStore } from '@/stores/trade-store'
 import { EpochState } from '@/types/epoch'
@@ -47,8 +49,9 @@ function getTradeButtonState(params: {
   isValid: boolean
   connected: boolean
   capExceeded: boolean
+  hedgingBlocked: boolean
 }): TradeButtonState {
-  const { isPending, isEpochOpen, direction, amount, error, isValid, connected, capExceeded } = params
+  const { isPending, isEpochOpen, direction, amount, error, isValid, connected, capExceeded, hedgingBlocked } = params
 
   if (isPending) {
     return { disabled: true, text: 'Confirming...' }
@@ -60,6 +63,10 @@ function getTradeButtonState(params: {
 
   if (direction === null) {
     return { disabled: true, text: 'Select Direction' }
+  }
+
+  if (hedgingBlocked) {
+    return { disabled: true, text: 'Hedging Disabled' }
   }
 
   if (!amount || parseFloat(amount) <= 0) {
@@ -108,6 +115,19 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
     ? config.maxTradeAmount.toNumber() / 10 ** USDC_DECIMALS
     : undefined
 
+  // Fetch both direction positions to check hedging
+  const { pool } = usePool(asset)
+  const epochPda = epochState.epoch ? (pool?.activeEpoch ?? null) : null
+  const { position: upPosition } = useUserPosition(epochPda, 'up')
+  const { position: downPosition } = useUserPosition(epochPda, 'down')
+
+  // Hedging check: block opposite-direction trade when hedging is disabled
+  const hedgingBlocked = (() => {
+    if (!direction || config?.allowHedging !== false) return false
+    const oppositePosition = direction === 'up' ? downPosition : upPosition
+    return oppositePosition !== null && oppositePosition.shares > 0n
+  })()
+
   // Buy position mutation hook
   const { mutate: buyPosition, isPending } = useBuyPosition()
 
@@ -133,6 +153,7 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
     isValid,
     connected,
     capExceeded,
+    hedgingBlocked,
   })
 
   // Re-validate when balance or max trade amount changes
@@ -175,7 +196,7 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
 
   // Handle trade execution
   const handleTrade = () => {
-    if (!direction || !amount || !epochState.epoch?.epochId || !publicKey) {
+    if (!direction || !amount || !epochState.epoch?.epochId || !publicKey || hedgingBlocked) {
       return
     }
 
@@ -241,6 +262,13 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
         {connected && isEpochOpen && direction === null && (
           <p className="text-sm text-center text-muted-foreground">
             Select a direction to continue
+          </p>
+        )}
+
+        {/* Hedging blocked warning */}
+        {hedgingBlocked && direction && (
+          <p className="text-sm text-center text-destructive">
+            Hedging disabled — you have {direction === 'up' ? 'a Down' : 'an Up'} position on this epoch
           </p>
         )}
 
