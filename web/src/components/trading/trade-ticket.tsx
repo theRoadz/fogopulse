@@ -196,7 +196,7 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
 
   // Handle trade execution
   const handleTrade = () => {
-    if (!direction || !amount || !epochState.epoch?.epochId || !publicKey || hedgingBlocked) {
+    if (!direction || !amount || epochState.epoch?.epochId == null || !publicKey || hedgingBlocked) {
       return
     }
 
