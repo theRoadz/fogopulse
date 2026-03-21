@@ -478,6 +478,30 @@ describe('TradeTicket', () => {
     })
   })
 
+  describe('epoch 0 trading (BigInt truthiness fix)', () => {
+    it('should enable Place Trade button when epochId is 0n (epoch zero)', () => {
+      mockEpochState.epochState.epoch = { state: EpochState.Open, epochId: BigInt(0) }
+      mockTradeStore.direction = 'up'
+      mockTradeStore.amount = '10'
+      mockTradeStore.isValid = true
+
+      render(<TradeTicket asset="BTC" />)
+      expect(screen.getByText('Place Trade')).toBeInTheDocument()
+      expect(screen.getByText('Place Trade').closest('button')).not.toBeDisabled()
+    })
+
+    it('should still block trading when epoch is null', () => {
+      mockEpochState.epochState.epoch = null
+      mockEpochState.noEpochStatus = 'no-epoch'
+      mockTradeStore.direction = 'up'
+      mockTradeStore.amount = '10'
+      mockTradeStore.isValid = true
+
+      render(<TradeTicket asset="BTC" />)
+      expect(screen.getByText('Trading Unavailable')).toBeInTheDocument()
+    })
+  })
+
   describe('asset change', () => {
     it('should call reset when asset changes', () => {
       const { rerender } = render(<TradeTicket asset="BTC" />)

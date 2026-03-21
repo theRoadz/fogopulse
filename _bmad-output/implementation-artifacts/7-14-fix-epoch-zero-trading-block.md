@@ -70,8 +70,11 @@ This is a well-known JavaScript pitfall with BigInt:
 ## File List
 
 - `web/src/components/trading/trade-ticket.tsx` — Modified: fixed epochId falsy check in handleTrade guard (line 199)
+- `web/src/components/trading/trade-ticket.test.tsx` — Modified: added epoch-0 regression tests (review follow-up)
+- `anchor/scripts/clear-and-reinitialize-pools.ts` — Added: pool reset utility script (bundled in same commit)
 - `_bmad-output/implementation-artifacts/7-14-fix-epoch-zero-trading-block.md` — Story file (this file)
 
 ## Change Log
 
 - 2026-03-21: Fixed JavaScript truthiness bug where `!epochState.epoch?.epochId` blocked trades on epoch 0 because `!0n === true`. Changed to `epochState.epoch?.epochId == null`.
+- 2026-03-21: [Code Review] Added 2 regression tests for epoch-0 trading (epochId=0n enabled, null epoch blocked). Updated File List to document bundled `clear-and-reinitialize-pools.ts` script.
