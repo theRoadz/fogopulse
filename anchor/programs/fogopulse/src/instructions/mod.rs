@@ -1,3 +1,4 @@
+pub mod admin_close_config;
 pub mod admin_close_epoch;
 pub mod admin_close_lp_share;
 pub mod admin_close_pool;
@@ -25,6 +26,7 @@ pub mod update_config;
 // via explicit paths (e.g., instructions::buy_position::handler), so the
 // ambiguous glob re-export warning is benign.
 #[allow(ambiguous_glob_reexports)]
+pub use admin_close_config::*;
 pub use admin_close_epoch::*;
 pub use admin_close_lp_share::*;
 pub use admin_close_pool::*;

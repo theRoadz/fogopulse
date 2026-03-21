@@ -1,5 +1,5 @@
 import { PublicKey, TransactionInstruction, SystemProgram } from '@solana/web3.js'
-import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token'
+import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from '@solana/spl-token'
 import { BN, Program } from '@coral-xyz/anchor'
 
 import type { Asset } from '@/types/assets'
@@ -8,8 +8,6 @@ import {
   POOL_USDC_ATAS,
   GLOBAL_CONFIG_PDA,
   USDC_MINT,
-  TREASURY_USDC_ATA,
-  INSURANCE_USDC_ATA,
 } from '@/lib/constants'
 import { derivePositionPda, deriveUserUsdcAta } from '@/lib/pda'
 
@@ -19,6 +17,8 @@ interface BuildSellPositionParams {
   direction: 'up' | 'down'
   shares: bigint
   userPubkey: PublicKey
+  treasuryWallet: PublicKey
+  insuranceWallet: PublicKey
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   program: Program<any>
 }
@@ -58,7 +58,7 @@ function toAnchorDirection(direction: 'up' | 'down'): { up: Record<string, never
 export async function buildSellPositionInstruction(
   params: BuildSellPositionParams
 ): Promise<TransactionInstruction> {
-  const { asset, epochPda, direction, shares, userPubkey, program } = params
+  const { asset, epochPda, direction, shares, userPubkey, treasuryWallet, insuranceWallet, program } = params
 
   // Get pool PDA and pool USDC ATA from hardcoded constants (DO NOT derive at runtime)
   const poolPda = POOL_PDAS[asset]
@@ -69,6 +69,10 @@ export async function buildSellPositionInstruction(
 
   // Derive user's USDC ATA (runtime derivation required)
   const userUsdcAta = deriveUserUsdcAta(userPubkey)
+
+  // Derive treasury and insurance USDC ATAs from on-chain GlobalConfig wallets
+  const treasuryUsdcAta = getAssociatedTokenAddressSync(USDC_MINT, treasuryWallet)
+  const insuranceUsdcAta = getAssociatedTokenAddressSync(USDC_MINT, insuranceWallet)
 
   // Build instruction using Anchor's IDL
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -82,8 +86,8 @@ export async function buildSellPositionInstruction(
       position: positionPda,
       userUsdc: userUsdcAta,
       poolUsdc: poolUsdcAta,
-      treasuryUsdc: TREASURY_USDC_ATA,
-      insuranceUsdc: INSURANCE_USDC_ATA,
+      treasuryUsdc: treasuryUsdcAta,
+      insuranceUsdc: insuranceUsdcAta,
       usdcMint: USDC_MINT,
       tokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,

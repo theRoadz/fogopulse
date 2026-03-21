@@ -39,75 +39,67 @@ describe('QuickAmountButtons', () => {
       expect(buttons).toHaveLength(4)
     })
 
-    it('should display dollar amounts when balance available', () => {
+    it('should display fixed dollar labels', () => {
       render(<QuickAmountButtons {...defaultProps} balance={100} />)
-      // With $100 balance: 25%=$25, 50%=$50, 75%=$75, Max=$100
-      expect(screen.getByText('$25')).toBeInTheDocument()
-      expect(screen.getByText('$50')).toBeInTheDocument()
-      expect(screen.getByText('$75')).toBeInTheDocument()
-      expect(screen.getByText('$100')).toBeInTheDocument()
-    })
-
-    it('should display percentages when no balance', () => {
-      render(<QuickAmountButtons {...defaultProps} balance={null} />)
-      expect(screen.getByText('25%')).toBeInTheDocument()
-      expect(screen.getByText('50%')).toBeInTheDocument()
-      expect(screen.getByText('75%')).toBeInTheDocument()
+      expect(screen.getByText('$5')).toBeInTheDocument()
+      expect(screen.getByText('$10')).toBeInTheDocument()
+      expect(screen.getByText('$20')).toBeInTheDocument()
       expect(screen.getByText('Max')).toBeInTheDocument()
     })
 
-    it('should format large amounts with k suffix', () => {
-      render(<QuickAmountButtons {...defaultProps} balance={10000} />)
-      // 25% of 10000 = 2500 -> $2.5k
-      expect(screen.getByText('$2.5k')).toBeInTheDocument()
+    it('should display same labels when no balance', () => {
+      render(<QuickAmountButtons {...defaultProps} balance={null} />)
+      expect(screen.getByText('$5')).toBeInTheDocument()
+      expect(screen.getByText('$10')).toBeInTheDocument()
+      expect(screen.getByText('$20')).toBeInTheDocument()
+      expect(screen.getByText('Max')).toBeInTheDocument()
     })
   })
 
-  describe('calculations', () => {
-    it('should calculate 25% correctly', () => {
+  describe('selection', () => {
+    it('should select $5 correctly', () => {
       const onSelect = jest.fn()
       render(<QuickAmountButtons balance={100} onSelect={onSelect} />)
 
-      fireEvent.click(screen.getByText('$25'))
-      expect(onSelect).toHaveBeenCalledWith('25.00')
+      fireEvent.click(screen.getByText('$5'))
+      expect(onSelect).toHaveBeenCalledWith('5.00')
     })
 
-    it('should calculate 50% correctly', () => {
+    it('should select $10 correctly', () => {
       const onSelect = jest.fn()
       render(<QuickAmountButtons balance={100} onSelect={onSelect} />)
 
-      fireEvent.click(screen.getByText('$50'))
-      expect(onSelect).toHaveBeenCalledWith('50.00')
+      fireEvent.click(screen.getByText('$10'))
+      expect(onSelect).toHaveBeenCalledWith('10.00')
     })
 
-    it('should calculate 75% correctly', () => {
+    it('should select $20 correctly', () => {
       const onSelect = jest.fn()
       render(<QuickAmountButtons balance={100} onSelect={onSelect} />)
 
-      fireEvent.click(screen.getByText('$75'))
-      expect(onSelect).toHaveBeenCalledWith('75.00')
+      fireEvent.click(screen.getByText('$20'))
+      expect(onSelect).toHaveBeenCalledWith('20.00')
     })
 
-    it('should calculate Max (100%) correctly', () => {
+    it('should select Max using full balance', () => {
       const onSelect = jest.fn()
       render(<QuickAmountButtons balance={100} onSelect={onSelect} />)
 
-      fireEvent.click(screen.getByText('$100'))
+      fireEvent.click(screen.getByText('Max'))
       expect(onSelect).toHaveBeenCalledWith('100.00')
     })
 
-    it('should round down to 2 decimal places', () => {
+    it('should round Max down to 2 decimal places', () => {
       const onSelect = jest.fn()
-      render(<QuickAmountButtons balance={33.33} onSelect={onSelect} />)
+      render(<QuickAmountButtons balance={33.337} onSelect={onSelect} />)
 
-      // 25% of 33.33 = 8.3325, rounded down = 8.33
-      fireEvent.click(screen.getByText('$8'))
-      expect(onSelect).toHaveBeenCalledWith('8.33')
+      fireEvent.click(screen.getByText('Max'))
+      expect(onSelect).toHaveBeenCalledWith('33.33')
     })
   })
 
   describe('disabled state', () => {
-    it('should disable buttons when balance is null', () => {
+    it('should disable all buttons when balance is null', () => {
       render(<QuickAmountButtons {...defaultProps} balance={null} />)
       const buttons = screen.getAllByRole('button')
       buttons.forEach((button) => {
@@ -115,7 +107,7 @@ describe('QuickAmountButtons', () => {
       })
     })
 
-    it('should disable buttons when balance is 0', () => {
+    it('should disable all buttons when balance is 0', () => {
       render(<QuickAmountButtons {...defaultProps} balance={0} />)
       const buttons = screen.getAllByRole('button')
       buttons.forEach((button) => {
@@ -123,7 +115,7 @@ describe('QuickAmountButtons', () => {
       })
     })
 
-    it('should disable buttons when disabled prop is true', () => {
+    it('should disable all buttons when disabled prop is true', () => {
       render(<QuickAmountButtons {...defaultProps} disabled />)
       const buttons = screen.getAllByRole('button')
       buttons.forEach((button) => {
@@ -131,7 +123,23 @@ describe('QuickAmountButtons', () => {
       })
     })
 
-    it('should enable buttons when balance is positive', () => {
+    it('should disable $10 and $20 when balance is $8', () => {
+      render(<QuickAmountButtons {...defaultProps} balance={8} />)
+      expect(screen.getByText('$5')).not.toBeDisabled()
+      expect(screen.getByText('$10')).toBeDisabled()
+      expect(screen.getByText('$20')).toBeDisabled()
+      expect(screen.getByText('Max')).not.toBeDisabled()
+    })
+
+    it('should disable $20 when balance is $15', () => {
+      render(<QuickAmountButtons {...defaultProps} balance={15} />)
+      expect(screen.getByText('$5')).not.toBeDisabled()
+      expect(screen.getByText('$10')).not.toBeDisabled()
+      expect(screen.getByText('$20')).toBeDisabled()
+      expect(screen.getByText('Max')).not.toBeDisabled()
+    })
+
+    it('should enable all buttons when balance is sufficient', () => {
       render(<QuickAmountButtons {...defaultProps} balance={100} />)
       const buttons = screen.getAllByRole('button')
       buttons.forEach((button) => {
@@ -140,14 +148,44 @@ describe('QuickAmountButtons', () => {
     })
   })
 
+  describe('maxTradeAmount', () => {
+    it('should cap Max button at maxTradeAmount when balance exceeds it', () => {
+      const onSelect = jest.fn()
+      render(<QuickAmountButtons balance={500} maxTradeAmount={100} onSelect={onSelect} />)
+
+      fireEvent.click(screen.getByText('Max'))
+      expect(onSelect).toHaveBeenCalledWith('100.00')
+    })
+
+    it('should use balance when balance is less than maxTradeAmount', () => {
+      const onSelect = jest.fn()
+      render(<QuickAmountButtons balance={50} maxTradeAmount={100} onSelect={onSelect} />)
+
+      fireEvent.click(screen.getByText('Max'))
+      expect(onSelect).toHaveBeenCalledWith('50.00')
+    })
+
+    it('should disable fixed buttons that exceed maxTradeAmount', () => {
+      render(<QuickAmountButtons balance={500} maxTradeAmount={15} onSelect={jest.fn()} />)
+      expect(screen.getByText('$5')).not.toBeDisabled()
+      expect(screen.getByText('$10')).not.toBeDisabled()
+      expect(screen.getByText('$20')).toBeDisabled()
+      expect(screen.getByText('Max')).not.toBeDisabled()
+    })
+  })
+
   describe('accessibility', () => {
-    it('should have appropriate aria-labels', () => {
+    it('should have appropriate aria-labels for fixed amounts', () => {
+      render(<QuickAmountButtons {...defaultProps} balance={100} />)
+      expect(screen.getByLabelText('Set amount to $5')).toBeInTheDocument()
+      expect(screen.getByLabelText('Set amount to $10')).toBeInTheDocument()
+      expect(screen.getByLabelText('Set amount to $20')).toBeInTheDocument()
+    })
+
+    it('should have appropriate aria-label for Max with balance', () => {
       render(<QuickAmountButtons {...defaultProps} balance={100} />)
       expect(
-        screen.getByLabelText('Set amount to 25% of balance ($25.00)')
-      ).toBeInTheDocument()
-      expect(
-        screen.getByLabelText('Set amount to Max of balance ($100.00)')
+        screen.getByLabelText('Set amount to max balance ($100.00)')
       ).toBeInTheDocument()
     })
   })

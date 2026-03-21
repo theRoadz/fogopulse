@@ -20,6 +20,7 @@
 //! See `src/session.rs` for the session extraction pattern.
 
 use anchor_lang::prelude::*;
+use crate::constants::MIN_TRADE_AMOUNT;
 use crate::errors::FogoPulseError;
 use crate::events::GlobalConfigInitialized;
 use crate::state::GlobalConfig;
@@ -59,6 +60,7 @@ pub fn handler(
     epoch_duration_seconds: i64,
     freeze_window_seconds: i64,
     allow_hedging: bool,
+    max_trade_amount: u64,
 ) -> Result<()> {
     // Validate trading fee is reasonable (max 10% = 1000 bps)
     require!(
@@ -91,6 +93,12 @@ pub fn handler(
         FogoPulseError::InvalidOracleThreshold
     );
 
+    // Validate max trade amount is at least the minimum trade amount
+    require!(
+        max_trade_amount >= MIN_TRADE_AMOUNT,
+        FogoPulseError::InvalidCap
+    );
+
     let config = &mut ctx.accounts.global_config;
 
     config.admin = ctx.accounts.admin.key();
@@ -111,6 +119,7 @@ pub fn handler(
     config.allow_hedging = allow_hedging;
     config.paused = false;
     config.frozen = false;
+    config.max_trade_amount = max_trade_amount;
     config.bump = ctx.bumps.global_config;
 
     emit!(GlobalConfigInitialized {
@@ -130,6 +139,7 @@ pub fn handler(
         epoch_duration_seconds: config.epoch_duration_seconds,
         freeze_window_seconds: config.freeze_window_seconds,
         allow_hedging: config.allow_hedging,
+        max_trade_amount: config.max_trade_amount,
     });
 
     Ok(())

@@ -136,3 +136,4 @@ development_status:
   7-9-fix-force-closed-epoch-ui-visibility: done
   7-10-homepage-redesign-pyth-showcase: done
   7-11-deterministic-crank-bot-settlement: review
+  7-12-fixed-trade-presets-max-trade-amount: done

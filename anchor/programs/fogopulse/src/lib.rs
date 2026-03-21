@@ -39,6 +39,7 @@ pub mod fogopulse {
         epoch_duration_seconds: i64,
         freeze_window_seconds: i64,
         allow_hedging: bool,
+        max_trade_amount: u64,
     ) -> Result<()> {
         instructions::initialize::handler(
             ctx,
@@ -57,6 +58,7 @@ pub mod fogopulse {
             epoch_duration_seconds,
             freeze_window_seconds,
             allow_hedging,
+            max_trade_amount,
         )
     }
 
@@ -253,6 +255,12 @@ pub mod fogopulse {
     /// Returns rent to admin.
     pub fn admin_close_pool(ctx: Context<AdminClosePool>) -> Result<()> {
         instructions::admin_close_pool::handler(ctx)
+    }
+
+    /// Close GlobalConfig account (admin only, testnet utility)
+    /// Used when GlobalConfig struct size changes and account needs recreation.
+    pub fn admin_close_config(ctx: Context<AdminCloseConfig>) -> Result<()> {
+        instructions::admin_close_config::handler(ctx)
     }
 
     /// Force-close a stuck epoch (admin only)

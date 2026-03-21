@@ -28,6 +28,7 @@ export interface GlobalConfigData {
   allowHedging: boolean
   paused: boolean
   frozen: boolean
+  maxTradeAmount: BN
   bump: number
 }
 
@@ -73,6 +74,7 @@ export function useGlobalConfig(): UseGlobalConfigResult {
       allowHedging: account.allowHedging,
       paused: account.paused,
       frozen: account.frozen,
+      maxTradeAmount: account.maxTradeAmount as BN,
       bump: account.bump,
     }
   }, [program])

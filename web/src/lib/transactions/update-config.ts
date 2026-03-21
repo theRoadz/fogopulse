@@ -21,6 +21,7 @@ export interface UpdateConfigParams {
   allowHedging: boolean | null
   paused: boolean | null
   frozen: boolean | null
+  maxTradeAmount: number | null
 }
 
 /**
@@ -60,6 +61,10 @@ function toAnchorParams(params: UpdateConfigParams) {
     allowHedging: params.allowHedging,
     paused: params.paused,
     frozen: params.frozen,
+    maxTradeAmount:
+      params.maxTradeAmount !== null
+        ? new BN(params.maxTradeAmount)
+        : null,
   }
 }
 

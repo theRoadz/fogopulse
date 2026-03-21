@@ -1,5 +1,5 @@
 import { PublicKey, TransactionInstruction, SystemProgram } from '@solana/web3.js'
-import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token'
+import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from '@solana/spl-token'
 import { BN, Program } from '@coral-xyz/anchor'
 
 import type { Asset } from '@/types/assets'
@@ -8,8 +8,6 @@ import {
   POOL_USDC_ATAS,
   GLOBAL_CONFIG_PDA,
   USDC_MINT,
-  TREASURY_USDC_ATA,
-  INSURANCE_USDC_ATA,
 } from '@/lib/constants'
 import { deriveEpochPda, derivePositionPda, deriveUserUsdcAta } from '@/lib/pda'
 import idl from '@/lib/fogopulse.json'
@@ -20,6 +18,8 @@ interface BuildBuyPositionParams {
   amount: string // Human-readable USDC (e.g., "10.50")
   epochId: bigint
   userPubkey: PublicKey
+  treasuryWallet: PublicKey
+  insuranceWallet: PublicKey
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   program: Program<any>
 }
@@ -102,7 +102,7 @@ function usdcToLamports(amount: string): BN {
 export async function buildBuyPositionInstruction(
   params: BuildBuyPositionParams
 ): Promise<TransactionInstruction> {
-  const { asset, direction, amount, epochId, userPubkey, program } = params
+  const { asset, direction, amount, epochId, userPubkey, treasuryWallet, insuranceWallet, program } = params
 
   // Get pool PDA and pool USDC ATA from constants
   const poolPda = POOL_PDAS[asset]
@@ -116,6 +116,10 @@ export async function buildBuyPositionInstruction(
 
   // Derive user's USDC ATA
   const userUsdcAta = deriveUserUsdcAta(userPubkey)
+
+  // Derive treasury and insurance USDC ATAs from on-chain GlobalConfig wallets
+  const treasuryUsdcAta = getAssociatedTokenAddressSync(USDC_MINT, treasuryWallet)
+  const insuranceUsdcAta = getAssociatedTokenAddressSync(USDC_MINT, insuranceWallet)
 
   // Convert amount to lamports
   const amountLamports = usdcToLamports(amount)
@@ -138,8 +142,8 @@ export async function buildBuyPositionInstruction(
       position: positionPda,
       userUsdc: userUsdcAta,
       poolUsdc: poolUsdcAta,
-      treasuryUsdc: TREASURY_USDC_ATA,
-      insuranceUsdc: INSURANCE_USDC_ATA,
+      treasuryUsdc: treasuryUsdcAta,
+      insuranceUsdc: insuranceUsdcAta,
       usdcMint: USDC_MINT,
       tokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,

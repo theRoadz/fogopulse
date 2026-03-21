@@ -180,6 +180,7 @@ mod tests {
             allow_hedging: false,
             paused: false,
             frozen: false,
+            max_trade_amount: 100_000_000,
             bump: 0,
         }
     }

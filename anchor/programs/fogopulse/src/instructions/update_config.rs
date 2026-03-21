@@ -14,6 +14,7 @@
 
 use anchor_lang::prelude::*;
 
+use crate::constants::MIN_TRADE_AMOUNT;
 use crate::errors::FogoPulseError;
 use crate::events::ConfigUpdated;
 use crate::state::GlobalConfig;
@@ -39,6 +40,7 @@ pub struct UpdateConfigParams {
     pub allow_hedging: Option<bool>,
     pub paused: Option<bool>,
     pub frozen: Option<bool>,
+    pub max_trade_amount: Option<u64>,
 }
 
 /// Update Config accounts
@@ -124,6 +126,11 @@ pub fn handler(ctx: Context<UpdateConfig>, params: UpdateConfigParams) -> Result
         );
     }
 
+    // Validate max_trade_amount (must be >= MIN_TRADE_AMOUNT)
+    if let Some(v) = params.max_trade_amount {
+        require!(v >= MIN_TRADE_AMOUNT, FogoPulseError::InvalidCap);
+    }
+
     // =======================================================================
     // APPLY CHANGES: All validations passed, now update config
     // =======================================================================
@@ -197,6 +204,10 @@ pub fn handler(ctx: Context<UpdateConfig>, params: UpdateConfigParams) -> Result
         msg!("  frozen: {} -> {}", config.frozen, v);
         config.frozen = v;
     }
+    if let Some(v) = params.max_trade_amount {
+        msg!("  max_trade_amount: {} -> {}", config.max_trade_amount, v);
+        config.max_trade_amount = v;
+    }
 
     // Build bitmask of updated fields for event
     let mut fields_updated: u32 = 0;
@@ -217,6 +228,7 @@ pub fn handler(ctx: Context<UpdateConfig>, params: UpdateConfigParams) -> Result
     if params.allow_hedging.is_some() { fields_updated |= 1 << 14; }
     if params.paused.is_some() { fields_updated |= 1 << 15; }
     if params.frozen.is_some() { fields_updated |= 1 << 16; }
+    if params.max_trade_amount.is_some() { fields_updated |= 1 << 17; }
 
     emit!(ConfigUpdated {
         admin: ctx.accounts.admin.key(),

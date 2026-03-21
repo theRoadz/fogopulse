@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
 import type { TradeDirection } from '@/types/trade'
-import { MIN_TRADE_AMOUNT } from '@/types/trade'
+import { MIN_TRADE_AMOUNT, MAX_TRADE_AMOUNT } from '@/types/trade'
 
 interface TradeState {
   direction: TradeDirection
@@ -12,8 +12,8 @@ interface TradeState {
 
   // Actions
   setDirection: (direction: TradeDirection) => void
-  setAmount: (amount: string) => void
-  validate: (balance: number | null) => void
+  setAmount: (amount: string, maxTradeAmount?: number) => void
+  validate: (balance: number | null, maxTradeAmount?: number) => void
   reset: () => void
 }
 
@@ -35,9 +35,10 @@ export const useTradeStore = create<TradeState>()(
         }
       }),
 
-    setAmount: (amount) =>
+    setAmount: (amount, maxTradeAmount) =>
       set((state) => {
         state.amount = amount
+        const max = maxTradeAmount ?? MAX_TRADE_AMOUNT
         // Clear validation state - will be re-validated
         const parsed = parseFloat(amount)
         if (amount === '' || isNaN(parsed)) {
@@ -49,14 +50,18 @@ export const useTradeStore = create<TradeState>()(
         } else if (parsed < MIN_TRADE_AMOUNT && parsed > 0) {
           state.isValid = false
           state.error = `Minimum amount is $${MIN_TRADE_AMOUNT.toFixed(2)}`
+        } else if (parsed > max) {
+          state.isValid = false
+          state.error = `Maximum amount is $${max.toFixed(2)}`
         } else {
           state.error = null
           // Balance validation happens in component with balance context
         }
       }),
 
-    validate: (balance) =>
+    validate: (balance, maxTradeAmount) =>
       set((state) => {
+        const max = maxTradeAmount ?? MAX_TRADE_AMOUNT
         const parsed = parseFloat(state.amount)
         if (state.amount === '' || isNaN(parsed)) {
           state.isValid = false
@@ -67,6 +72,9 @@ export const useTradeStore = create<TradeState>()(
         } else if (parsed < MIN_TRADE_AMOUNT) {
           state.isValid = false
           state.error = `Minimum amount is $${MIN_TRADE_AMOUNT.toFixed(2)}`
+        } else if (parsed > max) {
+          state.isValid = false
+          state.error = `Maximum amount is $${max.toFixed(2)}`
         } else if (balance === null) {
           // Wallet disconnected - cannot validate balance, mark as invalid
           state.isValid = false

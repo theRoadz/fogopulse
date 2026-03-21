@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useEpoch, useUsdcBalance, useBuyPosition } from '@/hooks'
+import { useGlobalConfig } from '@/hooks/use-global-config'
+import { USDC_DECIMALS } from '@/lib/constants'
 import { useTradeStore } from '@/stores/trade-store'
 import { EpochState } from '@/types/epoch'
 import type { Asset } from '@/types/assets'
@@ -100,6 +102,12 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
   const { direction, amount, error, setDirection, setAmount, validate, reset } =
     useTradeStore()
 
+  // Global config for on-chain max trade amount
+  const { config } = useGlobalConfig()
+  const maxTradeAmount = config
+    ? config.maxTradeAmount.toNumber() / 10 ** USDC_DECIMALS
+    : undefined
+
   // Buy position mutation hook
   const { mutate: buyPosition, isPending } = useBuyPosition()
 
@@ -127,12 +135,12 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
     capExceeded,
   })
 
-  // Re-validate when balance changes
+  // Re-validate when balance or max trade amount changes
   useEffect(() => {
     if (amount) {
-      validate(balance)
+      validate(balance, maxTradeAmount)
     }
-  }, [balance, amount, validate])
+  }, [balance, amount, validate, maxTradeAmount])
 
   // Reset trade state when asset changes
   useEffect(() => {
@@ -144,20 +152,20 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
     setDirection(dir)
     // Validate with current balance
     if (amount) {
-      validate(balance)
+      validate(balance, maxTradeAmount)
     }
   }
 
   // Handle amount change
   const handleAmountChange = (value: string) => {
-    setAmount(value)
-    validate(balance)
+    setAmount(value, maxTradeAmount)
+    validate(balance, maxTradeAmount)
   }
 
   // Handle quick amount selection
   const handleQuickAmountSelect = (value: string) => {
-    setAmount(value)
-    validate(balance)
+    setAmount(value, maxTradeAmount)
+    validate(balance, maxTradeAmount)
   }
 
   // Handle connect wallet button
@@ -254,6 +262,7 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
         {/* Quick Amount Buttons */}
         <QuickAmountButtons
           balance={balance}
+          maxTradeAmount={maxTradeAmount}
           onSelect={handleQuickAmountSelect}
           disabled={isInputDisabled}
         />

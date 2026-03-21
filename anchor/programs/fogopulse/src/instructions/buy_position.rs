@@ -203,6 +203,7 @@ pub fn handler(
     // 4. Validate amount > 0 and >= minimum trade amount
     require!(amount > 0, FogoPulseError::ZeroAmount);
     require!(amount >= MIN_TRADE_AMOUNT, FogoPulseError::BelowMinimumTrade);
+    require!(amount <= config.max_trade_amount, FogoPulseError::AboveMaximumTrade);
 
     // 5. Direction is enforced by PDA seeds — each direction gets its own account.
     // Hedging (both Up and Down on same epoch) is structurally supported via separate PDAs.

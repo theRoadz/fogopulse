@@ -52,6 +52,11 @@ pub struct GlobalConfig {
     /// Emergency freeze - halts ALL activity
     pub frozen: bool,
 
+    // Trade limits
+    /// Maximum trade amount in USDC lamports (6 decimals)
+    /// e.g., 100_000_000 = $100 USDC. Admin-configurable via update_config.
+    pub max_trade_amount: u64,
+
     /// PDA bump seed
     pub bump: u8,
 }

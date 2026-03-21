@@ -10,6 +10,7 @@ import { QUERY_KEYS, FOGO_EXPLORER_TX_URL } from '@/lib/constants'
 import { buildSellPositionInstruction } from '@/lib/transactions/sell'
 import { parseTransactionError } from '@/lib/transaction-errors'
 import { useProgram } from '@/hooks/use-program'
+import { useGlobalConfig } from '@/hooks/use-global-config'
 
 interface SellPositionParams {
   asset: Asset
@@ -42,11 +43,16 @@ export function useSellPosition() {
   const { connection } = useConnection()
   const { publicKey, sendTransaction } = useWallet()
   const program = useProgram()
+  const { config } = useGlobalConfig()
 
   const mutation = useMutation<SellPositionResult, Error, SellPositionParams>({
     mutationFn: async ({ asset, epochPda, direction, shares, userPubkey }) => {
       if (!publicKey) {
         throw new Error('Wallet not connected')
+      }
+
+      if (!config) {
+        throw new Error('Protocol config not loaded')
       }
 
       if (publicKey.toString() !== userPubkey) {
@@ -63,6 +69,8 @@ export function useSellPosition() {
         direction,
         shares,
         userPubkey: publicKey,
+        treasuryWallet: config.treasury,
+        insuranceWallet: config.insurance,
         program,
       })
 

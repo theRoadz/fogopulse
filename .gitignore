@@ -52,6 +52,7 @@ next-env.d.ts
 /anchor/keys/
 test-ledger
 **/*.rs.bk
+rustc-ice-*.txt
 # npm lock files (project uses pnpm)
 **/package-lock.json
 

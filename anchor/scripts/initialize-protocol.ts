@@ -55,6 +55,9 @@ const PARAMS = {
 
   // Other
   allowHedging: false,          // MVP: users can only hold ONE direction per epoch
+
+  // Trade limits
+  maxTradeAmount: 100_000_000,  // $100 USDC max trade (in lamports, 6 decimals)
 }
 
 // =============================================================================
@@ -96,6 +99,7 @@ function deriveGlobalConfigPda(): [PublicKey, number] {
  * - epoch_duration_seconds: i64
  * - freeze_window_seconds: i64
  * - allow_hedging: bool
+ * - max_trade_amount: u64
  */
 function encodeInitializeData(
   treasury: PublicKey,
@@ -112,12 +116,13 @@ function encodeInitializeData(
   oracleStalenessThresholdSettle: bigint,
   epochDurationSeconds: bigint,
   freezeWindowSeconds: bigint,
-  allowHedging: boolean
+  allowHedging: boolean,
+  maxTradeAmount: bigint
 ): Buffer {
   // Calculate total size:
   // 8 (discriminator) + 32 (treasury) + 32 (insurance) +
-  // 2*8 (8 u16s) + 8*4 (4 i64s) + 1 (bool) = 8 + 32 + 32 + 16 + 32 + 1 = 121
-  const buffer = Buffer.alloc(121)
+  // 2*8 (8 u16s) + 8*4 (4 i64s) + 1 (bool) + 8 (u64) = 8 + 32 + 32 + 16 + 32 + 1 + 8 = 129
+  const buffer = Buffer.alloc(129)
   let offset = 0
 
   // Discriminator
@@ -149,7 +154,10 @@ function encodeInitializeData(
   buffer.writeBigInt64LE(freezeWindowSeconds, offset); offset += 8
 
   // bool
-  buffer.writeUInt8(allowHedging ? 1 : 0, offset)
+  buffer.writeUInt8(allowHedging ? 1 : 0, offset); offset += 1
+
+  // u64 (max_trade_amount)
+  buffer.writeBigUInt64LE(maxTradeAmount, offset)
 
   return buffer
 }
@@ -198,7 +206,8 @@ async function main() {
     return
   }
 
-  // For testnet, use deployer wallet as admin, treasury, and insurance
+  // For initialization, use deployer wallet as admin, treasury, and insurance.
+  // Treasury and insurance can be updated to dedicated wallets via the admin dashboard after init.
   const admin = wallet.publicKey
   const treasury = wallet.publicKey
   const insurance = wallet.publicKey
@@ -222,6 +231,7 @@ async function main() {
   console.log('Oracle Staleness Start:', PARAMS.oracleStalenessThresholdStart, 'seconds')
   console.log('Oracle Staleness Settle:', PARAMS.oracleStalenessThresholdSettle, 'seconds')
   console.log('Allow Hedging:', PARAMS.allowHedging)
+  console.log('Max Trade Amount:', PARAMS.maxTradeAmount, 'lamports ($' + (PARAMS.maxTradeAmount / 1_000_000) + ' USDC)')
   console.log('-'.repeat(40))
   console.log()
 
@@ -250,7 +260,8 @@ async function main() {
     BigInt(PARAMS.oracleStalenessThresholdSettle),
     BigInt(PARAMS.epochDurationSeconds),
     BigInt(PARAMS.freezeWindowSeconds),
-    PARAMS.allowHedging
+    PARAMS.allowHedging,
+    BigInt(PARAMS.maxTradeAmount)
   )
 
   // Build instruction

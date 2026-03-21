@@ -10,6 +10,7 @@ import { QUERY_KEYS, FOGO_EXPLORER_TX_URL } from '@/lib/constants'
 import { buildBuyPositionInstruction } from '@/lib/transactions/buy'
 import { parseTransactionError } from '@/lib/transaction-errors'
 import { useProgram } from '@/hooks/use-program'
+import { useGlobalConfig } from '@/hooks/use-global-config'
 
 interface BuyPositionParams {
   asset: Asset
@@ -44,11 +45,16 @@ export function useBuyPosition() {
   const { connection } = useConnection()
   const { publicKey, sendTransaction } = useWallet()
   const program = useProgram()
+  const { config } = useGlobalConfig()
 
   return useMutation<BuyPositionResult, Error, BuyPositionParams>({
     mutationFn: async ({ asset, direction, amount, epochId, userPubkey }) => {
       if (!publicKey) {
         throw new Error('Wallet not connected')
+      }
+
+      if (!config) {
+        throw new Error('Protocol config not loaded')
       }
 
       // Validate userPubkey matches current wallet
@@ -66,6 +72,8 @@ export function useBuyPosition() {
         amount,
         epochId,
         userPubkey: publicKey,
+        treasuryWallet: config.treasury,
+        insuranceWallet: config.insurance,
         program,
       })
 

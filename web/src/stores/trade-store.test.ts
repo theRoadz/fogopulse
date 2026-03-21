@@ -1,6 +1,6 @@
 import { act } from '@testing-library/react'
 import { useTradeStore } from './trade-store'
-import { MIN_TRADE_AMOUNT } from '@/types/trade'
+import { MIN_TRADE_AMOUNT, MAX_TRADE_AMOUNT } from '@/types/trade'
 
 describe('useTradeStore', () => {
   beforeEach(() => {
@@ -83,6 +83,22 @@ describe('useTradeStore', () => {
       expect(useTradeStore.getState().error).toBe(`Minimum amount is $${MIN_TRADE_AMOUNT.toFixed(2)}`)
       expect(useTradeStore.getState().isValid).toBe(false)
     })
+
+    it('should set error for amount above maximum', () => {
+      act(() => {
+        useTradeStore.getState().setAmount('150')
+      })
+      expect(useTradeStore.getState().error).toBe(`Maximum amount is $${MAX_TRADE_AMOUNT.toFixed(2)}`)
+      expect(useTradeStore.getState().isValid).toBe(false)
+    })
+
+    it('should use custom maxTradeAmount when provided', () => {
+      act(() => {
+        useTradeStore.getState().setAmount('75', 50)
+      })
+      expect(useTradeStore.getState().error).toBe('Maximum amount is $50.00')
+      expect(useTradeStore.getState().isValid).toBe(false)
+    })
   })
 
   describe('validate', () => {
@@ -108,8 +124,8 @@ describe('useTradeStore', () => {
     it('should be invalid when exceeding balance', () => {
       act(() => {
         useTradeStore.getState().setDirection('up')
-        useTradeStore.getState().setAmount('200')
-        useTradeStore.getState().validate(100)
+        useTradeStore.getState().setAmount('80')
+        useTradeStore.getState().validate(50)
       })
       expect(useTradeStore.getState().isValid).toBe(false)
       expect(useTradeStore.getState().error).toBe('Exceeds balance')
@@ -132,6 +148,26 @@ describe('useTradeStore', () => {
       })
       expect(useTradeStore.getState().isValid).toBe(true)
       expect(useTradeStore.getState().error).toBeNull()
+    })
+
+    it('should be invalid when exceeding max trade amount', () => {
+      act(() => {
+        useTradeStore.getState().setDirection('up')
+        useTradeStore.getState().setAmount('150')
+        useTradeStore.getState().validate(200)
+      })
+      expect(useTradeStore.getState().isValid).toBe(false)
+      expect(useTradeStore.getState().error).toBe(`Maximum amount is $${MAX_TRADE_AMOUNT.toFixed(2)}`)
+    })
+
+    it('should use custom maxTradeAmount in validate', () => {
+      act(() => {
+        useTradeStore.getState().setDirection('up')
+        useTradeStore.getState().setAmount('75')
+        useTradeStore.getState().validate(200, 50)
+      })
+      expect(useTradeStore.getState().isValid).toBe(false)
+      expect(useTradeStore.getState().error).toBe('Maximum amount is $50.00')
     })
 
     it('should be invalid with null balance (disconnected wallet)', () => {

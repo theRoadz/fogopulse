@@ -51,6 +51,7 @@ interface FormState {
   oracleStalenessThresholdSettle: string
   epochDurationSeconds: string
   freezeWindowSeconds: string
+  maxTradeAmount: string
   treasury: string
   insurance: string
   allowHedging: boolean
@@ -69,6 +70,7 @@ interface ValidationErrors {
   oracleStalenessThresholdSettle?: string
   epochDurationSeconds?: string
   freezeWindowSeconds?: string
+  maxTradeAmount?: string
   treasury?: string
   insurance?: string
   feeShareSum?: string
@@ -154,6 +156,12 @@ function validateForm(form: FormState): ValidationErrors {
     }
   }
 
+  errors.maxTradeAmount = validatePositiveInt(form.maxTradeAmount)
+  if (!errors.maxTradeAmount) {
+    const mta = Number(form.maxTradeAmount)
+    if (mta < 100_000) errors.maxTradeAmount = 'Minimum is 100000 (0.10 USDC)'
+  }
+
   errors.treasury = validatePubkey(form.treasury)
   errors.insurance = validatePubkey(form.insurance)
 
@@ -189,6 +197,7 @@ function configKey(config: GlobalConfigData): string {
     config.treasury.toString(),
     config.insurance.toString(),
     String(config.allowHedging),
+    config.maxTradeAmount.toString(),
   ].join('-')
 }
 
@@ -225,6 +234,7 @@ function ConfigurationPanelInner({ config }: { config: GlobalConfigData }) {
     oracleStalenessThresholdSettle: String(config.oracleStalenessThresholdSettle.toNumber()),
     epochDurationSeconds: String(config.epochDurationSeconds.toNumber()),
     freezeWindowSeconds: String(config.freezeWindowSeconds.toNumber()),
+    maxTradeAmount: String(config.maxTradeAmount.toNumber()),
     treasury: config.treasury.toString(),
     insurance: config.insurance.toString(),
     allowHedging: config.allowHedging,
@@ -260,6 +270,7 @@ function ConfigurationPanelInner({ config }: { config: GlobalConfigData }) {
     check('Oracle Staleness (Settle)', form.oracleStalenessThresholdSettle, config.oracleStalenessThresholdSettle.toNumber(), 'seconds')
     check('Epoch Duration', form.epochDurationSeconds, config.epochDurationSeconds.toNumber(), 'seconds')
     check('Freeze Window', form.freezeWindowSeconds, config.freezeWindowSeconds.toNumber(), 'seconds')
+    check('Max Trade Amount', form.maxTradeAmount, config.maxTradeAmount.toNumber(), 'lamports')
 
     if (form.treasury.trim() && form.treasury.trim() !== config.treasury.toString()) {
       result.push({
@@ -313,6 +324,7 @@ function ConfigurationPanelInner({ config }: { config: GlobalConfigData }) {
       allowHedging: form.allowHedging !== config.allowHedging ? form.allowHedging : null,
       paused: null,
       frozen: null,
+      maxTradeAmount: numOrNull(form.maxTradeAmount, config.maxTradeAmount.toNumber()),
     }
   }
 
@@ -434,9 +446,9 @@ function ConfigurationPanelInner({ config }: { config: GlobalConfigData }) {
           {errors.feeShareSum && <p id="feeShareSum-error" className="text-destructive text-sm mt-2">{errors.feeShareSum}</p>}
         </div>
 
-        {/* ── Position Caps ──────────────────────────────────────── */}
+        {/* ── Position Caps & Trade Limits ─────────────────────── */}
         <div className="border-t pt-4">
-          <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Position Caps</h3>
+          <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Position Caps & Trade Limits</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="perWalletCapBps">Per-Wallet Cap (BPS)</Label>
@@ -473,6 +485,24 @@ function ConfigurationPanelInner({ config }: { config: GlobalConfigData }) {
                 {form.perSideCapBps !== '' ? `${bpsToPercent(Number(form.perSideCapBps))}%` : '—'}
               </p>
               {errors.perSideCapBps && <p id="perSideCapBps-error" className="text-destructive text-sm">{errors.perSideCapBps}</p>}
+            </div>
+            <div>
+              <Label htmlFor="maxTradeAmount">Max Trade Amount (USDC lamports)</Label>
+              <Input
+                id="maxTradeAmount"
+                type="number"
+                step="1"
+                value={form.maxTradeAmount}
+                onChange={(e) => setField('maxTradeAmount', e.target.value)}
+                disabled={isPending}
+                aria-invalid={!!errors.maxTradeAmount}
+                aria-describedby={errors.maxTradeAmount ? 'maxTradeAmount-error' : undefined}
+                className={isChanged(form.maxTradeAmount, config.maxTradeAmount.toNumber()) ? changedBorder : ''}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {form.maxTradeAmount !== '' ? `$${(Number(form.maxTradeAmount) / 1_000_000).toFixed(2)} USDC` : '—'}
+              </p>
+              {errors.maxTradeAmount && <p id="maxTradeAmount-error" className="text-destructive text-sm">{errors.maxTradeAmount}</p>}
             </div>
           </div>
         </div>

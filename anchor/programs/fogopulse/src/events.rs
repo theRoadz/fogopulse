@@ -19,6 +19,7 @@ pub struct GlobalConfigInitialized {
     pub epoch_duration_seconds: i64,
     pub freeze_window_seconds: i64,
     pub allow_hedging: bool,
+    pub max_trade_amount: u64,
 }
 
 #[event]
@@ -94,7 +95,7 @@ pub struct ConfigUpdated {
     /// 4=treasury_fee, 5=insurance_fee, 6=wallet_cap, 7=side_cap,
     /// 8=confidence_start, 9=confidence_settle, 10=staleness_start,
     /// 11=staleness_settle, 12=epoch_duration, 13=freeze_window,
-    /// 14=allow_hedging, 15=paused, 16=frozen
+    /// 14=allow_hedging, 15=paused, 16=frozen, 17=max_trade_amount
     pub fields_updated: u32,
 }
 
