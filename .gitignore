@@ -60,3 +60,6 @@ _bmad/
 .agents/
 .claude/
 .gemini/
+
+# Scratch / no-commit
+z_no_git/
