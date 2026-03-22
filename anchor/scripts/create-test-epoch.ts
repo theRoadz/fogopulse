@@ -83,7 +83,7 @@ const ASSET_MINTS = {
 const PYTH_FEED_IDS: Record<string, number> = {
   BTC: 1,   // BTC/USD
   ETH: 2,   // ETH/USD
-  SOL: 5,   // SOL/USD
+  SOL: 6,   // SOL/USD
   FOGO: 1,  // Using BTC feed for FOGO (placeholder)
 }
 
@@ -203,7 +203,7 @@ async function fetchPythMessage(feedId: number, accessToken: string): Promise<Bu
         type: 'subscribe',
         subscriptionId: 1,
         priceFeedIds: [feedId],
-        properties: ['price', 'confidence'],
+        properties: ['price', 'confidence', 'exponent'],
         formats: ['solana'],  // Ed25519 format - REQUIRED for FOGO
         deliveryFormat: 'json',
         channel: 'fixed_rate@200ms',

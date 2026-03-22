@@ -83,7 +83,7 @@ FOGO's Pyth deployment has **zero ECDSA signers registered**. Using ECDSA format
 client.subscribe({
   type: 'subscribe',
   priceFeedIds: [feedId],
-  properties: ['price', 'confidence'],
+  properties: ['price', 'confidence', 'exponent'],
   formats: ['solana'],  // Ed25519 format - REQUIRED for FOGO
   channel: 'fixed_rate@200ms',
   jsonBinaryEncoding: 'hex',

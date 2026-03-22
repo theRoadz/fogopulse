@@ -78,7 +78,7 @@ const ASSET_MINTS = {
 const PYTH_FEED_IDS: Record<string, number> = {
   BTC: 1,
   ETH: 2,
-  SOL: 5,
+  SOL: 6,
   // TODO: FOGO token does not have a Pyth price feed yet.
   // Using BTC feed as placeholder - DO NOT use FOGO pool in production until
   // a real FOGO feed is available or this is intentionally designed as BTC-correlated.
@@ -302,7 +302,7 @@ async function fetchPythMessage(feedId: number, accessToken: string): Promise<Bu
         type: 'subscribe',
         subscriptionId: 1,
         priceFeedIds: [feedId],
-        properties: ['price', 'confidence'],
+        properties: ['price', 'confidence', 'exponent'],
         formats: ['solana'],
         deliveryFormat: 'json',
         channel: 'fixed_rate@200ms',

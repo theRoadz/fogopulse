@@ -12,8 +12,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PythLazerClient } from '@pythnetwork/pyth-lazer-sdk'
 
-// Valid feed IDs (BTC=1, ETH=2, SOL=5)
-const VALID_FEED_IDS = new Set([1, 2, 5, 2923])
+// Valid feed IDs (BTC=1, ETH=2, SOL=6)
+const VALID_FEED_IDS = new Set([1, 2, 6, 2923])
 
 // Timeout for WebSocket connection (30 seconds)
 const TIMEOUT_MS = 30000
@@ -102,7 +102,7 @@ async function fetchPythMessage(feedId: number, accessToken: string): Promise<st
         type: 'subscribe',
         subscriptionId,
         priceFeedIds: [feedId],
-        properties: ['price', 'confidence'],
+        properties: ['price', 'confidence', 'exponent'],
         formats: ['solana'], // Ed25519 format for Solana/FOGO verification
         deliveryFormat: 'json',
         channel: 'fixed_rate@200ms',

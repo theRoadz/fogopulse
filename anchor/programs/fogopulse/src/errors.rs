@@ -62,6 +62,9 @@ pub enum FogoPulseError {
     #[msg("Oracle confidence too wide - exceeds confidence threshold")]
     OracleConfidenceTooWide,
 
+    #[msg("Oracle exponent missing - exponent property not found in payload")]
+    OracleExponentMissing,
+
     // Session errors
     #[msg("Session extraction failed - invalid, expired, or unauthorized session")]
     SessionExtractionFailed,

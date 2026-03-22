@@ -72,7 +72,7 @@ const PYTH_WS_URL = 'wss://pyth-lazer-0.dourolabs.app/v1/stream'
 const PYTH_FEED_IDS: Record<Asset, number> = {
   BTC: 1,
   ETH: 2,
-  SOL: 5,
+  SOL: 6,
   FOGO: 2923, // FOGO/USD (confirmed stable on Pyth Lazer)
 }
 
@@ -481,7 +481,7 @@ async function fetchPythMessage(feedId: number, accessToken: string): Promise<Bu
         type: 'subscribe',
         subscriptionId: 1,
         priceFeedIds: [feedId],
-        properties: ['price', 'confidence'],
+        properties: ['price', 'confidence', 'exponent'],
         formats: ['solana'],
         deliveryFormat: 'json',
         channel: 'fixed_rate@200ms',
@@ -583,7 +583,7 @@ class PythPriceManager {
             type: 'subscribe',
             subscriptionId: subId,
             priceFeedIds: [feedId],
-            properties: ['price', 'confidence'],
+            properties: ['price', 'confidence', 'exponent'],
             formats: ['solana'],
             deliveryFormat: 'json',
             channel: 'fixed_rate@200ms',

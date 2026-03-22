@@ -204,6 +204,6 @@ export const CREATE_EPOCH_DISCRIMINATOR = new Uint8Array([115, 111, 36, 230, 59,
 export const PYTH_LAZER_FEED_IDS: Record<Asset, number> = {
   BTC: 1, // BTC/USD
   ETH: 2, // ETH/USD
-  SOL: 5, // SOL/USD
+  SOL: 6, // SOL/USD
   FOGO: 2923, // FOGO/USD (confirmed stable on Pyth Lazer)
 }
