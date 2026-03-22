@@ -116,7 +116,9 @@ jest.mock('@/hooks/use-pool', () => ({
 
 // Mock child components
 jest.mock('./claim-button', () => ({
-  ClaimButton: () => null,
+  ClaimButton: ({ direction }: { direction: string }) => (
+    <div data-testid={`claim-button-${direction}`}>ClaimButton {direction}</div>
+  ),
 }))
 
 jest.mock('./outcome-badge', () => ({
@@ -267,6 +269,41 @@ describe('SettlementStatusPanel', () => {
       render(<SettlementStatusPanel asset="BTC" />)
 
       expect(screen.queryByLabelText('Close settlement details')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('direction filtering', () => {
+    it('should render both ClaimButtons when no direction is provided', () => {
+      render(<SettlementStatusPanel asset="BTC" />)
+
+      expect(screen.getByTestId('claim-button-up')).toBeInTheDocument()
+      expect(screen.getByTestId('claim-button-down')).toBeInTheDocument()
+    })
+
+    it('should render only UP ClaimButton when direction is "up"', () => {
+      render(<SettlementStatusPanel asset="BTC" direction="up" />)
+
+      expect(screen.getByTestId('claim-button-up')).toBeInTheDocument()
+      expect(screen.queryByTestId('claim-button-down')).not.toBeInTheDocument()
+    })
+
+    it('should render only DOWN ClaimButton when direction is "down"', () => {
+      render(<SettlementStatusPanel asset="BTC" direction="down" />)
+
+      expect(screen.queryByTestId('claim-button-up')).not.toBeInTheDocument()
+      expect(screen.getByTestId('claim-button-down')).toBeInTheDocument()
+    })
+
+    it('should render no ClaimButtons when epochPda is missing regardless of direction', () => {
+      mockUseSettlementDisplay.mockReturnValue({
+        ...mockSettlementData,
+        epochPda: null,
+      })
+
+      render(<SettlementStatusPanel asset="BTC" direction="up" />)
+
+      expect(screen.queryByTestId('claim-button-up')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('claim-button-down')).not.toBeInTheDocument()
     })
   })
 

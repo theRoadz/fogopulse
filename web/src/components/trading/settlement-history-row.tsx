@@ -209,6 +209,7 @@ export function SettlementHistoryRow({
           settlementData={settlement}
           title={`Epoch #${settlement.epochId.toString()} Settlement`}
           className="border-0 shadow-none bg-muted/20"
+          direction={position?.direction}
         />
       </CollapsibleContent>
     </Collapsible>

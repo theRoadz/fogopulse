@@ -84,6 +84,8 @@ interface SettlementStatusPanelProps {
   onClose?: () => void
   /** Additional CSS classes */
   className?: string
+  /** When provided, only render the ClaimButton for this direction (used by history rows) */
+  direction?: 'up' | 'down'
 }
 
 /**
@@ -171,6 +173,7 @@ export function SettlementStatusPanel({
   title = 'Settlement Details',
   onClose,
   className,
+  direction,
 }: SettlementStatusPanelProps) {
   // Only call hook if asset is provided and no data was passed in
   const fetchedData = useSettlementDisplay(asset)
@@ -275,20 +278,24 @@ export function SettlementStatusPanel({
         {/* Claim button - only when asset is provided */}
         {asset && settlementData.epochPda && (
           <>
-            <ClaimButton
-              asset={asset}
-              epoch={epochDataForClaim}
-              epochPda={settlementData.epochPda}
-              direction="up"
-              pool={pool}
-            />
-            <ClaimButton
-              asset={asset}
-              epoch={epochDataForClaim}
-              epochPda={settlementData.epochPda}
-              direction="down"
-              pool={pool}
-            />
+            {(!direction || direction === 'up') && (
+              <ClaimButton
+                asset={asset}
+                epoch={epochDataForClaim}
+                epochPda={settlementData.epochPda}
+                direction="up"
+                pool={pool}
+              />
+            )}
+            {(!direction || direction === 'down') && (
+              <ClaimButton
+                asset={asset}
+                epoch={epochDataForClaim}
+                epochPda={settlementData.epochPda}
+                direction="down"
+                pool={pool}
+              />
+            )}
           </>
         )}
 

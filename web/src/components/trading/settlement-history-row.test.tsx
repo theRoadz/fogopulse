@@ -47,8 +47,8 @@ jest.mock('lucide-react', () => ({
 
 // Mock SettlementStatusPanel
 jest.mock('./settlement-status-panel', () => ({
-  SettlementStatusPanel: ({ title }: { title: string }) => (
-    <div data-testid="settlement-status-panel">{title}</div>
+  SettlementStatusPanel: ({ title, direction }: { title: string; direction?: string }) => (
+    <div data-testid="settlement-status-panel" data-direction={direction ?? ''}>{title}</div>
   ),
 }))
 
@@ -352,6 +352,32 @@ describe('SettlementHistoryRow', () => {
 
     // endTime was set to ~2 minutes ago
     expect(screen.getByTestId('time-ago').textContent).toMatch(/\d+m ago/)
+  })
+
+  it('should pass position direction to SettlementStatusPanel', () => {
+    render(
+      <SettlementHistoryRow
+        settlement={createMockSettlement()}
+        position={createMockPosition({ direction: 'down' })}
+        isWalletConnected={true}
+        asset="BTC"
+      />
+    )
+
+    expect(screen.getByTestId('settlement-status-panel')).toHaveAttribute('data-direction', 'down')
+  })
+
+  it('should pass empty direction to SettlementStatusPanel when no position', () => {
+    render(
+      <SettlementHistoryRow
+        settlement={createMockSettlement()}
+        position={null}
+        isWalletConnected={false}
+        asset="BTC"
+      />
+    )
+
+    expect(screen.getByTestId('settlement-status-panel')).toHaveAttribute('data-direction', '')
   })
 
   it('should have data-testid attribute', () => {

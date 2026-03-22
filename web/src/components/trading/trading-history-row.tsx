@@ -199,6 +199,7 @@ export function TradingHistoryRow({ entry, className }: TradingHistoryRowProps) 
           settlementData={entry.settlement}
           title={`Epoch #${entry.epochId.toString()} Settlement`}
           className="border-0 shadow-none bg-muted/20"
+          direction={entry.direction}
         />
       </CollapsibleContent>
     </Collapsible>

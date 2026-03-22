@@ -9,6 +9,36 @@ import type { TradingHistoryEntry, TradeOutcome } from '@/hooks/use-trading-hist
 
 import { TradingHistoryRow } from './trading-history-row'
 
+// Mock wallet adapter
+jest.mock('@solana/wallet-adapter-react', () => ({
+  useWallet: () => ({ publicKey: null }),
+}))
+
+// Mock claim hook
+jest.mock('@/hooks/use-claim-position', () => ({
+  useClaimPosition: () => ({ claimPosition: jest.fn(), isLoading: false }),
+}))
+
+// Mock collapsible to always render content
+jest.mock('@/components/ui/collapsible', () => ({
+  Collapsible: ({ children, ...props }: React.ComponentProps<'div'>) => (
+    <div {...props}>{children}</div>
+  ),
+  CollapsibleTrigger: ({ children, asChild, ...props }: React.ComponentProps<'div'> & { asChild?: boolean }) => (
+    <div {...props}>{children}</div>
+  ),
+  CollapsibleContent: ({ children, className }: React.ComponentProps<'div'>) => (
+    <div className={className}>{children}</div>
+  ),
+}))
+
+// Mock SettlementStatusPanel to capture direction prop
+jest.mock('./settlement-status-panel', () => ({
+  SettlementStatusPanel: ({ direction }: { direction?: string }) => (
+    <div data-testid="settlement-status-panel" data-direction={direction ?? ''} />
+  ),
+}))
+
 const dummyPubkey = PublicKey.default
 
 function makeEpochData(overrides: Partial<EpochData> = {}): EpochData {
@@ -143,5 +173,10 @@ describe('TradingHistoryRow', () => {
   it('renders time ago correctly', () => {
     render(<TradingHistoryRow entry={makeEntry()} />)
     expect(screen.getByTestId('trade-time')).toHaveTextContent('1m ago')
+  })
+
+  it('passes trade direction to SettlementStatusPanel', () => {
+    render(<TradingHistoryRow entry={makeEntry({ direction: 'down' })} />)
+    expect(screen.getByTestId('settlement-status-panel')).toHaveAttribute('data-direction', 'down')
   })
 })
