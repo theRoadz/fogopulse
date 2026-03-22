@@ -139,3 +139,4 @@ development_status:
   7-12-fixed-trade-presets-max-trade-amount: done
   7-13-enforce-allow-hedging-flag: done
   7-15-fix-sol-pyth-lazer-feed-id: done
+  7-16-batch-rpc-trade-loading: done

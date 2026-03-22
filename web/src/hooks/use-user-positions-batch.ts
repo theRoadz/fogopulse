@@ -5,10 +5,12 @@ import { useQuery } from '@tanstack/react-query'
 import { PublicKey } from '@solana/web3.js'
 import { useWallet } from '@solana/wallet-adapter-react'
 
-import { derivePositionPda } from '@/lib/pda'
 import { useProgram } from '@/hooks/use-program'
-import { parseDirection } from '@/hooks/use-user-position'
+import { batchFetchUserPositions, positionKey } from '@/lib/batch-fetch'
 import type { UserPositionData } from '@/hooks/use-user-position'
+
+// Re-export positionKey so existing consumers don't break
+export { positionKey }
 
 interface UseUserPositionsBatchResult {
   /** Map of composite key (epochPda:direction) → UserPositionData (only includes positions that exist) */
@@ -17,11 +19,6 @@ interface UseUserPositionsBatchResult {
   isLoading: boolean
   /** Error if fetch failed */
   error: Error | null
-}
-
-/** Build composite key for position lookup: "epochPda:direction" */
-export function positionKey(epochPda: string, direction: 'up' | 'down'): string {
-  return `${epochPda}:${direction}`
 }
 
 /**
@@ -48,49 +45,9 @@ export function useUserPositionsBatch(epochPdas: PublicKey[]): UseUserPositionsB
     error,
   } = useQuery({
     queryKey: ['positionsBatch', publicKey?.toBase58(), epochPdasKey],
-    // queryFn is stable via queryKey — TanStack Query re-runs when key changes
     queryFn: async (): Promise<Map<string, UserPositionData>> => {
       if (!publicKey || epochPdas.length === 0) return new Map()
-
-      // Derive position PDAs for BOTH directions per epoch (Up and Down)
-      const directions: Array<'up' | 'down'> = ['up', 'down']
-      const fetchEntries = epochPdas.flatMap((epochPda) =>
-        directions.map((dir) => ({
-          epochPda,
-          direction: dir,
-          positionPda: derivePositionPda(epochPda, publicKey, dir),
-        }))
-      )
-
-      // Batch fetch using Promise.allSettled (follows existing codebase pattern)
-      const results = await Promise.allSettled(
-        fetchEntries.map((entry) =>
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (program.account as any).userPosition.fetch(entry.positionPda)
-        )
-      )
-
-      // Map results: fulfilled = position exists, rejected = no position
-      const positions = new Map<string, UserPositionData>()
-      results.forEach((result, i) => {
-        if (result.status === 'fulfilled') {
-          const acct = result.value
-          const entry = fetchEntries[i]
-          positions.set(positionKey(entry.epochPda.toBase58(), entry.direction), {
-            user: acct.user as PublicKey,
-            epoch: acct.epoch as PublicKey,
-            direction: parseDirection(acct.direction),
-            amount: BigInt(acct.amount.toString()),
-            shares: BigInt(acct.shares.toString()),
-            entryPrice: BigInt(acct.entryPrice.toString()),
-            claimed: acct.claimed,
-            bump: acct.bump,
-          })
-        }
-        // rejected = account doesn't exist = user has no position in that epoch/direction
-      })
-
-      return positions
+      return batchFetchUserPositions(program, epochPdas, publicKey)
     },
     enabled: publicKey !== null && epochPdas.length > 0,
     staleTime: 30000,

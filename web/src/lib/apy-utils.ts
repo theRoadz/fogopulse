@@ -1,13 +1,12 @@
 import type { PublicKey } from '@solana/web3.js'
 import type { Program } from '@coral-xyz/anchor'
 
-import { tryFetchSettledEpoch } from '@/lib/epoch-utils'
+import { batchFetchEpochs } from '@/lib/batch-fetch'
 import { TRADING_FEE_BPS, LP_FEE_SHARE_BPS } from '@/lib/constants'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnchorProgram = Program<any>
 
-const MAX_CONSECUTIVE_NULLS = 3
 // Minimum period (in days) required for APY extrapolation to avoid inflated numbers
 const MIN_PERIOD_DAYS = 1
 
@@ -45,64 +44,55 @@ export async function fetchHistoricalSharePrice(
   sampledVolume: bigint
   reachedTarget: boolean
 } | null> {
-  let currentId = nextEpochId - BigInt(1)
-  let consecutiveNulls = 0
-  let firstSettledId: bigint | null = null
+  // Batch-fetch recent epochs only — 500 epochs covers ~7 days at 20min epochs
+  // or ~42 hours at 5min epochs, sufficient for the 7-day APY window
+  const searchDepth = 500n
+  const fromId = nextEpochId - 1n - searchDepth < 0n ? 0n : nextEpochId - 1n - searchDepth
+  const settledEpochs = await batchFetchEpochs(program, poolPda, fromId, nextEpochId - 1n)
+
+  if (settledEpochs.length < 2) return null
+
   let referenceEndTime: number | null = null
   let referenceId: bigint | null = null
   let sampledVolume = 0n
   let sampledEpochs = 0
   let reachedTarget = false
 
-  while (currentId >= BigInt(0)) {
-    const result = await tryFetchSettledEpoch(program, poolPda, currentId)
+  // First settled epoch (newest) for window calculation
+  const firstSettledId = settledEpochs[settledEpochs.length - 1].epochId
 
-    if (result) {
-      consecutiveNulls = 0
+  // Walk newest → oldest collecting volume until we pass the target timestamp
+  for (let i = settledEpochs.length - 1; i >= 0; i--) {
+    const result = settledEpochs[i]
 
-      if (firstSettledId === null) firstSettledId = currentId
+    const yesTotal = result.yesTotalAtSettlement ?? 0n
+    const noTotal = result.noTotalAtSettlement ?? 0n
+    sampledVolume += yesTotal + noTotal
+    sampledEpochs++
 
-      // Collect volume from all settled epochs in the walk
-      const yesTotal = result.yesTotalAtSettlement ?? 0n
-      const noTotal = result.noTotalAtSettlement ?? 0n
-      sampledVolume += yesTotal + noTotal
-      sampledEpochs++
-
-      const epochEndTime = result.rawEpochData.endTime
-      if (epochEndTime <= targetTimestamp) {
-        referenceEndTime = epochEndTime
-        referenceId = currentId
-        reachedTarget = true
-        break
-      }
-
-      // Track oldest as fallback
+    const epochEndTime = result.rawEpochData.endTime
+    if (epochEndTime <= targetTimestamp) {
       referenceEndTime = epochEndTime
-      referenceId = currentId
-    } else {
-      consecutiveNulls++
-      if (consecutiveNulls >= MAX_CONSECUTIVE_NULLS) break
+      referenceId = result.epochId
+      reachedTarget = true
+      break
     }
 
-    currentId = currentId - BigInt(1)
+    // Track oldest as fallback
+    referenceEndTime = epochEndTime
+    referenceId = result.epochId
   }
 
-  if (referenceEndTime === null || referenceId === null || firstSettledId === null) {
-    return null
-  }
+  if (referenceEndTime === null || referenceId === null) return null
 
   // Need at least 2 different settled epochs for a meaningful comparison
   if (firstSettledId === referenceId) return null
 
   const epochsInWindow = Number(firstSettledId - referenceId + 1n)
 
-  // Use collected volume directly — we sample every epoch in the walk
-  // Only extrapolate if there are gap epochs (nulls that weren't consecutive enough to stop)
-  const totalVolume = sampledVolume
-
   return {
     referenceEndTime,
-    totalVolume,
+    totalVolume: sampledVolume,
     epochsInWindow,
     sampledEpochs,
     sampledVolume,

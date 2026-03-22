@@ -6,20 +6,17 @@ import { PublicKey } from '@solana/web3.js'
 import { useWallet } from '@solana/wallet-adapter-react'
 
 import type { Asset } from '@/types/assets'
-import { ASSETS } from '@/types/assets'
 import { Outcome } from '@/types/epoch'
 import { usePool } from './use-pool'
 import { POOL_PDAS, QUERY_KEYS } from '@/lib/constants'
 import { useProgram } from '@/hooks/use-program'
-import { tryFetchSettledEpoch } from '@/lib/epoch-utils'
 import type { LastSettledEpochData } from '@/lib/epoch-utils'
-import { derivePositionPda } from '@/lib/pda'
-import { parseDirection } from '@/hooks/use-user-position'
+import { batchFetchEpochs, batchFetchUserPositions } from '@/lib/batch-fetch'
 import type { UserPositionData } from '@/hooks/use-user-position'
+import { positionKey } from '@/hooks/use-user-positions-batch'
 import { getClaimState, calculatePayout } from '@/hooks/use-claimable-amount'
 
 const BATCH_SIZE = 10
-const MAX_CONSECUTIVE_NULLS = 3
 
 // ---------------------------------------------------------------------------
 // Types
@@ -187,7 +184,7 @@ export function classifyPosition(
 }
 
 // ---------------------------------------------------------------------------
-// Fetch trading history for a single asset
+// Fetch trading history for a single asset (batch RPC)
 // ---------------------------------------------------------------------------
 
 async function fetchAssetTradingHistory(
@@ -199,48 +196,48 @@ async function fetchAssetTradingHistory(
   asset: Asset,
   totalLimit: number
 ): Promise<{ entries: TradingHistoryEntry[]; hasMore: boolean }> {
-  const entries: TradingHistoryEntry[] = []
-  let currentId = nextEpochId - 1n
-  let consecutiveNulls = 0
+  if (nextEpochId <= 0n) return { entries: [], hasMore: false }
 
-  while (currentId >= 0n && entries.length < totalLimit) {
-    const settlement = await tryFetchSettledEpoch(program, poolPda, currentId)
-    if (settlement) {
-      consecutiveNulls = 0
-      // Check if user has positions in this epoch (both directions)
-      const directions: Array<'up' | 'down'> = ['up', 'down']
-      for (const dir of directions) {
-        if (entries.length >= totalLimit) break
-        const positionPda = derivePositionPda(settlement.epochPda, userPubkey, dir)
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const acct = await (program.account as any).userPosition.fetch(positionPda)
-          const position: UserPositionData = {
-            user: acct.user as PublicKey,
-            epoch: acct.epoch as PublicKey,
-            direction: parseDirection(acct.direction),
-            amount: BigInt(acct.amount.toString()),
-            shares: BigInt(acct.shares.toString()),
-            entryPrice: BigInt(acct.entryPrice.toString()),
-            claimed: acct.claimed,
-            bump: acct.bump,
-          }
-          entries.push(classifyPosition(asset, settlement, position))
-        } catch {
-          // No position in this epoch/direction — skip
-        }
-      }
-    } else {
-      consecutiveNulls++
-      if (consecutiveNulls >= MAX_CONSECUTIVE_NULLS) {
-        return { entries, hasMore: false }
+  // Fetch recent epochs only — go back far enough to fill the page.
+  // Use a multiplier since not every epoch will have a user position.
+  const searchDepth = BigInt(Math.max(totalLimit * 5, 50))
+  const fromId = nextEpochId - 1n - searchDepth < 0n ? 0n : nextEpochId - 1n - searchDepth
+
+  // Batch-fetch settled epochs in 1-2 RPC calls
+  const settledEpochs = await batchFetchEpochs(program, poolPda, fromId, nextEpochId - 1n)
+
+  // Batch-fetch all user positions in 1-2 RPC calls
+  const positions = await batchFetchUserPositions(
+    program,
+    settledEpochs.map((e) => e.epochPda),
+    userPubkey
+  )
+
+  // Match positions to settlements
+  const entries: TradingHistoryEntry[] = []
+  const directions: Array<'up' | 'down'> = ['up', 'down']
+
+  for (const settlement of settledEpochs) {
+    for (const dir of directions) {
+      const key = positionKey(settlement.epochPda.toBase58(), dir)
+      const position = positions.get(key)
+      if (position) {
+        entries.push(classifyPosition(asset, settlement, position))
       }
     }
-    currentId = currentId - 1n
   }
 
-  const hasMore = currentId >= 0n && entries.length >= totalLimit
-  return { entries, hasMore }
+  // Sort by settlement time descending (newest first)
+  entries.sort((a, b) => b.settlementTime - a.settlementTime)
+
+  // Apply pagination limit
+  // hasMore = true if we found more than the limit, OR if we didn't search
+  // all the way back to epoch 0 (there may be older trades beyond searchDepth)
+  const hasMore = entries.length > totalLimit || fromId > 0n
+  return {
+    entries: entries.slice(0, totalLimit),
+    hasMore,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -248,93 +245,47 @@ async function fetchAssetTradingHistory(
 // ---------------------------------------------------------------------------
 
 export function useTradingHistory(
-  assetFilter: Asset | 'ALL' = 'ALL',
+  asset: Asset,
   limit: number = BATCH_SIZE
 ): UseTradingHistoryResult {
   const { publicKey } = useWallet()
   const program = useProgram()
 
-  // We need pool data for each asset to get nextEpochId
-  const btcPool = usePool('BTC')
-  const ethPool = usePool('ETH')
-  const solPool = usePool('SOL')
-  const fogoPool = usePool('FOGO')
-
-  const pools = useMemo(
-    () => ({ BTC: btcPool, ETH: ethPool, SOL: solPool, FOGO: fogoPool }),
-    [btcPool, ethPool, solPool, fogoPool]
-  )
+  const { pool, isLoading: isPoolLoading } = usePool(asset)
+  const poolPda = POOL_PDAS[asset]
 
   const [batchCount, setBatchCount] = useState(1)
   const totalLimit = limit * batchCount
 
-  const assetsToFetch = useMemo(
-    () => (assetFilter === 'ALL' ? [...ASSETS] : [assetFilter]),
-    [assetFilter]
-  )
-
-  // Check if all needed pools are ready
-  const poolsReady = useMemo(
-    () => assetsToFetch.every((a) => pools[a].pool !== null),
-    [assetsToFetch, pools]
-  )
-
-  const isPoolLoading = useMemo(
-    () => assetsToFetch.some((a) => pools[a].isLoading),
-    [assetsToFetch, pools]
-  )
-
-  // Stable query key
   const queryKey = useMemo(
     () => [
-      ...QUERY_KEYS.tradingHistory(publicKey?.toBase58(), assetFilter),
+      ...QUERY_KEYS.tradingHistory(publicKey?.toBase58(), asset),
       totalLimit,
-      // Include nextEpochIds so query refreshes when new epochs appear
-      ...assetsToFetch.map((a) => pools[a].pool?.nextEpochId?.toString() ?? '0'),
+      pool?.nextEpochId?.toString() ?? '0',
     ],
-    [publicKey, assetFilter, totalLimit, assetsToFetch, pools]
+    [publicKey, asset, totalLimit, pool]
   )
 
   const fetchHistory = useCallback(async (): Promise<{
     entries: TradingHistoryEntry[]
     hasMore: boolean
   }> => {
-    if (!publicKey || !poolsReady) return { entries: [], hasMore: false }
+    if (!publicKey || !pool) return { entries: [], hasMore: false }
 
-    // Fetch all assets in parallel
-    const results = await Promise.all(
-      assetsToFetch.map((asset) => {
-        const pool = pools[asset].pool!
-        const poolPda = POOL_PDAS[asset]
-        return fetchAssetTradingHistory(
-          program,
-          poolPda,
-          pool.nextEpochId,
-          publicKey,
-          asset,
-          totalLimit
-        )
-      })
+    return fetchAssetTradingHistory(
+      program,
+      poolPda,
+      pool.nextEpochId,
+      publicKey,
+      asset,
+      totalLimit
     )
-
-    // Merge all entries
-    let allEntries: TradingHistoryEntry[] = []
-    let anyHasMore = false
-    for (const result of results) {
-      allEntries = allEntries.concat(result.entries)
-      if (result.hasMore) anyHasMore = true
-    }
-
-    // Sort by settlement time descending (newest first)
-    allEntries.sort((a, b) => b.settlementTime - a.settlementTime)
-
-    return { entries: allEntries, hasMore: anyHasMore }
-  }, [publicKey, poolsReady, assetsToFetch, pools, program, totalLimit])
+  }, [publicKey, pool, program, poolPda, asset, totalLimit])
 
   const { data, isLoading: isQueryLoading, error, isFetching } = useQuery({
     queryKey,
     queryFn: fetchHistory,
-    enabled: publicKey !== null && poolsReady,
+    enabled: publicKey !== null && pool !== null,
     staleTime: 30000,
     refetchOnWindowFocus: false,
     placeholderData: (previousData) => previousData,

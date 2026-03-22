@@ -51,6 +51,156 @@ export interface LastSettledEpochData {
 }
 
 /**
+ * Parse an already-fetched epoch account into settlement data.
+ * Used by batch-fetch utilities and tryFetchSettledEpoch.
+ *
+ * @param epochAccount - Deserialized Anchor epoch account
+ * @param poolPda - Pool PDA
+ * @param epochId - Epoch ID
+ * @param epochPda - Epoch PDA
+ * @returns LastSettledEpochData if epoch is settled/refunded, null otherwise
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function parseSettledEpochAccount(
+  epochAccount: any,
+  poolPda: PublicKey,
+  epochId: bigint,
+  epochPda: PublicKey
+): LastSettledEpochData | null {
+  const state = parseEpochState(epochAccount.state)
+
+  // Only return data if epoch is settled or refunded
+  if (state !== EpochState.Settled && state !== EpochState.Refunded) {
+    return null
+  }
+
+  // Handle force-closed epochs that have no settlement data.
+  // admin_force_close_epoch sets state=Refunded but leaves outcome,
+  // settlementPrice, settlementConfidence, settlementPublishTime as None.
+  const outcome = parseOutcome(epochAccount.outcome)
+  const hasSettlementData =
+    outcome !== null &&
+    epochAccount.settlementPrice != null &&
+    epochAccount.settlementConfidence != null &&
+    epochAccount.settlementPublishTime != null
+
+  if (state === EpochState.Refunded && !hasSettlementData) {
+    const startPrice = BigInt(epochAccount.startPrice.toString())
+    const startConfidence = BigInt(epochAccount.startConfidence.toString())
+
+    const rawEpochData: EpochData = {
+      pool: poolPda,
+      epochId,
+      state,
+      startTime: epochAccount.startTime?.toNumber() ?? 0,
+      endTime: epochAccount.endTime?.toNumber() ?? 0,
+      freezeTime: epochAccount.freezeTime?.toNumber() ?? 0,
+      startPrice,
+      startConfidence,
+      startPublishTime: epochAccount.startPublishTime.toNumber(),
+      settlementPrice: null,
+      settlementConfidence: null,
+      settlementPublishTime: null,
+      outcome: Outcome.Refunded,
+      yesTotalAtSettlement: null,
+      noTotalAtSettlement: null,
+      bump: epochAccount.bump ?? 0,
+    }
+
+    return {
+      epochId,
+      epochPda,
+      state,
+      outcome: Outcome.Refunded,
+      startPrice: scalePrice(startPrice),
+      startConfidencePercent: formatConfidencePercent(startConfidence, startPrice),
+      startPublishTime: epochAccount.startPublishTime.toNumber(),
+      settlementPrice: 0,
+      settlementConfidencePercent: '0%',
+      settlementPublishTime: 0,
+      priceDelta: 0,
+      priceDeltaPercent: '+0.00%',
+      startConfidenceRaw: startConfidence,
+      settlementConfidenceRaw: BigInt(0),
+      yesTotalAtSettlement: null,
+      noTotalAtSettlement: null,
+      rawEpochData,
+    }
+  }
+
+  // Normal settled/refunded epoch — requires settlement data
+  if (!outcome) return null
+
+  const settlementPrice = epochAccount.settlementPrice
+    ? BigInt(epochAccount.settlementPrice.toString())
+    : null
+  const settlementConfidence = epochAccount.settlementConfidence
+    ? BigInt(epochAccount.settlementConfidence.toString())
+    : null
+  const settlementPublishTime = epochAccount.settlementPublishTime?.toNumber() ?? null
+
+  if (settlementPrice === null || settlementConfidence === null || settlementPublishTime === null) {
+    return null
+  }
+
+  const startPrice = BigInt(epochAccount.startPrice.toString())
+  const startConfidence = BigInt(epochAccount.startConfidence.toString())
+
+  const yesTotalAtSettlement = epochAccount.yesTotalAtSettlement
+    ? BigInt(epochAccount.yesTotalAtSettlement.toString())
+    : null
+  const noTotalAtSettlement = epochAccount.noTotalAtSettlement
+    ? BigInt(epochAccount.noTotalAtSettlement.toString())
+    : null
+
+  const startPriceUsd = scalePrice(startPrice)
+  const settlementPriceUsd = scalePrice(settlementPrice)
+  const priceDelta = settlementPriceUsd - startPriceUsd
+  const deltaPercent = (priceDelta / startPriceUsd) * 100
+  const sign = deltaPercent >= 0 ? '+' : ''
+
+  // Build full EpochData for ClaimButton
+  const rawEpochData: EpochData = {
+    pool: poolPda,
+    epochId,
+    state,
+    startTime: epochAccount.startTime?.toNumber() ?? 0,
+    endTime: epochAccount.endTime?.toNumber() ?? 0,
+    freezeTime: epochAccount.freezeTime?.toNumber() ?? 0,
+    startPrice,
+    startConfidence,
+    startPublishTime: epochAccount.startPublishTime.toNumber(),
+    settlementPrice,
+    settlementConfidence,
+    settlementPublishTime,
+    outcome,
+    yesTotalAtSettlement,
+    noTotalAtSettlement,
+    bump: epochAccount.bump ?? 0,
+  }
+
+  return {
+    epochId,
+    epochPda,
+    state,
+    outcome,
+    startPrice: startPriceUsd,
+    startConfidencePercent: formatConfidencePercent(startConfidence, startPrice),
+    startPublishTime: epochAccount.startPublishTime.toNumber(),
+    settlementPrice: settlementPriceUsd,
+    settlementConfidencePercent: formatConfidencePercent(settlementConfidence, settlementPrice),
+    settlementPublishTime,
+    priceDelta,
+    priceDeltaPercent: `${sign}${deltaPercent.toFixed(2)}%`,
+    startConfidenceRaw: startConfidence,
+    settlementConfidenceRaw: settlementConfidence,
+    yesTotalAtSettlement,
+    noTotalAtSettlement,
+    rawEpochData,
+  }
+}
+
+/**
  * Try to fetch and parse a single epoch as settlement data.
  * Shared between useLastSettledEpoch and useSettlementHistory.
  *
@@ -70,137 +220,7 @@ export async function tryFetchSettledEpoch(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const epochAccount = await (program.account as any).epoch.fetch(epochPda)
 
-    const state = parseEpochState(epochAccount.state)
-
-    // Only return data if epoch is settled or refunded
-    if (state !== EpochState.Settled && state !== EpochState.Refunded) {
-      return null
-    }
-
-    // Handle force-closed epochs that have no settlement data.
-    // admin_force_close_epoch sets state=Refunded but leaves outcome,
-    // settlementPrice, settlementConfidence, settlementPublishTime as None.
-    const outcome = parseOutcome(epochAccount.outcome)
-    const hasSettlementData =
-      outcome !== null &&
-      epochAccount.settlementPrice != null &&
-      epochAccount.settlementConfidence != null &&
-      epochAccount.settlementPublishTime != null
-
-    if (state === EpochState.Refunded && !hasSettlementData) {
-      const startPrice = BigInt(epochAccount.startPrice.toString())
-      const startConfidence = BigInt(epochAccount.startConfidence.toString())
-
-      const rawEpochData: EpochData = {
-        pool: poolPda,
-        epochId,
-        state,
-        startTime: epochAccount.startTime?.toNumber() ?? 0,
-        endTime: epochAccount.endTime?.toNumber() ?? 0,
-        freezeTime: epochAccount.freezeTime?.toNumber() ?? 0,
-        startPrice,
-        startConfidence,
-        startPublishTime: epochAccount.startPublishTime.toNumber(),
-        settlementPrice: null,
-        settlementConfidence: null,
-        settlementPublishTime: null,
-        outcome: Outcome.Refunded,
-        yesTotalAtSettlement: null,
-        noTotalAtSettlement: null,
-        bump: epochAccount.bump ?? 0,
-      }
-
-      return {
-        epochId,
-        epochPda,
-        state,
-        outcome: Outcome.Refunded,
-        startPrice: scalePrice(startPrice),
-        startConfidencePercent: formatConfidencePercent(startConfidence, startPrice),
-        startPublishTime: epochAccount.startPublishTime.toNumber(),
-        settlementPrice: 0,
-        settlementConfidencePercent: '0%',
-        settlementPublishTime: 0,
-        priceDelta: 0,
-        priceDeltaPercent: '+0.00%',
-        startConfidenceRaw: startConfidence,
-        settlementConfidenceRaw: BigInt(0),
-        yesTotalAtSettlement: null,
-        noTotalAtSettlement: null,
-        rawEpochData,
-      }
-    }
-
-    // Normal settled/refunded epoch — requires settlement data
-    if (!outcome) return null
-
-    const settlementPrice = epochAccount.settlementPrice
-      ? BigInt(epochAccount.settlementPrice.toString())
-      : null
-    const settlementConfidence = epochAccount.settlementConfidence
-      ? BigInt(epochAccount.settlementConfidence.toString())
-      : null
-    const settlementPublishTime = epochAccount.settlementPublishTime?.toNumber() ?? null
-
-    if (settlementPrice === null || settlementConfidence === null || settlementPublishTime === null) {
-      return null
-    }
-
-    const startPrice = BigInt(epochAccount.startPrice.toString())
-    const startConfidence = BigInt(epochAccount.startConfidence.toString())
-
-    const yesTotalAtSettlement = epochAccount.yesTotalAtSettlement
-      ? BigInt(epochAccount.yesTotalAtSettlement.toString())
-      : null
-    const noTotalAtSettlement = epochAccount.noTotalAtSettlement
-      ? BigInt(epochAccount.noTotalAtSettlement.toString())
-      : null
-
-    const startPriceUsd = scalePrice(startPrice)
-    const settlementPriceUsd = scalePrice(settlementPrice)
-    const priceDelta = settlementPriceUsd - startPriceUsd
-    const deltaPercent = (priceDelta / startPriceUsd) * 100
-    const sign = deltaPercent >= 0 ? '+' : ''
-
-    // Build full EpochData for ClaimButton
-    const rawEpochData: EpochData = {
-      pool: poolPda,
-      epochId,
-      state,
-      startTime: epochAccount.startTime?.toNumber() ?? 0,
-      endTime: epochAccount.endTime?.toNumber() ?? 0,
-      freezeTime: epochAccount.freezeTime?.toNumber() ?? 0,
-      startPrice,
-      startConfidence,
-      startPublishTime: epochAccount.startPublishTime.toNumber(),
-      settlementPrice,
-      settlementConfidence,
-      settlementPublishTime,
-      outcome,
-      yesTotalAtSettlement,
-      noTotalAtSettlement,
-      bump: epochAccount.bump ?? 0,
-    }
-
-    return {
-      epochId,
-      epochPda,
-      state,
-      outcome,
-      startPrice: startPriceUsd,
-      startConfidencePercent: formatConfidencePercent(startConfidence, startPrice),
-      startPublishTime: epochAccount.startPublishTime.toNumber(),
-      settlementPrice: settlementPriceUsd,
-      settlementConfidencePercent: formatConfidencePercent(settlementConfidence, settlementPrice),
-      settlementPublishTime,
-      priceDelta,
-      priceDeltaPercent: `${sign}${deltaPercent.toFixed(2)}%`,
-      startConfidenceRaw: startConfidence,
-      settlementConfidenceRaw: settlementConfidence,
-      yesTotalAtSettlement,
-      noTotalAtSettlement,
-      rawEpochData,
-    }
+    return parseSettledEpochAccount(epochAccount, poolPda, epochId, epochPda)
   } catch {
     return null
   }

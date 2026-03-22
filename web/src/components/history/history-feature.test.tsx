@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 
 import { HistoryFeature } from './history-feature'
 
@@ -14,16 +14,6 @@ jest.mock('next/navigation', () => ({
 // Mock utils
 jest.mock('@/lib/utils', () => ({
   cn: (...args: (string | boolean | undefined)[]) => args.filter(Boolean).join(' '),
-}))
-
-jest.mock('@/lib/constants', () => ({
-  ASSETS: ['BTC', 'ETH', 'SOL', 'FOGO'],
-  ASSET_METADATA: {
-    BTC: { label: 'BTC', color: 'text-orange-500' },
-    ETH: { label: 'ETH', color: 'text-blue-500' },
-    SOL: { label: 'SOL', color: 'text-purple-500' },
-    FOGO: { label: 'FOGO', color: 'text-primary' },
-  },
 }))
 
 // Mock stores
@@ -77,11 +67,15 @@ describe('HistoryFeature', () => {
     expect(screen.getByTestId('trades-tab')).toHaveTextContent('My Trades')
   })
 
-  it('renders Settlement History tab content with AssetTabs and list', () => {
+  it('renders AssetTabs for asset selection', () => {
+    render(<HistoryFeature />)
+    expect(screen.getByTestId('asset-tabs')).toBeInTheDocument()
+  })
+
+  it('renders Settlement History tab content with list', () => {
     render(<HistoryFeature />)
     const settlementContent = screen.getByTestId('tab-content-settlement')
     expect(settlementContent).toBeInTheDocument()
-    expect(screen.getByTestId('asset-tabs')).toBeInTheDocument()
     expect(screen.getByTestId('settlement-history-list')).toBeInTheDocument()
   })
 
@@ -92,15 +86,10 @@ describe('HistoryFeature', () => {
     expect(screen.getByTestId('trading-history-list')).toBeInTheDocument()
   })
 
-  it('renders All asset filter tab for trading history', () => {
-    render(<HistoryFeature />)
-    expect(screen.getByText('All')).toBeInTheDocument()
-  })
-
-  it('renders trading history list with default ALL filter', () => {
+  it('renders trading history list with active asset filter', () => {
     render(<HistoryFeature />)
     const list = screen.getByTestId('trading-history-list')
-    expect(list).toHaveAttribute('data-filter', 'ALL')
+    expect(list).toHaveAttribute('data-filter', 'BTC')
   })
 
   it('defaults to settlement tab when no query param', () => {

@@ -15,7 +15,7 @@ import { TradingHistoryRow } from './trading-history-row'
 import { TradingStatsBar } from './trading-stats-bar'
 
 interface TradingHistoryListProps {
-  assetFilter: Asset | 'ALL'
+  assetFilter: Asset
   className?: string
 }
 

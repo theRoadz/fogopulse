@@ -181,7 +181,7 @@ describe('TradingHistoryList', () => {
       isFetchingMore: false,
     })
 
-    render(<TradingHistoryList assetFilter="ALL" />)
+    render(<TradingHistoryList assetFilter="BTC" />)
 
     expect(screen.getByText('Connect wallet to view your trading history')).toBeInTheDocument()
     expect(screen.getByTestId('wallet-button')).toBeInTheDocument()
@@ -198,7 +198,7 @@ describe('TradingHistoryList', () => {
       isFetchingMore: false,
     })
 
-    render(<TradingHistoryList assetFilter="ALL" />)
+    render(<TradingHistoryList assetFilter="BTC" />)
 
     expect(screen.getByTestId('trading-history-skeleton')).toBeInTheDocument()
   })
@@ -214,7 +214,7 @@ describe('TradingHistoryList', () => {
       isFetchingMore: false,
     })
 
-    render(<TradingHistoryList assetFilter="ALL" />)
+    render(<TradingHistoryList assetFilter="BTC" />)
 
     expect(screen.getByText('Your trade history will appear here')).toBeInTheDocument()
   })
@@ -230,7 +230,7 @@ describe('TradingHistoryList', () => {
       isFetchingMore: false,
     })
 
-    render(<TradingHistoryList assetFilter="ALL" />)
+    render(<TradingHistoryList assetFilter="BTC" />)
 
     const rows = screen.getAllByTestId('trading-history-row')
     expect(rows).toHaveLength(2)
@@ -249,7 +249,7 @@ describe('TradingHistoryList', () => {
       isFetchingMore: false,
     })
 
-    render(<TradingHistoryList assetFilter="ALL" />)
+    render(<TradingHistoryList assetFilter="BTC" />)
 
     const loadMoreBtn = screen.getByTestId('load-more-button')
     expect(loadMoreBtn).toHaveTextContent('Load more')

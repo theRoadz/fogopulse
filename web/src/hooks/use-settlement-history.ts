@@ -7,8 +7,8 @@ import type { Asset } from '@/types/assets'
 import { usePool } from './use-pool'
 import { POOL_PDAS, QUERY_KEYS } from '@/lib/constants'
 import { useProgram } from '@/hooks/use-program'
-import { tryFetchSettledEpoch } from '@/lib/epoch-utils'
 import type { LastSettledEpochData } from '@/lib/epoch-utils'
+import { batchFetchEpochs } from '@/lib/batch-fetch'
 
 const BATCH_SIZE = 10
 
@@ -29,7 +29,7 @@ interface UseSettlementHistoryResult {
 
 /**
  * Hook to fetch settlement history for an asset.
- * Walks backwards through epoch IDs to find settled/refunded epochs.
+ * Uses batch RPC calls via fetchMultiple for fast loading.
  *
  * @param asset - The asset to get settlement history for
  * @param limit - Maximum number of epochs per batch (default 10)
@@ -52,43 +52,28 @@ export function useSettlementHistory(asset: Asset, limit: number = BATCH_SIZE): 
 
   const totalLimit = limit * batchCount
 
-  // Fetch settled epochs walking backwards from nextEpochId.
-  // Uses tryFetchSettledEpoch directly to avoid double-fetching each epoch.
-  // Tracks consecutive nulls to detect when we've passed all existing epochs.
+  // Batch-fetch all settled epochs in 1-2 RPC calls
   const fetchSettledEpochs = useCallback(async (): Promise<{
     epochs: LastSettledEpochData[]
     hasMore: boolean
   }> => {
     if (nextEpochId === null) return { epochs: [], hasMore: false }
 
-    const settled: LastSettledEpochData[] = []
-    let currentId = nextEpochId - BigInt(1)
-    // At most ~2 consecutive non-settled epochs should exist (active + settling).
-    // If we see more consecutive nulls than that, we've hit non-existent accounts.
-    let consecutiveNulls = 0
-    const MAX_CONSECUTIVE_NULLS = 3
+    // Fetch recent epochs only — enough to fill the requested page
+    const searchDepth = BigInt(Math.max(totalLimit * 2, 20))
+    const fromId = nextEpochId - 1n - searchDepth < 0n ? 0n : nextEpochId - 1n - searchDepth
 
-    // Walk backwards through epoch IDs
-    while (currentId >= BigInt(0) && settled.length < totalLimit) {
-      const result = await tryFetchSettledEpoch(program, poolPda, currentId)
-      if (result) {
-        settled.push(result)
-        consecutiveNulls = 0
-      } else {
-        consecutiveNulls++
-        if (consecutiveNulls >= MAX_CONSECUTIVE_NULLS) {
-          // Likely reached non-existent accounts — stop searching
-          return { epochs: settled, hasMore: false }
-        }
-      }
+    const settled = await batchFetchEpochs(program, poolPda, fromId, nextEpochId - 1n)
 
-      currentId = currentId - BigInt(1)
+    // batchFetchEpochs returns ascending order — reverse for newest-first
+    settled.reverse()
+
+    // Apply pagination
+    const hasMore = settled.length > totalLimit
+    return {
+      epochs: settled.slice(0, totalLimit),
+      hasMore,
     }
-
-    // If we hit the limit and haven't exhausted all epochs, there might be more
-    const hasMore = currentId >= BigInt(0) && settled.length >= totalLimit
-
-    return { epochs: settled, hasMore }
   }, [nextEpochId, program, poolPda, totalLimit])
 
   // TanStack Query
