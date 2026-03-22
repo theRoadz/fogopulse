@@ -129,7 +129,7 @@ export function SettlementHistoryRow({
       <CollapsibleTrigger asChild>
         <button
           className={cn(
-            'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-muted/50',
+            'flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm transition-colors hover:bg-muted/50',
             isOpen && 'bg-muted/30',
             className
           )}
@@ -137,9 +137,9 @@ export function SettlementHistoryRow({
         >
           {/* Expand icon */}
           {isOpen ? (
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
           ) : (
-            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
           )}
 
           {/* Epoch ID */}
@@ -151,7 +151,7 @@ export function SettlementHistoryRow({
           <Badge
             variant="outline"
             className={cn(
-              'shrink-0 px-1.5 py-0.5 text-[10px] font-semibold',
+              'shrink-0 px-2 py-0.5 text-xs font-semibold',
               outcomeStyle.bgClass,
               outcomeStyle.textClass,
               outcomeStyle.borderClass
@@ -203,7 +203,7 @@ export function SettlementHistoryRow({
         </button>
       </CollapsibleTrigger>
 
-      <CollapsibleContent className="px-2 pb-2 pt-1">
+      <CollapsibleContent className="px-3 pb-3 pt-1">
         <SettlementStatusPanel
           asset={asset}
           settlementData={settlement}

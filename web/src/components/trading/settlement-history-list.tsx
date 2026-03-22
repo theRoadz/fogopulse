@@ -82,19 +82,9 @@ export function SettlementHistoryList({ asset, className }: SettlementHistoryLis
   // Populated state
   return (
     <div className={cn('w-full', className)} data-testid="settlement-history-list">
-      {/* Column headers */}
-      <div className="flex items-center gap-2 px-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-        <span className="w-3.5" /> {/* Expand icon spacer */}
-        <span className="w-16">Epoch</span>
-        <span className="w-16">Outcome</span>
-        <span className="hidden sm:inline">Price Range</span>
-        <span>Change</span>
-        <span className="ml-auto">Time</span>
-        {connected && <span className="ml-2">Position</span>}
-      </div>
 
-      <ScrollArea className="max-h-[400px]">
-        <div className="space-y-0.5">
+      <ScrollArea className="max-h-[600px]">
+        <div className="space-y-1">
           {history.map((settlement) => {
             const epochKey = settlement.epochPda.toBase58()
             // Check both directions — show a row for each existing position

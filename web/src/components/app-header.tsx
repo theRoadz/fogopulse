@@ -20,8 +20,8 @@ import { useIsAdmin } from '@/hooks/use-is-admin'
 
 const overflowLinks = [
   { label: 'Balance', href: '/account' },
-  { label: 'Settlement History', href: '/history?tab=settlement' },
-  { label: 'My Trades', href: '/history?tab=trades' },
+  { label: 'Trade History', href: '/trades' },
+  { label: 'Settlement History', href: '/settlements' },
 ]
 
 const utilityLinks = [
@@ -190,7 +190,7 @@ export function AppHeader() {
                   {overflowLinks.map(({ label, href }) => (
                     <li key={href}>
                       <Link
-                        className="hover:text-neutral-500 dark:hover:text-white block text-lg py-2"
+                        className={`hover:text-neutral-500 dark:hover:text-white block text-lg py-2 ${isActive(href) ? 'text-neutral-500 dark:text-white' : ''}`}
                         href={href}
                         onClick={() => setShowMenu(false)}
                       >

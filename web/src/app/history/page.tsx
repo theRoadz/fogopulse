@@ -1,13 +1,13 @@
-import type { Metadata } from 'next'
-import { Suspense } from 'react'
-import { HistoryFeature } from '@/components/history/history-feature'
+import { redirect } from 'next/navigation'
 
-export const metadata: Metadata = {
-  title: 'History | FOGO Pulse',
-}
-
-export const dynamic = 'force-dynamic'
-
-export default function Page() {
-  return <HistoryFeature />
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>
+}) {
+  const params = await searchParams
+  if (params.tab === 'trades') {
+    redirect('/trades')
+  }
+  redirect('/settlements')
 }

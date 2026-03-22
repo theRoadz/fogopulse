@@ -59,6 +59,7 @@ jest.mock('@/hooks/use-settlement-history', () => ({
 
 jest.mock('@/hooks/use-user-positions-batch', () => ({
   useUserPositionsBatch: (...args: unknown[]) => mockUseUserPositionsBatch(...args),
+  positionKey: (epochKey: string, direction: string) => `${epochKey}-${direction}`,
 }))
 
 jest.mock('@/hooks', () => ({
@@ -183,23 +184,6 @@ describe('SettlementHistoryList', () => {
       expect(rows[2]).toHaveTextContent('Epoch #40')
     })
 
-    it('should show column headers', () => {
-      mockUseSettlementHistory.mockReturnValue({
-        history: [createMockSettlement(42)],
-        isLoading: false,
-        error: null,
-        hasMore: false,
-        fetchMore: jest.fn(),
-        isFetchingMore: false,
-      })
-
-      render(<SettlementHistoryList asset="BTC" />)
-
-      expect(screen.getByText('Epoch')).toBeInTheDocument()
-      expect(screen.getByText('Outcome')).toBeInTheDocument()
-      expect(screen.getByText('Change')).toBeInTheDocument()
-      expect(screen.getByText('Time')).toBeInTheDocument()
-    })
   })
 
   describe('load more', () => {
@@ -267,39 +251,6 @@ describe('SettlementHistoryList', () => {
     })
   })
 
-  describe('wallet connection', () => {
-    it('should show Position column when wallet is connected', () => {
-      mockUseWalletConnection.mockReturnValue({ connected: true })
-      mockUseSettlementHistory.mockReturnValue({
-        history: [createMockSettlement(42)],
-        isLoading: false,
-        error: null,
-        hasMore: false,
-        fetchMore: jest.fn(),
-        isFetchingMore: false,
-      })
-
-      render(<SettlementHistoryList asset="BTC" />)
-
-      expect(screen.getByText('Position')).toBeInTheDocument()
-    })
-
-    it('should not show Position column when wallet is not connected', () => {
-      mockUseWalletConnection.mockReturnValue({ connected: false })
-      mockUseSettlementHistory.mockReturnValue({
-        history: [createMockSettlement(42)],
-        isLoading: false,
-        error: null,
-        hasMore: false,
-        fetchMore: jest.fn(),
-        isFetchingMore: false,
-      })
-
-      render(<SettlementHistoryList asset="BTC" />)
-
-      expect(screen.queryByText('Position')).not.toBeInTheDocument()
-    })
-  })
 
   it('should have data-testid attribute', () => {
     mockUseSettlementHistory.mockReturnValue({
