@@ -62,5 +62,8 @@ _bmad/
 .claude/
 .gemini/
 
+# Trade bot wallets (contain private keys)
+crank-bot/trade-bot-wallets/
+
 # Scratch / no-commit
 z_no_git/
