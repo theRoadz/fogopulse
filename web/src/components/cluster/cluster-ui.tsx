@@ -7,7 +7,6 @@ import * as React from 'react'
 import { ReactNode } from 'react'
 
 import { useCluster } from './cluster-data-access'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { AppAlert } from '@/components/app-alert'
 
@@ -54,19 +53,10 @@ export function ClusterChecker({ children }: { children: ReactNode }) {
 }
 
 export function ClusterUiSelect() {
-  const { clusters, setCluster, cluster } = useCluster()
+  const { cluster } = useCluster()
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline">{cluster.name}</Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {clusters.map((item) => (
-          <DropdownMenuItem key={item.name} onClick={() => setCluster(item)}>
-            {item.name}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Button variant="outline" className="cursor-default pointer-events-none">
+      {cluster.name}
+    </Button>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { clusterApiUrl, Connection } from '@solana/web3.js'
+import { Connection } from '@solana/web3.js'
 import { atom, useAtomValue, useSetAtom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import { createContext, ReactNode, useContext } from 'react'
@@ -27,12 +27,6 @@ export const defaultClusters: SolanaCluster[] = [
     endpoint: 'https://testnet.fogo.io',
     network: ClusterNetwork.Custom,
   },
-  {
-    name: 'devnet',
-    endpoint: clusterApiUrl('devnet'),
-    network: ClusterNetwork.Devnet,
-  },
-  { name: 'local', endpoint: 'http://localhost:8899' },
 ]
 
 const clusterAtom = atomWithStorage<SolanaCluster>('solana-cluster', defaultClusters[0])
