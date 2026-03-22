@@ -75,7 +75,6 @@ export function useLastSettledEpoch(asset: Asset): UseLastSettledEpochResult {
     enabled: nextEpochId !== null,
     staleTime: 5000,
     refetchOnWindowFocus: true,
-    placeholderData: (previousData: LastSettledEpochData | null | undefined) => previousData,
   })
 
   return {

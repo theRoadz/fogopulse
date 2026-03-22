@@ -130,6 +130,12 @@ export function EpochStatusDisplay({ asset, className }: EpochStatusDisplayProps
 
   // Freeze the delta price when the countdown timer reaches 0
   const frozenPriceRef = useRef<number | null>(null)
+
+  // Reset local state when switching markets
+  useEffect(() => {
+    setIsLastSettlementOpen(false)
+    frozenPriceRef.current = null
+  }, [asset])
   useEffect(() => {
     if (epochState.timeRemaining > 0) {
       frozenPriceRef.current = pythPrice?.price ?? null

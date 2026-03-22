@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useCallback, useState } from 'react'
+import { useMemo, useCallback, useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { PublicKey } from '@solana/web3.js'
 import { useWallet } from '@solana/wallet-adapter-react'
@@ -255,6 +255,12 @@ export function useTradingHistory(
   const poolPda = POOL_PDAS[asset]
 
   const [batchCount, setBatchCount] = useState(1)
+
+  // Reset pagination when switching assets
+  useEffect(() => {
+    setBatchCount(1)
+  }, [asset])
+
   const totalLimit = limit * batchCount
 
   const queryKey = useMemo(
@@ -288,7 +294,6 @@ export function useTradingHistory(
     enabled: publicKey !== null && pool !== null,
     staleTime: 30000,
     refetchOnWindowFocus: false,
-    placeholderData: (previousData) => previousData,
   })
 
   const fetchMore = useCallback(() => {

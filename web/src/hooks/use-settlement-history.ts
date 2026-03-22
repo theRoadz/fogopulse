@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useCallback, useState } from 'react'
+import { useMemo, useCallback, useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import type { Asset } from '@/types/assets'
@@ -43,6 +43,11 @@ export function useSettlementHistory(asset: Asset, limit: number = BATCH_SIZE): 
 
   // Track how many batches have been loaded (state triggers re-render + query refetch)
   const [batchCount, setBatchCount] = useState(1)
+
+  // Reset pagination when switching assets
+  useEffect(() => {
+    setBatchCount(1)
+  }, [asset])
 
   // Calculate the nextEpochId from pool (used as search starting point)
   const nextEpochId = useMemo(() => {
@@ -88,7 +93,6 @@ export function useSettlementHistory(asset: Asset, limit: number = BATCH_SIZE): 
     enabled: nextEpochId !== null,
     staleTime: 30000,
     refetchOnWindowFocus: false,
-    placeholderData: (previousData) => previousData,
   })
 
   const fetchMore = useCallback(() => {
