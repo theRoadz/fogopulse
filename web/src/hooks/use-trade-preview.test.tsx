@@ -59,6 +59,17 @@ jest.mock('@/hooks/use-user-position', () => ({
   }),
 }))
 
+// Mock useGlobalConfig to avoid needing full QUERY_KEYS and program setup
+jest.mock('@/hooks/use-global-config', () => ({
+  useGlobalConfig: () => ({
+    config: null,
+    isLoading: false,
+    error: null,
+    isRealtimeConnected: false,
+    refetch: jest.fn(),
+  }),
+}))
+
 // Mock constants
 jest.mock('@/lib/constants', () => ({
   POOL_PDAS: {
@@ -69,6 +80,9 @@ jest.mock('@/lib/constants', () => ({
   },
   FOGO_TESTNET_RPC: 'https://testnet.fogo.io',
   TRADING_FEE_BPS: 180,
+  LP_FEE_SHARE_BPS: 7000,
+  TREASURY_FEE_SHARE_BPS: 2000,
+  INSURANCE_FEE_SHARE_BPS: 1000,
   USDC_DECIMALS: 6,
   PER_WALLET_CAP_BPS: 500,
   PER_SIDE_CAP_BPS: 3000,
@@ -244,10 +258,11 @@ describe('useTradePreview', () => {
         expect(result.current.direction).toBe('up')
         expect(result.current.amount).toBe(100)
 
-        // shares = 100 * 500 / 500 = 100 (1:1 in balanced pool)
-        expect(result.current.sharesDisplay).toBeCloseTo(100, 1)
+        // Shares are calculated on NET amount (after 1.8% fee):
+        // net = 100 - 1.8 = 98.2 USDC → shares = 98.2 * 500 / 500 = 98.2 (1:1 in balanced pool)
+        expect(result.current.sharesDisplay).toBeCloseTo(98.2, 1)
 
-        // Entry price should be ~$1 per share
+        // Entry price = netAmount / shares ≈ 1.0 per share
         expect(result.current.entryPrice).toBeCloseTo(1.0, 1)
 
         // Fee = 1.8% of 100 = 1.80
@@ -358,8 +373,9 @@ describe('useTradePreview', () => {
       rerender()
 
       if (result.current) {
-        // First trade on DOWN side - 1:1 shares
-        expect(result.current.sharesDisplay).toBeCloseTo(100, 1)
+        // First trade on DOWN side - 1:1 shares (on net amount after 1.8% fee)
+        // net = 100 - 1.8 = 98.2 → shares = 98.2 (1:1)
+        expect(result.current.sharesDisplay).toBeCloseTo(98.2, 1)
         expect(result.current.entryPrice).toBeCloseTo(1.0, 1)
         expect(result.current.slippage).toBe(0) // No slippage for first trade
       }

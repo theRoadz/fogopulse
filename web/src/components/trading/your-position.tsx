@@ -11,6 +11,9 @@ import type { EpochData } from '@/types/epoch'
 import type { PoolData } from '@/types/pool'
 import { ASSET_METADATA } from '@/lib/constants'
 import { calculateSellReturn } from '@/lib/trade-preview'
+import type { FeeConfig } from '@/lib/trade-preview'
+
+import { useGlobalConfig } from '@/hooks/use-global-config'
 import { useEpoch } from '@/hooks/use-epoch'
 import { usePool } from '@/hooks/use-pool'
 import { useUserPosition } from '@/hooks/use-user-position'
@@ -48,6 +51,8 @@ function PositionCard({
   pool,
   isEpochOpen,
   isFrozen,
+  initialSellOpen,
+  onSellOpened,
 }: {
   asset: Asset
   position: UserPositionData
@@ -56,29 +61,47 @@ function PositionCard({
   pool: PoolData | null
   isEpochOpen: boolean
   isFrozen: boolean
+  initialSellOpen?: boolean
+  onSellOpened?: () => void
 }) {
   const { publicKey } = useWallet()
   const { claimState, displayAmount } = useClaimableAmount(epoch, position)
   const sellMutation = useSellPosition()
   const claimMutation = useClaimPosition()
   const [showSellDialog, setShowSellDialog] = useState(false)
+  const { config: globalConfig } = useGlobalConfig()
+
+  // Open sell dialog when triggered from left panel
+  useEffect(() => {
+    if (initialSellOpen) {
+      setShowSellDialog(true)
+      onSellOpened?.()
+    }
+  }, [initialSellOpen, onSellOpened])
 
   const direction = position.direction
   const isUp = direction === 'up'
   const isFullySold = position.shares === 0n
 
   const sellReturn = useMemo(
-    () =>
-      pool && position.shares > 0n
-        ? calculateSellReturn(
-            position.shares,
-            position.amount,
-            position.direction,
-            pool.yesReserves,
-            pool.noReserves
-          )
-        : null,
-    [position.shares, position.amount, position.direction, pool?.yesReserves, pool?.noReserves]
+    () => {
+      if (!pool || position.shares <= 0n) return null
+      const cfg: FeeConfig | undefined = globalConfig ? {
+        tradingFeeBps: globalConfig.tradingFeeBps,
+        lpFeeShareBps: globalConfig.lpFeeShareBps,
+        treasuryFeeShareBps: globalConfig.treasuryFeeShareBps,
+        insuranceFeeShareBps: globalConfig.insuranceFeeShareBps,
+      } : undefined
+      return calculateSellReturn(
+        position.shares,
+        position.amount,
+        position.direction,
+        pool.yesReserves,
+        pool.noReserves,
+        cfg
+      )
+    },
+    [position.shares, position.amount, position.direction, pool?.yesReserves, pool?.noReserves, globalConfig]
   )
 
   async function handleSellConfirm() {
@@ -289,8 +312,10 @@ export function YourPosition({ asset, className }: YourPositionProps) {
 
   // Listen for sell trigger from multi-asset panel (open sell for first position)
   const pendingSellAsset = useUIStore((s) => s.pendingSellAsset)
+  const [pendingSellOpen, setPendingSellOpen] = useState(false)
   useEffect(() => {
     if (pendingSellAsset === asset && activePositions.length > 0) {
+      setPendingSellOpen(true)
       useUIStore.setState({ pendingSellAsset: null })
     }
   }, [pendingSellAsset, asset, activePositions])
@@ -316,7 +341,7 @@ export function YourPosition({ asset, className }: YourPositionProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {activePositions.map((pos) => (
+        {activePositions.map((pos, index) => (
           <PositionCard
             key={pos.direction}
             asset={asset}
@@ -326,6 +351,8 @@ export function YourPosition({ asset, className }: YourPositionProps) {
             pool={pool}
             isEpochOpen={isEpochOpen}
             isFrozen={epochState.isFrozen}
+            initialSellOpen={index === 0 ? pendingSellOpen : false}
+            onSellOpened={() => setPendingSellOpen(false)}
           />
         ))}
       </CardContent>

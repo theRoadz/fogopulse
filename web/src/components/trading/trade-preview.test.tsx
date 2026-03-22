@@ -59,6 +59,17 @@ jest.mock('@/hooks/use-user-position', () => ({
   }),
 }))
 
+// Mock useGlobalConfig
+jest.mock('@/hooks/use-global-config', () => ({
+  useGlobalConfig: () => ({
+    config: null,
+    isLoading: false,
+    error: null,
+    isRealtimeConnected: false,
+    refetch: jest.fn(),
+  }),
+}))
+
 // Mock constants
 jest.mock('@/lib/constants', () => ({
   POOL_PDAS: {
@@ -69,6 +80,9 @@ jest.mock('@/lib/constants', () => ({
   },
   FOGO_TESTNET_RPC: 'https://testnet.fogo.io',
   TRADING_FEE_BPS: 180,
+  LP_FEE_SHARE_BPS: 7000,
+  TREASURY_FEE_SHARE_BPS: 2000,
+  INSURANCE_FEE_SHARE_BPS: 1000,
   PER_WALLET_CAP_BPS: 500,
   PER_SIDE_CAP_BPS: 3000,
   USDC_DECIMALS: 6,

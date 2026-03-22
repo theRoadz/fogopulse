@@ -41,7 +41,9 @@ export const ASSET_MINTS = {
 } as const
 
 // =============================================================================
-// TRADING CONSTANTS (FROM GLOBALCONFIG)
+// TRADING CONSTANTS — fallback defaults from on-chain GlobalConfig
+// Canonical source: GlobalConfig account fetched via useGlobalConfig() hook.
+// These are used as defaults when live config is unavailable.
 // =============================================================================
 
 export const TRADING_FEE_BPS = 180 // 1.8%
@@ -50,7 +52,7 @@ export const PER_SIDE_CAP_BPS = 3000 // 30%
 export const EPOCH_DURATION_SECONDS = 300 // 5 minutes
 export const FREEZE_WINDOW_SECONDS = 15
 // =============================================================================
-// FEE DISTRIBUTION
+// FEE DISTRIBUTION — fallback defaults, see GlobalConfig for canonical values
 // =============================================================================
 
 export const LP_FEE_SHARE_BPS = 7000 // 70%

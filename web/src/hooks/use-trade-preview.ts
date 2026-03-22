@@ -19,6 +19,7 @@ import type { FeeSplit } from '@/lib/trade-preview'
 import { getCapStatus } from '@/lib/cap-utils'
 import type { CapStatus } from '@/lib/cap-utils'
 import { TRADING_FEE_BPS, USDC_DECIMALS } from '@/lib/constants'
+import { useGlobalConfig } from '@/hooks/use-global-config'
 
 // =============================================================================
 // TYPES
@@ -97,6 +98,7 @@ export function useTradePreview(asset: Asset): TradePreviewData | null {
   const { pool, isLoading } = usePool(asset)
   const { direction, amount } = useTradeStore()
   const { position: userPosition } = useUserPosition(pool?.activeEpoch ?? null, direction ?? 'up')
+  const { config: globalConfig } = useGlobalConfig()
 
   return useMemo(() => {
     // Pool is still loading - check first to avoid stale data during refresh
@@ -116,7 +118,13 @@ export function useTradePreview(asset: Asset): TradePreviewData | null {
     }
 
     // Calculate fee split (fees are deducted upfront in the new implementation)
-    const feeSplit = calculateFeeSplit(grossAmount)
+    const feeConfig = globalConfig ? {
+      tradingFeeBps: globalConfig.tradingFeeBps,
+      lpFeeShareBps: globalConfig.lpFeeShareBps,
+      treasuryFeeShareBps: globalConfig.treasuryFeeShareBps,
+      insuranceFeeShareBps: globalConfig.insuranceFeeShareBps,
+    } : undefined
+    const feeSplit = calculateFeeSplit(grossAmount, feeConfig)
 
     // Convert NET amount to lamports (BigInt for precision)
     // Shares are calculated based on net amount after fees
@@ -145,7 +153,7 @@ export function useTradePreview(asset: Asset): TradePreviewData | null {
 
     // Fee is now calculated via feeSplit
     const fee = feeSplit.totalFee
-    const feePercent = TRADING_FEE_BPS / 100
+    const feePercent = (globalConfig?.tradingFeeBps ?? TRADING_FEE_BPS) / 100
 
     // Calculate slippage (using net amount)
     const slippage = calculateSlippage(
@@ -195,6 +203,7 @@ export function useTradePreview(asset: Asset): TradePreviewData | null {
       direction,
       walletCapBps: pool.walletCapBps,
       sideCapBps: pool.sideCapBps,
+      tradingFeeBps: globalConfig?.tradingFeeBps,
     })
 
     const isNearCap = capStatus.hasWarning
@@ -226,5 +235,5 @@ export function useTradePreview(asset: Asset): TradePreviewData | null {
       isNearCap,
       capStatus,
     }
-  }, [pool, direction, amount, isLoading, userPosition])
+  }, [pool, direction, amount, isLoading, userPosition, globalConfig])
 }

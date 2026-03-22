@@ -16,7 +16,7 @@ export interface TradeTicketState {
 /**
  * Minimum trade amount in USDC
  */
-export const MIN_TRADE_AMOUNT = 0.01
+export const MIN_TRADE_AMOUNT = 0.10
 
 /**
  * Maximum trade amount in USDC (mirrors on-chain GlobalConfig.max_trade_amount default)

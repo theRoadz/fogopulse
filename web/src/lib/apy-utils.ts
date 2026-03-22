@@ -119,7 +119,8 @@ export async function calculatePoolApy(
   nextEpochId: bigint,
   currentYesReserves: bigint,
   currentNoReserves: bigint,
-  currentTotalLpShares: bigint
+  currentTotalLpShares: bigint,
+  feeConfig?: { tradingFeeBps?: number; lpFeeShareBps?: number }
 ): Promise<number | null> {
   if (currentTotalLpShares === 0n) return null
   const totalReserves = currentYesReserves + currentNoReserves
@@ -152,8 +153,10 @@ export async function calculatePoolApy(
   if (periodDays < MIN_PERIOD_DAYS) return 0
 
   // Estimate LP fees earned in the window
-  // LP fees = totalVolume * (TRADING_FEE_BPS / 10000) * (LP_FEE_SHARE_BPS / 10000)
-  const lpFees = historical.totalVolume * BigInt(TRADING_FEE_BPS) * BigInt(LP_FEE_SHARE_BPS) / (10000n * 10000n)
+  // LP fees = totalVolume * (tradingFeeBps / 10000) * (lpFeeShareBps / 10000)
+  const tradingFeeBps = feeConfig?.tradingFeeBps ?? TRADING_FEE_BPS
+  const lpFeeShareBps = feeConfig?.lpFeeShareBps ?? LP_FEE_SHARE_BPS
+  const lpFees = historical.totalVolume * BigInt(tradingFeeBps) * BigInt(lpFeeShareBps) / (10000n * 10000n)
 
   // Historical reserves ≈ current reserves - accumulated LP fees
   // Note: This uses currentTotalLpShares as a proxy for historical shares.

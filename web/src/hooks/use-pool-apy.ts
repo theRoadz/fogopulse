@@ -8,6 +8,7 @@ import { usePool } from './use-pool'
 import { useProgram } from './use-program'
 import { POOL_PDAS, QUERY_KEYS } from '@/lib/constants'
 import { calculatePoolApy } from '@/lib/apy-utils'
+import { useGlobalConfig } from '@/hooks/use-global-config'
 
 interface UsePoolApyResult {
   /** APY percentage, 0 if no data, null if zero TVL/shares (display as "—") */
@@ -26,6 +27,7 @@ export function usePoolApy(asset: Asset): UsePoolApyResult {
   const { pool, isLoading: isPoolLoading } = usePool(asset)
   const program = useProgram()
   const poolPda = POOL_PDAS[asset]
+  const { config: globalConfig } = useGlobalConfig()
 
   const fetchApy = useCallback(async (): Promise<number | null> => {
     if (!pool) return null
@@ -37,12 +39,16 @@ export function usePoolApy(asset: Asset): UsePoolApyResult {
       pool.nextEpochId,
       pool.yesReserves,
       pool.noReserves,
-      pool.totalLpShares
+      pool.totalLpShares,
+      globalConfig ? {
+        tradingFeeBps: globalConfig.tradingFeeBps,
+        lpFeeShareBps: globalConfig.lpFeeShareBps,
+      } : undefined
     )
-  }, [program, poolPda, pool])
+  }, [program, poolPda, pool, globalConfig])
 
   const { data, isLoading: isQueryLoading } = useQuery({
-    queryKey: [...QUERY_KEYS.poolApy(asset), pool?.nextEpochId?.toString()],
+    queryKey: [...QUERY_KEYS.poolApy(asset), pool?.nextEpochId?.toString(), globalConfig?.tradingFeeBps, globalConfig?.lpFeeShareBps],
     queryFn: fetchApy,
     enabled: !!pool && pool.totalLpShares > 0n,
     staleTime: 30_000,

@@ -16,6 +16,21 @@ import {
 } from './constants'
 
 // =============================================================================
+// FEE CONFIG
+// =============================================================================
+
+/**
+ * Optional fee configuration — pass live values from GlobalConfig.
+ * Falls back to hardcoded constants when fields are omitted.
+ */
+export interface FeeConfig {
+  tradingFeeBps?: number
+  lpFeeShareBps?: number
+  treasuryFeeShareBps?: number
+  insuranceFeeShareBps?: number
+}
+
+// =============================================================================
 // CPMM SHARES CALCULATION
 // =============================================================================
 
@@ -125,7 +140,12 @@ export function calculateFee(
  * @param grossAmount - Trade amount in USDC display units (before fees)
  * @returns Complete fee breakdown and net amount
  */
-export function calculateFeeSplit(grossAmount: number): FeeSplit {
+export function calculateFeeSplit(grossAmount: number, config?: FeeConfig): FeeSplit {
+  const tradingFeeBps = config?.tradingFeeBps ?? TRADING_FEE_BPS
+  const lpFeeShareBps = config?.lpFeeShareBps ?? LP_FEE_SHARE_BPS
+  const treasuryFeeShareBps = config?.treasuryFeeShareBps ?? TREASURY_FEE_SHARE_BPS
+  const insuranceFeeShareBps = config?.insuranceFeeShareBps ?? INSURANCE_FEE_SHARE_BPS
+
   if (grossAmount <= 0) {
     return {
       totalFee: 0,
@@ -140,14 +160,14 @@ export function calculateFeeSplit(grossAmount: number): FeeSplit {
   const grossLamports = Math.floor(grossAmount * 1_000_000)
 
   // Total fee with ceiling division (matches on-chain)
-  const totalFeeLamports = Math.ceil((grossLamports * TRADING_FEE_BPS) / 10_000)
+  const totalFeeLamports = Math.ceil((grossLamports * tradingFeeBps) / 10_000)
 
   // Net amount after fees
   const netLamports = grossLamports - totalFeeLamports
 
   // Fee splits with floor division (matches on-chain)
-  const treasuryLamports = Math.floor((totalFeeLamports * TREASURY_FEE_SHARE_BPS) / 10_000)
-  const insuranceLamports = Math.floor((totalFeeLamports * INSURANCE_FEE_SHARE_BPS) / 10_000)
+  const treasuryLamports = Math.floor((totalFeeLamports * treasuryFeeShareBps) / 10_000)
+  const insuranceLamports = Math.floor((totalFeeLamports * insuranceFeeShareBps) / 10_000)
   // LP gets remainder (no dust)
   const lpLamports = totalFeeLamports - treasuryLamports - insuranceLamports
 
@@ -441,8 +461,13 @@ export function calculateSellReturn(
   entryAmount: bigint,
   direction: 'up' | 'down',
   yesReserves: bigint,
-  noReserves: bigint
+  noReserves: bigint,
+  config?: FeeConfig
 ): SellReturn {
+  const tradingFeeBps = BigInt(config?.tradingFeeBps ?? TRADING_FEE_BPS)
+  const lpFeeShareBps = BigInt(config?.lpFeeShareBps ?? LP_FEE_SHARE_BPS)
+  const treasuryFeeShareBps = BigInt(config?.treasuryFeeShareBps ?? TREASURY_FEE_SHARE_BPS)
+
   const [sameReserves, oppositeReserves] = getReservesForDirection(
     direction,
     yesReserves,
@@ -452,10 +477,10 @@ export function calculateSellReturn(
   // Edge case: no opposite reserves — on-chain calculate_refund returns shares (1:1 refund)
   if (oppositeReserves === 0n) {
     const gross = shares
-    const fee = (gross * BigInt(TRADING_FEE_BPS) + 9999n) / 10000n
+    const fee = (gross * tradingFeeBps + 9999n) / 10000n
     const net = gross - fee
-    const lpFee = (fee * BigInt(LP_FEE_SHARE_BPS)) / 10000n
-    const treasuryFee = (fee * BigInt(TREASURY_FEE_SHARE_BPS)) / 10000n
+    const lpFee = (fee * lpFeeShareBps) / 10000n
+    const treasuryFee = (fee * treasuryFeeShareBps) / 10000n
     const insuranceFee = fee - lpFee - treasuryFee
     const realizedPnl = net - entryAmount
     return {
@@ -473,12 +498,12 @@ export function calculateSellReturn(
   const gross = (shares * sameReserves) / oppositeReserves
 
   // CRITICAL: Ceiling division for total fee (matches on-chain)
-  const fee = (gross * BigInt(TRADING_FEE_BPS) + 9999n) / 10000n
+  const fee = (gross * tradingFeeBps + 9999n) / 10000n
   const net = gross - fee
 
   // Fee splits: floor division for treasury/insurance, remainder to LP
-  const lpFee = (fee * BigInt(LP_FEE_SHARE_BPS)) / 10000n
-  const treasuryFee = (fee * BigInt(TREASURY_FEE_SHARE_BPS)) / 10000n
+  const lpFee = (fee * lpFeeShareBps) / 10000n
+  const treasuryFee = (fee * treasuryFeeShareBps) / 10000n
   const insuranceFee = fee - lpFee - treasuryFee
 
   // Realized PnL

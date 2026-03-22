@@ -140,3 +140,7 @@ development_status:
   7-13-enforce-allow-hedging-flag: done
   7-15-fix-sol-pyth-lazer-feed-id: done
   7-16-batch-rpc-trade-loading: done
+  7-17-fix-cross-market-data-bleed: done
+  7-18-split-history-into-separate-pages: done
+  7-19-fix-settlement-claim-display-for-opposing-trades: done
+  7-20-replace-hardcoded-globalconfig-constants: done

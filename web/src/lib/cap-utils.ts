@@ -61,8 +61,8 @@ const WARNING_THRESHOLD_PERCENT = 80
  * @param grossLamports - Gross trade amount in USDC lamports
  * @returns Net amount in USDC lamports after fee
  */
-export function calculateNetAmountLamports(grossLamports: bigint): bigint {
-  const fee = (grossLamports * BigInt(TRADING_FEE_BPS) + 9999n) / 10000n
+export function calculateNetAmountLamports(grossLamports: bigint, tradingFeeBps: number = TRADING_FEE_BPS): bigint {
+  const fee = (grossLamports * BigInt(tradingFeeBps) + 9999n) / 10000n
   return grossLamports - fee
 }
 
@@ -184,6 +184,8 @@ export function getCapStatus(params: {
   walletCapBps?: number
   /** Side cap in basis points */
   sideCapBps?: number
+  /** Trading fee in basis points (for net amount calculation) */
+  tradingFeeBps?: number
 }): CapStatus {
   const {
     existingPositionLamports,
@@ -193,12 +195,13 @@ export function getCapStatus(params: {
     direction,
     walletCapBps = PER_WALLET_CAP_BPS,
     sideCapBps = PER_SIDE_CAP_BPS,
+    tradingFeeBps,
   } = params
 
   const poolTotal = yesReserves + noReserves
 
   // Calculate net amount (after fee deduction) — caps check against net
-  const netAmountLamports = calculateNetAmountLamports(grossAmountLamports)
+  const netAmountLamports = calculateNetAmountLamports(grossAmountLamports, tradingFeeBps)
 
   // --- Wallet Cap ---
   const walletMaxAllowed =
