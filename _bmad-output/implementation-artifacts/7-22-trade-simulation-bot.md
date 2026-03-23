@@ -274,9 +274,11 @@ WantedBy=multi-user.target
 | File | Action | Description |
 |------|--------|-------------|
 | `crank-bot/trade-bot.ts` | NEW | Main trade simulation bot with MarketMonitor, tx builders, claim cycle |
-| `crank-bot/setup-trade-bots.ts` | NEW | Wallet setup script: generate keypairs, fund SOL, mint USDC |
+| `crank-bot/setup-trade-bots.ts` | NEW | Wallet setup script: generate keypairs, fund SOL, mint USDC (requires mint authority) |
+| `crank-bot/setup-fund-trade-bots.ts` | NEW | Wallet setup script: generate keypairs, fund SOL, transfer USDC from master wallet (no mint authority needed) |
 | `crank-bot/.env.example` | MODIFIED | Added TRADE_BOT_* environment variables section |
-| `crank-bot/package.json` | MODIFIED | Added `trade-bot` and `setup-trade-bots` npm scripts |
+| `crank-bot/package.json` | MODIFIED | Added `trade-bot`, `setup-trade-bots`, and `setup-fund-trade-bots` npm scripts |
+| `crank-bot/DEPLOYMENT.md` | MODIFIED | Added Trade Simulation Bot deployment section (systemd service, wallet setup, troubleshooting) |
 | `.gitignore` | MODIFIED | Added `crank-bot/trade-bot-wallets/` to ignore bot keypairs |
 
 ## Dev Agent Record
@@ -304,3 +306,6 @@ All 7 tasks (24 subtasks) implemented. Both files compile and run correctly:
 - **2026-03-22**: Initial implementation of trade simulation bot (Story 7.22). Created `trade-bot.ts` (MarketMonitor with auto-trade and auto-claim cycles across 4 markets) and `setup-trade-bots.ts` (wallet generation and funding script). Updated env, package.json, gitignore.
 - **2026-03-22**: Increased DEFAULT_USDC_PER_BOT from 100 to 100,000 in `setup-trade-bots.ts` so bot wallets are funded with sufficient trading capital by default.
 - **2026-03-22**: Code review fixes — (H1) Added `allowOwnerOffCurve=true` to treasury/insurance ATA derivation preventing runtime failures with PDA-owned accounts. (H3) Replaced single previousEpochId tracking with multi-epoch `pendingClaims` map to prevent silently skipped claims in fast epoch cycles. (M2) Changed scheduledTimers from array to Set with self-cleanup on fire to prevent memory leak. (M3) Cached treasury/insurance ATAs in MarketMonitor constructor. (M4) Added EPOCH_STATE constants and replaced all magic numbers for epoch state checks. (L1) Removed unused `sleepMs` alias. (L2) Fixed misleading pool state name mapping.
+- **2026-03-23**: Created `setup-fund-trade-bots.ts` — copy of `setup-trade-bots.ts` that uses SPL `transfer` instead of `mintTo` for USDC funding. **Problem:** On the Contabo server, the master wallet is not the USDC mint authority, so `mintTo` fails. **Solution:** New script transfers USDC from the master wallet's existing balance to bot wallets. Also checks master USDC balance upfront and fails fast if insufficient.
+- **2026-03-23**: Fixed graceful shutdown hanging on Ctrl+C. **Problem:** Shutdown handler called `clearTimeout` on sleep timers but never resolved their promises, leaving `await sleep()` hung forever — the bot would never exit. **Solution:** Changed `activeTimers` from `Set<timer>` to `Map<timer, resolve>` so shutdown can both clear timers and resolve pending sleep promises. Added force exit on second Ctrl+C via `process.exit(1)`.
+- **2026-03-23**: Added Trade Simulation Bot deployment section to `DEPLOYMENT.md` covering systemd service (`fogopulse-trade-bot.service`), wallet setup, env vars, and troubleshooting.

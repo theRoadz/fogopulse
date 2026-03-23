@@ -143,6 +143,13 @@ sudo journalctl -u fogopulse-crank -f  # Live logs (Ctrl+C to exit)
 | Stop bot | `sudo systemctl stop fogopulse-crank` |
 | Restart bot | `sudo systemctl restart fogopulse-crank` |
 | Disable autostart | `sudo systemctl disable fogopulse-crank` |
+| List all fogopulse services | `sudo systemctl list-units --type=service \| grep fogopulse` |
+| Status of all fogopulse services | `sudo systemctl status fogopulse-crank fogopulse-trade-bot` |
+| Edit crank service file | `sudo nano /etc/systemd/system/fogopulse-crank.service` |
+| Edit trade bot service file | `sudo nano /etc/systemd/system/fogopulse-trade-bot.service` |
+| Reload after editing service | `sudo systemctl daemon-reload && sudo systemctl restart fogopulse-crank` |
+
+> **nano shortcuts:** `Ctrl+O` then `Enter` to save, `Ctrl+X` to exit.
 
 ---
 
@@ -246,6 +253,175 @@ sudo journalctl -u fogopulse-crank -f
 
 /etc/systemd/system/
 └── fogopulse-crank.service
+```
+
+---
+
+---
+
+# Trade Simulation Bot Deployment
+
+The trade bot runs alongside the crank bot on the same server, sharing the same Node.js install, wallet, and `.env` file.
+
+## Prerequisites
+
+- Crank bot already deployed (Steps 1–7 above completed)
+- Master wallet is the USDC mint authority on testnet
+
+## Step 1: Transfer Trade Bot Files
+
+**From your LOCAL machine:**
+```bash
+cd D:\dev\fogopulse\crank-bot
+scp trade-bot.ts setup-fund-trade-bots.ts fogopulse@<server-ip>:~/fogopulse-crank/
+```
+
+## Step 2: Set Up Bot Wallets on Server
+
+```bash
+cd ~/fogopulse-crank
+npx tsx setup-fund-trade-bots.ts --count 5
+```
+
+This generates 5 keypairs in `./trade-bot-wallets/`, funds each with 0.1 SOL, and transfers 100,000 USDC per wallet from the master wallet's balance.
+
+> **Note:** This script uses SPL `transfer` (not `mintTo`), so the master wallet must hold enough USDC. Use `setup-trade-bots.ts` locally if your wallet is the USDC mint authority.
+
+To customize:
+```bash
+npx tsx setup-fund-trade-bots.ts --count 10 --sol-per-bot 0.2 --usdc-per-bot 50000
+```
+
+## Step 3: Add Trade Bot Env Vars
+
+Append to your existing `.env`:
+```bash
+cat >> .env << 'EOF'
+
+# Trade Bot Configuration
+TRADE_BOT_ENABLED=true
+TRADE_BOT_COUNT=5
+TRADE_BOT_MIN_AMOUNT=0.5
+TRADE_BOT_MAX_AMOUNT=5.0
+TRADE_BOT_MAX_TRADES_PER_EPOCH=2
+TRADE_BOT_WALLETS_DIR=./trade-bot-wallets
+TRADE_BOT_POLL_INTERVAL_SECONDS=10
+EOF
+```
+
+> **Note:** `TRADE_BOT_COUNT` must match the `--count` you used in setup.
+
+## Step 4: Test Manual Run
+
+```bash
+npx tsx trade-bot.ts
+# Verify it loads wallets, connects to RPC, and starts monitoring markets
+# Press Ctrl+C to stop
+```
+
+## Step 5: Create Systemd Service
+
+```bash
+sudo tee /etc/systemd/system/fogopulse-trade-bot.service > /dev/null << 'EOF'
+[Unit]
+Description=FogoPulse Trade Simulation Bot
+After=network.target
+
+[Service]
+Type=simple
+User=fogopulse
+WorkingDirectory=/home/fogopulse/fogopulse-crank
+EnvironmentFile=/home/fogopulse/fogopulse-crank/.env
+ExecStart=/usr/bin/npx tsx trade-bot.ts
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+## Step 6: Enable and Start
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable fogopulse-trade-bot
+sudo systemctl start fogopulse-trade-bot
+```
+
+## Step 7: Verify Running
+
+```bash
+sudo systemctl status fogopulse-trade-bot
+sudo journalctl -u fogopulse-trade-bot -f
+```
+
+## Trade Bot Commands
+
+| Action | Command |
+|--------|---------|
+| View status | `sudo systemctl status fogopulse-trade-bot` |
+| View live logs | `sudo journalctl -u fogopulse-trade-bot -f` |
+| View last 100 logs | `sudo journalctl -u fogopulse-trade-bot -n 100` |
+| Stop bot | `sudo systemctl stop fogopulse-trade-bot` |
+| Restart bot | `sudo systemctl restart fogopulse-trade-bot` |
+| Disable autostart | `sudo systemctl disable fogopulse-trade-bot` |
+
+## Updating the Trade Bot
+
+**From your LOCAL machine:**
+```bash
+scp D:/dev/fogopulse/crank-bot/trade-bot.ts fogopulse@<server-ip>:/home/fogopulse/fogopulse-crank/trade-bot.ts
+```
+
+**On the SERVER:**
+```bash
+sudo systemctl restart fogopulse-trade-bot
+sudo journalctl -u fogopulse-trade-bot -f
+```
+
+## Adding More Bot Wallets
+
+To add more wallets later, just increase `--count` and re-run setup. Existing wallets are loaded (not overwritten), only new ones are created:
+```bash
+npx tsx setup-trade-bots.ts --count 10
+```
+Then update `TRADE_BOT_COUNT=10` in `.env` and restart the service.
+
+## Trade Bot Troubleshooting
+
+| Error | Solution |
+|-------|----------|
+| "TRADE_BOT_ENABLED is not set" | Add `TRADE_BOT_ENABLED=true` to `.env` |
+| "Failed to load bot wallet" | Check `TRADE_BOT_COUNT` matches actual wallet files in `trade-bot-wallets/` |
+| "Insufficient USDC balance" | Re-run `setup-trade-bots.ts` to mint more USDC |
+| "fetch failed" on RPC | Transient RPC issue — the bot auto-retries, or restart manually |
+| Bot not placing trades | Check epoch is in Open state and `TRADE_BOT_MAX_TRADES_PER_EPOCH` isn't exceeded |
+
+## Files on Server After Full Deployment
+
+```
+/home/fogopulse/
+├── fogopulse-crank/
+│   ├── crank-bot.ts
+│   ├── trade-bot.ts
+│   ├── setup-trade-bots.ts
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── .env
+│   ├── node_modules/
+│   └── trade-bot-wallets/
+│       ├── bot-0.json
+│       ├── bot-1.json
+│       └── ...
+└── .config/solana/
+    └── fogo-testnet.json
+
+/etc/systemd/system/
+├── fogopulse-crank.service
+└── fogopulse-trade-bot.service
 ```
 
 ---

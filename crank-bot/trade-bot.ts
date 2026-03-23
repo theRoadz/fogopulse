@@ -652,7 +652,7 @@ function sleep(ms: number): Promise<void> {
       activeTimers.delete(timer)
       resolve()
     }, ms)
-    activeTimers.add(timer)
+    activeTimers.set(timer, resolve)
   })
 }
 
@@ -851,7 +851,7 @@ class MarketMonitor {
         }, delayMs)
 
         this.scheduledTimers.add(timer)
-        activeTimers.add(timer)
+        activeTimers.set(timer, () => {})
       }
 
       this.logger.debug(`Bot-${bot.index}: Scheduled ${numTrades} trades within ${Math.round(windowMs / 1000)}s window`)
@@ -1058,17 +1058,21 @@ class MarketMonitor {
 // =============================================================================
 
 let isShuttingDown = false
-const activeTimers = new Set<ReturnType<typeof setTimeout>>()
+const activeTimers = new Map<ReturnType<typeof setTimeout>, () => void>()
 
 function setupSignalHandlers() {
   const shutdown = (signal: string) => {
-    if (isShuttingDown) return
+    if (isShuttingDown) {
+      log.info('Force shutdown...')
+      process.exit(1)
+    }
     isShuttingDown = true
     log.info(`Received ${signal}, shutting down gracefully...`)
 
-    // Clear all active timers
-    for (const timer of activeTimers) {
+    // Clear all active timers and resolve their pending sleeps
+    for (const [timer, resolve] of activeTimers) {
       clearTimeout(timer)
+      resolve()
     }
     activeTimers.clear()
   }

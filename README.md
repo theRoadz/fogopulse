@@ -63,7 +63,7 @@ FogoPulse is a pnpm monorepo with three packages:
 fogopulse/
 ├── anchor/       Rust/Anchor smart contracts (FOGO testnet)
 ├── web/          Next.js frontend (React 19, Tailwind CSS 4, shadcn/ui)
-├── crank-bot/    TypeScript epoch automation bot
+├── crank-bot/    TypeScript epoch automation bot + trade simulation bot
 └── docs/         Technical reference documentation
 ```
 
@@ -448,6 +448,28 @@ See [`crank-bot/README.md`](crank-bot/README.md) for full configuration, multi-p
 
 ---
 
+## Trade Simulation Bot
+
+Simulates user trading activity to generate realistic market volume. Manages multiple bot wallets that place randomized trades across all 4 markets and automatically claim payouts/refunds after settlement.
+
+```bash
+cd crank-bot
+
+# Set up bot wallets (local — mints USDC, requires mint authority)
+npx tsx setup-trade-bots.ts --count 5
+
+# Or on server (transfers USDC from master wallet, no mint authority needed)
+npx tsx setup-fund-trade-bots.ts --count 5
+
+# Add to .env and run
+echo "TRADE_BOT_ENABLED=true" >> .env
+npx tsx trade-bot.ts
+```
+
+Runs as a separate systemd service (`fogopulse-trade-bot`) alongside the crank bot. See [`crank-bot/README.md`](crank-bot/README.md) for environment variables, wallet setup options, and [`crank-bot/DEPLOYMENT.md`](crank-bot/DEPLOYMENT.md) for server deployment.
+
+---
+
 ## Testnet Deployment
 
 **Status:** Fully operational on FOGO testnet with 4 live markets and 24/7 automated settlement.
@@ -475,7 +497,8 @@ See [`crank-bot/README.md`](crank-bot/README.md) for full configuration, multi-p
 
 ## Documentation
 
-- [`crank-bot/README.md`](crank-bot/README.md) -- Crank bot configuration, multi-pool setup, and deployment
+- [`crank-bot/README.md`](crank-bot/README.md) -- Crank bot & trade simulation bot configuration, multi-pool setup, and deployment
+- [`crank-bot/DEPLOYMENT.md`](crank-bot/DEPLOYMENT.md) -- Server deployment guide (Contabo/Linux VPS) for both crank and trade bots
 
 ---
 

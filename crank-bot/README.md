@@ -1,4 +1,6 @@
-# FogoPulse Crank Bot
+# FogoPulse Crank Bot & Trade Simulation Bot
+
+## Crank Bot
 
 Standalone bot that manages the full epoch lifecycle for FogoPulse:
 - **CREATE_EPOCH**: Creates new epoch when none exists
@@ -222,6 +224,97 @@ Each runner follows this state machine per cycle:
 **Deterministic chaining:** Once a CREATE is triggered, the bot chains:
 create → sleep(freezeTime) → advance → sleep(endTime) → settle → create → ...
 without polling, until shutdown or error.
+
+---
+
+## Trade Simulation Bot
+
+Simulates user trading activity across all 4 markets (BTC, ETH, SOL, FOGO). Runs multiple bot wallets that place randomized `buy_position` trades during Open epochs and automatically claim payouts/refunds after settlement.
+
+### Wallet Setup
+
+Two setup scripts are available depending on your environment:
+
+**Local (mint authority available):**
+```bash
+# Generates keypairs + mints USDC directly (requires master wallet to be USDC mint authority)
+npx tsx setup-trade-bots.ts --count 5
+```
+
+**Server (no mint authority):**
+```bash
+# Generates keypairs + transfers USDC from master wallet's existing balance
+npx tsx setup-fund-trade-bots.ts --count 5
+```
+
+Both scripts accept the same flags:
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--count N` | 5 | Number of bot wallets |
+| `--sol-per-bot X` | 0.1 | SOL to fund each bot |
+| `--usdc-per-bot Y` | 100000 | USDC per bot |
+| `--wallets-dir PATH` | ./trade-bot-wallets | Directory for keypair files |
+
+### Quick Start
+
+```bash
+# 1. Set up bot wallets
+npx tsx setup-trade-bots.ts --count 5
+
+# 2. Add to .env
+echo "TRADE_BOT_ENABLED=true" >> .env
+echo "TRADE_BOT_COUNT=5" >> .env
+
+# 3. Run
+npx tsx trade-bot.ts
+```
+
+### Trade Bot Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `TRADE_BOT_ENABLED` | Yes | false | Master on/off switch |
+| `TRADE_BOT_COUNT` | No | 5 | Number of bot wallets (must match setup) |
+| `TRADE_BOT_MIN_AMOUNT` | No | 0.5 | Minimum trade size in USDC |
+| `TRADE_BOT_MAX_AMOUNT` | No | 5.0 | Maximum trade size in USDC |
+| `TRADE_BOT_MAX_TRADES_PER_EPOCH` | No | 2 | Max trades per bot per epoch |
+| `TRADE_BOT_WALLETS_DIR` | No | ./trade-bot-wallets | Keypair directory |
+| `TRADE_BOT_POLL_INTERVAL_SECONDS` | No | 10 | How often to check epoch state |
+
+### How the Trade Bot Works
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   TRADE BOT STARTUP                          │
+│  Load wallets, fetch GlobalConfig, start MarketMonitors      │
+└─────────────────────────────────────────────────────────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+       ┌────────────┐  ┌────────────┐  ┌────────────┐
+       │  Monitor   │  │  Monitor   │  │  Monitor   │  ...
+       │   [BTC]    │  │   [ETH]    │  │   [SOL]    │
+       └─────┬──────┘  └─────┬──────┘  └─────┬──────┘
+             │               │               │
+             ▼               ▼               ▼
+      ┌──────────────────────────────────────────────┐
+      │  Per epoch:                                   │
+      │  1. Detect Open epoch                         │
+      │  2. Schedule random trades (delay + amount)   │
+      │  3. Execute buy_position (50/50 UP/DOWN)      │
+      │  4. After settlement: claim payouts/refunds   │
+      │  5. Track claimed epochs to avoid re-claims   │
+      └──────────────────────────────────────────────┘
+```
+
+Each MarketMonitor runs independently. GlobalConfig is refreshed every 5 minutes to detect protocol pause/freeze. Graceful shutdown on Ctrl+C (second press force-exits).
+
+### Trade Bot Deployment
+
+The trade bot runs as a separate systemd service alongside the crank bot. See [`DEPLOYMENT.md`](DEPLOYMENT.md) for full server setup instructions including the `fogopulse-trade-bot.service` configuration.
+
+---
 
 ## Running with PM2 (Recommended for Development)
 
