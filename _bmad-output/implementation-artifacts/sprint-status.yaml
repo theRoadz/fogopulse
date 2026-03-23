@@ -145,3 +145,4 @@ development_status:
   7-19-fix-settlement-claim-display-for-opposing-trades: done
   7-20-replace-hardcoded-globalconfig-constants: done
   7-22-trade-simulation-bot: done
+  7-23-wrong-network-guard: done

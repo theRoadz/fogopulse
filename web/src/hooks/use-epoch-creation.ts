@@ -89,7 +89,7 @@ export interface UseEpochCreationResult {
  */
 export function useEpochCreation(asset: Asset): UseEpochCreationResult {
   const { connection } = useConnection()
-  const { publicKey, sendTransaction } = useWallet()
+  const { publicKey, signTransaction } = useWallet()
   const queryClient = useQueryClient()
 
   // Get current epoch state
@@ -159,9 +159,12 @@ export function useEpochCreation(asset: Asset): UseEpochCreationResult {
         connection,
       })
 
-      // 3. Send transaction (prompts wallet for signature)
+      // 3. Sign transaction via wallet, then send through app's connection
+      // This ensures the tx is submitted to FOGO testnet, not the wallet's RPC
       setState('signing')
-      const signature = await sendTransaction(transaction, connection, {
+      if (!signTransaction) throw new Error('Wallet does not support signing')
+      const signed = await signTransaction(transaction)
+      const signature = await connection.sendRawTransaction(signed.serialize(), {
         skipPreflight: false,
         preflightCommitment: 'confirmed',
       })
@@ -207,7 +210,7 @@ export function useEpochCreation(asset: Asset): UseEpochCreationResult {
       setState('error')
       toast.error('Failed to create epoch', { description: message })
     }
-  }, [publicKey, asset, connection, sendTransaction, queryClient])
+  }, [publicKey, asset, connection, signTransaction, queryClient])
 
   return {
     state,

@@ -36,14 +36,14 @@ interface BuyPositionResult {
  * 1. Get latest blockhash for transaction expiry handling
  * 2. Build buy_position instruction via buildBuyPositionInstruction
  * 3. Create Transaction with instruction, blockhash, and fee payer
- * 4. Send via wallet adapter's sendTransaction
+ * 4. Sign via wallet, then send raw transaction through app's connection
  * 5. Confirm with blockhash expiry handling
  * 6. Invalidate relevant queries to refresh UI
  */
 export function useBuyPosition() {
   const queryClient = useQueryClient()
   const { connection } = useConnection()
-  const { publicKey, sendTransaction } = useWallet()
+  const { publicKey, signTransaction } = useWallet()
   const program = useProgram()
   const { config } = useGlobalConfig()
 
@@ -83,9 +83,11 @@ export function useBuyPosition() {
       transaction.recentBlockhash = blockhash
       transaction.feePayer = publicKey
 
-      // 4. Send transaction via wallet adapter
-      // This will prompt the wallet for signature
-      const signature = await sendTransaction(transaction, connection, {
+      // 4. Sign transaction via wallet, then send through app's connection
+      // This ensures the tx is submitted to FOGO testnet, not the wallet's RPC
+      if (!signTransaction) throw new Error('Wallet does not support signing')
+      const signed = await signTransaction(transaction)
+      const signature = await connection.sendRawTransaction(signed.serialize(), {
         skipPreflight: false,
         preflightCommitment: 'confirmed',
       })

@@ -26,14 +26,14 @@ interface UpdateConfigMutationParams {
  * 1. Get latest blockhash
  * 2. Build update_config instruction
  * 3. Create Transaction with instruction, blockhash, fee payer
- * 4. Send via wallet adapter
+ * 4. Sign via wallet, then send raw transaction through app's connection
  * 5. Confirm with blockhash expiry handling
  * 6. Invalidate globalConfig query on success
  */
 export function useUpdateConfig() {
   const queryClient = useQueryClient()
   const { connection } = useConnection()
-  const { publicKey, sendTransaction } = useWallet()
+  const { publicKey, signTransaction } = useWallet()
   const program = useProgram()
 
   return useMutation<UpdateConfigResult, Error, UpdateConfigMutationParams>({
@@ -55,7 +55,9 @@ export function useUpdateConfig() {
       transaction.recentBlockhash = blockhash
       transaction.feePayer = publicKey
 
-      const signature = await sendTransaction(transaction, connection, {
+      if (!signTransaction) throw new Error('Wallet does not support signing')
+      const signed = await signTransaction(transaction)
+      const signature = await connection.sendRawTransaction(signed.serialize(), {
         skipPreflight: false,
         preflightCommitment: 'confirmed',
       })
