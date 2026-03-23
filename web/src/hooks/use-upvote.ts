@@ -38,7 +38,6 @@ export function useUpvote() {
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.feedbackDetail(variables.issueId),
       })
-      queryClient.invalidateQueries({ queryKey: ['feedback'] })
     },
     onError: (err: Error) => {
       toast.error(err.message)

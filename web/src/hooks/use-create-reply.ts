@@ -50,7 +50,6 @@ export function useCreateReply() {
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.feedbackDetail(variables.issueId),
       })
-      queryClient.invalidateQueries({ queryKey: ['feedback'] })
     },
     onError: (err: Error) => {
       toast.error(err.message)

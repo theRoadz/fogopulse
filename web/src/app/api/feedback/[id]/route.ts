@@ -38,6 +38,7 @@ export async function GET(
       .doc(id)
       .collection('replies')
       .orderBy('createdAt', 'asc')
+      .limit(100)
       .get()
 
     const replies: FeedbackReply[] = repliesSnapshot.docs.map((replyDoc) => ({

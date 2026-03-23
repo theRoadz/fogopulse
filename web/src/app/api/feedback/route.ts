@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/firebase'
+import { getDb, getFieldPath } from '@/lib/firebase'
 import { isAdminWallet } from '@/lib/admin'
 import { verifyWalletSignature, validateSignedMessage } from '@/lib/verify-signature'
 import { sanitizeInput } from '@/lib/feedback-utils'
@@ -10,60 +10,32 @@ const VALID_CATEGORIES: IssueCategory[] = ['feedback', 'bug', 'critical', 'featu
 
 /**
  * GET /api/feedback — List issues with filtering.
- * Query params: category, status, page, limit, wallet (for admin visibility)
+ * Query params: category, status, cursor, cursorId, limit, wallet (for admin visibility)
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl
     const category = searchParams.get('category')
     const status = searchParams.get('status')
-    const page = Math.max(1, Number(searchParams.get('page') || '1'))
+    const cursor = searchParams.get('cursor') // ISO timestamp for cursor-based pagination
+    const cursorId = searchParams.get('cursorId') // document ID tiebreaker
     const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') || '20')))
     const wallet = searchParams.get('wallet')
 
     const isAdmin = wallet ? isAdminWallet(wallet) : false
 
     const db = getDb()
-    const offset = (page - 1) * limit
 
-    // For non-admins, use the visibility field to exclude hidden issues
-    // (unresolved critical issues are auto-set to visibility='hidden' on creation
-    // and auto-set to visibility='public' on resolution). A single query on
-    // visibility=='public' gives correct results with straightforward pagination.
+    // Build base query — non-admins only see public issues
+    // Use documentId as tiebreaker to prevent skipping docs with identical createdAt
+    const FP = getFieldPath()
+    let query = db.collection('feedback')
+      .orderBy('createdAt', 'desc')
+      .orderBy(FP.documentId(), 'desc') as FirebaseFirestore.Query
+
     if (!isAdmin) {
-      let query = db
-        .collection('feedback')
-        .where('visibility', '==', 'public')
-        .orderBy('createdAt', 'desc') as FirebaseFirestore.Query
-
-      if (category && VALID_CATEGORIES.includes(category as IssueCategory)) {
-        query = query.where('category', '==', category)
-      }
-
-      if (status) {
-        query = query.where('status', '==', status)
-      }
-
-      const countSnapshot = await query.count().get()
-      const total = countSnapshot.data().count
-      const snapshot = await query.offset(offset).limit(limit).get()
-
-      const issues: FeedbackIssue[] = snapshot.docs.map((doc) => {
-        const { upvoters, ...rest } = doc.data() as Omit<FeedbackIssue, 'id'> & { upvoters?: string[] }
-        return { id: doc.id, ...rest, upvoteCount: rest.upvoteCount || 0 }
-      })
-
-      return NextResponse.json({
-        issues,
-        total,
-        page,
-        limit,
-        hasMore: offset + limit < total,
-      })
+      query = query.where('visibility', '==', 'public')
     }
-
-    // Admin path: single query, no filtering needed
-    let query = db.collection('feedback').orderBy('createdAt', 'desc') as FirebaseFirestore.Query
 
     if (category && VALID_CATEGORIES.includes(category as IssueCategory)) {
       query = query.where('category', '==', category)
@@ -73,21 +45,44 @@ export async function GET(request: NextRequest) {
       query = query.where('status', '==', status)
     }
 
-    const countSnapshot = await query.count().get()
-    const total = countSnapshot.data().count
-    const snapshot = await query.offset(offset).limit(limit).get()
+    // Cursor-based pagination: use startAfter instead of offset
+    let dataQuery = query
+    if (cursor && cursorId) {
+      dataQuery = dataQuery.startAfter(cursor, cursorId)
+    } else if (cursor) {
+      dataQuery = dataQuery.startAfter(cursor)
+    }
 
-    const issues: FeedbackIssue[] = snapshot.docs.map((doc) => {
+    // Fetch limit+1 to determine hasMore without a separate count query
+    const isFirstPage = !cursor
+    const [snapshot, countSnapshot] = await Promise.all([
+      dataQuery.limit(limit + 1).get(),
+      // Only run count query on first page (for total display in UI)
+      isFirstPage ? query.count().get() : Promise.resolve(null),
+    ])
+
+    const hasMore = snapshot.docs.length > limit
+    const docs = hasMore ? snapshot.docs.slice(0, limit) : snapshot.docs
+    const total = countSnapshot ? countSnapshot.data().count : undefined
+
+    const issues: FeedbackIssue[] = docs.map((doc) => {
       const { upvoters, ...rest } = doc.data() as Omit<FeedbackIssue, 'id'> & { upvoters?: string[] }
       return { id: doc.id, ...rest, upvoteCount: rest.upvoteCount || 0 }
     })
 
+    const lastDoc = docs.length > 0 ? docs[docs.length - 1] : null
+    const nextCursor = lastDoc
+      ? (lastDoc.data() as { createdAt: string }).createdAt
+      : undefined
+    const nextCursorId = lastDoc ? lastDoc.id : undefined
+
     return NextResponse.json({
       issues,
-      total,
-      page,
+      ...(total !== undefined && { total }),
       limit,
-      hasMore: offset + limit < total,
+      hasMore,
+      nextCursor,
+      nextCursorId,
     })
   } catch (err) {
     console.error('Feedback list error:', err)

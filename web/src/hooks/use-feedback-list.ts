@@ -25,16 +25,20 @@ export function useFeedbackList(filters: FeedbackFilters = {}) {
 
   return useInfiniteQuery({
     queryKey: QUERY_KEYS.feedback(baseFilters),
-    queryFn: async ({ pageParam = 1 }): Promise<FeedbackListResponse> => {
-      const params = new URLSearchParams({ ...baseFilters, page: String(pageParam) })
+    queryFn: async ({ pageParam }): Promise<FeedbackListResponse> => {
+      const params = new URLSearchParams(baseFilters)
+      if (pageParam) {
+        params.set('cursor', pageParam.cursor)
+        params.set('cursorId', pageParam.cursorId)
+      }
       const res = await fetch(`/api/feedback?${params}`)
       if (!res.ok) throw new Error('Failed to fetch feedback')
       return res.json()
     },
-    initialPageParam: 1,
+    initialPageParam: undefined as { cursor: string; cursorId: string } | undefined,
     getNextPageParam: (lastPage) => {
-      if (!lastPage.hasMore) return undefined
-      return lastPage.page + 1
+      if (!lastPage.hasMore || !lastPage.nextCursor || !lastPage.nextCursorId) return undefined
+      return { cursor: lastPage.nextCursor, cursorId: lastPage.nextCursorId }
     },
   })
 }

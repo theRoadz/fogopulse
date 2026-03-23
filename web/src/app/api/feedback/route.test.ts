@@ -11,7 +11,7 @@ const mockFirestore = {
   doc: jest.fn(),
   where: jest.fn(),
   orderBy: jest.fn(),
-  offset: jest.fn(),
+  startAfter: jest.fn(),
   limit: jest.fn(),
   count: jest.fn(),
   countGet: jest.fn(),
@@ -22,7 +22,7 @@ function resetChain() {
   const chain = mockFirestore
   chain.where.mockReturnValue(chain)
   chain.orderBy.mockReturnValue(chain)
-  chain.offset.mockReturnValue(chain)
+  chain.startAfter.mockReturnValue(chain)
   chain.limit.mockReturnValue(chain)
   chain.get.mockResolvedValue({ docs: [] })
   chain.count.mockReturnValue({ get: chain.countGet })
@@ -32,6 +32,9 @@ function resetChain() {
 jest.mock('@/lib/firebase', () => ({
   getDb: () => ({
     collection: jest.fn().mockReturnValue(mockFirestore),
+  }),
+  getFieldPath: () => ({
+    documentId: () => '__name__',
   }),
 }))
 

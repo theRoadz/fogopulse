@@ -29,7 +29,9 @@ const mockDocRef = {
   delete: jest.fn().mockResolvedValue(undefined),
   collection: jest.fn().mockReturnValue({
     orderBy: jest.fn().mockReturnValue({
-      get: jest.fn().mockResolvedValue(mockRepliesSnapshot),
+      limit: jest.fn().mockReturnValue({
+        get: jest.fn().mockResolvedValue(mockRepliesSnapshot),
+      }),
     }),
     get: jest.fn().mockResolvedValue({ empty: true, docs: [] }),
   }),

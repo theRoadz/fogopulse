@@ -28,10 +28,11 @@ export interface FeedbackReply {
 
 export interface FeedbackListResponse {
   issues: FeedbackIssue[]
-  total: number
-  page: number
+  total?: number
   limit: number
   hasMore: boolean
+  nextCursor?: string
+  nextCursorId?: string
 }
 
 export interface FeedbackDetailResponse {

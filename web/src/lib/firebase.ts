@@ -1,5 +1,5 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app'
-import { getFirestore } from 'firebase-admin/firestore'
+import { getFirestore, FieldPath } from 'firebase-admin/firestore'
 
 function getFirebaseAdmin() {
   if (getApps().length === 0) {
@@ -27,4 +27,9 @@ function getFirebaseAdmin() {
 /** Lazy getter — initializes Firebase on first access, not at module load */
 export function getDb() {
   return getFirebaseAdmin()
+}
+
+/** Re-export FieldPath for use in queries needing document ID ordering */
+export function getFieldPath() {
+  return FieldPath
 }
