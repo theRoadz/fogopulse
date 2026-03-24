@@ -898,6 +898,43 @@ function ConfigurationPanelInner({ config }: { config: GlobalConfigData }) {
             disabled={updateAdminSettings.isPending}
           />
         </div>
+
+        <div className="mt-4 pt-4 border-t flex items-center justify-between">
+          <div className="space-y-1">
+            <Label htmlFor="maintenanceMode" className="text-sm font-medium">Maintenance Mode</Label>
+            <p className="text-xs text-muted-foreground">
+              When enabled, shows a rolling banner and disables all trading. Saves immediately.
+            </p>
+          </div>
+          <Switch
+            id="maintenanceMode"
+            checked={adminSettings?.maintenanceMode ?? false}
+            onCheckedChange={(checked) =>
+              updateAdminSettings.mutate({ maintenanceMode: checked })
+            }
+            disabled={updateAdminSettings.isPending}
+          />
+        </div>
+
+        {adminSettings?.maintenanceMode && (
+          <div className="mt-3">
+            <Label htmlFor="maintenanceMessage" className="text-xs font-medium">Banner Message</Label>
+            <Input
+              id="maintenanceMessage"
+              className="mt-1"
+              placeholder="Trading is temporarily paused for scheduled maintenance."
+              defaultValue={adminSettings?.maintenanceMessage ?? ''}
+              onBlur={(e) =>
+                updateAdminSettings.mutate({ maintenanceMessage: e.target.value })
+              }
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  updateAdminSettings.mutate({ maintenanceMessage: (e.target as HTMLInputElement).value })
+                }
+              }}
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
     </>

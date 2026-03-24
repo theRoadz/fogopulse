@@ -40,7 +40,7 @@ describe('GET /api/admin-settings', () => {
     const res = await GET()
     const json = await res.json()
 
-    expect(json).toEqual({ allowEpochCreation: true })
+    expect(json).toEqual({ allowEpochCreation: true, maintenanceMode: false })
   })
 
   it('should return stored value when doc exists', async () => {
@@ -50,7 +50,7 @@ describe('GET /api/admin-settings', () => {
     const res = await GET()
     const json = await res.json()
 
-    expect(json).toEqual({ allowEpochCreation: false })
+    expect(json).toEqual({ allowEpochCreation: false, maintenanceMode: false })
   })
 
   it('should default allowEpochCreation to true when field is missing', async () => {
@@ -60,7 +60,7 @@ describe('GET /api/admin-settings', () => {
     const res = await GET()
     const json = await res.json()
 
-    expect(json).toEqual({ allowEpochCreation: true })
+    expect(json).toEqual({ allowEpochCreation: true, maintenanceMode: false })
   })
 
   it('should return 500 when Firestore throws', async () => {
@@ -132,6 +132,93 @@ describe('PATCH /api/admin-settings', () => {
       { allowEpochCreation: false },
       { merge: true },
     )
+  })
+
+  it('should update maintenanceMode for admin wallet', async () => {
+    ;(isAdminWallet as jest.Mock).mockReturnValue(true)
+    const req = new NextRequest('http://localhost/api/admin-settings?wallet=admin123', {
+      method: 'PATCH',
+      body: JSON.stringify({ maintenanceMode: true }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await PATCH(req)
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json).toEqual({ maintenanceMode: true })
+    expect(mockDocRef.set).toHaveBeenCalledWith(
+      { maintenanceMode: true },
+      { merge: true },
+    )
+  })
+
+  it('should update maintenanceMessage for admin wallet', async () => {
+    ;(isAdminWallet as jest.Mock).mockReturnValue(true)
+    const req = new NextRequest('http://localhost/api/admin-settings?wallet=admin123', {
+      method: 'PATCH',
+      body: JSON.stringify({ maintenanceMessage: 'System upgrade in progress' }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await PATCH(req)
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json).toEqual({ maintenanceMessage: 'System upgrade in progress' })
+  })
+
+  it('should clear maintenanceMessage when null is sent', async () => {
+    ;(isAdminWallet as jest.Mock).mockReturnValue(true)
+    const req = new NextRequest('http://localhost/api/admin-settings?wallet=admin123', {
+      method: 'PATCH',
+      body: JSON.stringify({ maintenanceMessage: null }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await PATCH(req)
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json).toEqual({ maintenanceMessage: '' })
+  })
+
+  it('should reject non-boolean maintenanceMode with 400', async () => {
+    ;(isAdminWallet as jest.Mock).mockReturnValue(true)
+    const req = new NextRequest('http://localhost/api/admin-settings?wallet=admin123', {
+      method: 'PATCH',
+      body: JSON.stringify({ maintenanceMode: 'yes' }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await PATCH(req)
+    expect(res.status).toBe(400)
+  })
+
+  it('should reject maintenanceMessage over 500 characters with 400', async () => {
+    ;(isAdminWallet as jest.Mock).mockReturnValue(true)
+    const req = new NextRequest('http://localhost/api/admin-settings?wallet=admin123', {
+      method: 'PATCH',
+      body: JSON.stringify({ maintenanceMessage: 'x'.repeat(501) }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await PATCH(req)
+    expect(res.status).toBe(400)
+  })
+
+  it('should reject body with no valid fields with 400', async () => {
+    ;(isAdminWallet as jest.Mock).mockReturnValue(true)
+    const req = new NextRequest('http://localhost/api/admin-settings?wallet=admin123', {
+      method: 'PATCH',
+      body: JSON.stringify({ unknownField: 'value' }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await PATCH(req)
+    expect(res.status).toBe(400)
+    const json = await res.json()
+    expect(json).toEqual({ error: 'No valid fields provided' })
   })
 
   it('should return 500 when Firestore write throws', async () => {

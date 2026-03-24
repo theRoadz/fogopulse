@@ -6,6 +6,7 @@ import { ASSET_METADATA } from '@/lib/constants'
 import { usePool } from '@/hooks/use-pool'
 import { useEpoch } from '@/hooks/use-epoch'
 import { usePythPrice } from '@/hooks/use-pyth-price'
+import { useAdminSettings } from '@/hooks/use-admin-settings'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -44,6 +45,8 @@ export function MarketCard({ asset, compact = false }: MarketCardProps) {
   const { poolState, isLoading: poolLoading } = usePool(asset)
   const { epochState, isLoading: epochLoading, noEpochStatus } = useEpoch(asset)
   const { price, connectionState } = usePythPrice(asset)
+  const { data: adminSettings } = useAdminSettings()
+  const maintenanceMode = adminSettings?.maintenanceMode ?? false
 
   const meta = ASSET_METADATA[asset]
   const isLoading = poolLoading || epochLoading
@@ -51,66 +54,78 @@ export function MarketCard({ asset, compact = false }: MarketCardProps) {
   const hasNoFeed = meta.feedId === ''
   const tradePath = `/trade/${asset.toLowerCase()}`
 
-  return (
-    <Link href={tradePath} className="block group" data-testid={`market-card-${asset}`}>
-      <Card className={`border-l-4 ${ASSET_BORDER_COLORS[asset]} transition-colors group-hover:border-l-primary/80 h-full ${compact ? 'py-3 gap-3' : 'py-4 gap-4'}`}>
-        <CardHeader className="flex-row items-center justify-between">
-          <CardTitle className={meta.color} data-testid="asset-label">{meta.label}</CardTitle>
-          {epochState.epoch ? (
-            <EpochStateBadge state={epochState.epoch.state} />
-          ) : (
-            !isLoading && <span className="text-xs text-muted-foreground" data-testid="no-epoch-badge">No Active Epoch</span>
-          )}
-        </CardHeader>
+  const cardContent = (
+    <Card className={`border-l-4 ${ASSET_BORDER_COLORS[asset]} transition-colors ${maintenanceMode ? '' : 'group-hover:border-l-primary/80'} h-full ${compact ? 'py-3 gap-3' : 'py-4 gap-4'}`}>
+      <CardHeader className="flex-row items-center justify-between">
+        <CardTitle className={meta.color} data-testid="asset-label">{meta.label}</CardTitle>
+        {epochState.epoch ? (
+          <EpochStateBadge state={epochState.epoch.state} />
+        ) : (
+          !isLoading && <span className="text-xs text-muted-foreground" data-testid="no-epoch-badge">No Active Epoch</span>
+        )}
+      </CardHeader>
 
-        <CardContent className={compact ? 'space-y-1' : 'space-y-2'}>
-          {/* Live Price — hidden in compact mode (shown in Oracle Health instead) */}
-          {!compact && (
-            <div>
-              <span className="text-xs uppercase tracking-wide text-muted-foreground">Price</span>
-              {isLoading ? (
-                <Skeleton className="h-7 w-28 mt-1" data-testid="price-skeleton" />
-              ) : hasNoFeed ? (
-                <p className="text-base font-mono font-semibold text-muted-foreground" data-testid="price-unavailable">Price Unavailable</p>
-              ) : hasPriceFeed ? (
-                <p className="text-base font-mono font-semibold" data-testid="live-price">{formatPrice(price.price)}</p>
-              ) : (
-                <Skeleton className="h-7 w-28 mt-1" data-testid="price-skeleton" />
-              )}
-            </div>
-          )}
-
-          {/* Probability Bar */}
-          {isLoading ? (
-            <Skeleton className="h-12 w-full" data-testid="probability-skeleton" />
-          ) : (
-            <ProbabilityBar probabilities={poolState.probabilities} />
-          )}
-
-          {/* Pool Depth */}
-          {!compact && <PoolDepth totalLiquidity={poolState.totalLiquidity} isLoading={isLoading} />}
-
-          {/* Epoch Countdown */}
-          <div className="flex items-center justify-between">
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">Epoch</span>
+      <CardContent className={compact ? 'space-y-1' : 'space-y-2'}>
+        {/* Live Price — hidden in compact mode (shown in Oracle Health instead) */}
+        {!compact && (
+          <div>
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">Price</span>
             {isLoading ? (
-              <Skeleton className="h-5 w-16" data-testid="countdown-skeleton" />
-            ) : epochState.epoch && !noEpochStatus ? (
-              <span className="text-sm font-mono font-medium" data-testid="epoch-countdown">
-                {formatCountdown(epochState.timeRemaining)}
-              </span>
+              <Skeleton className="h-7 w-28 mt-1" data-testid="price-skeleton" />
+            ) : hasNoFeed ? (
+              <p className="text-base font-mono font-semibold text-muted-foreground" data-testid="price-unavailable">Price Unavailable</p>
+            ) : hasPriceFeed ? (
+              <p className="text-base font-mono font-semibold" data-testid="live-price">{formatPrice(price.price)}</p>
             ) : (
-              <span className="text-sm text-muted-foreground">--:--</span>
+              <Skeleton className="h-7 w-28 mt-1" data-testid="price-skeleton" />
             )}
           </div>
-        </CardContent>
+        )}
 
-        <CardFooter>
-          <Button className="w-full" variant="outline" size={compact ? 'sm' : 'default'} asChild>
-            <span data-testid="trade-link">Trade {asset}</span>
-          </Button>
-        </CardFooter>
-      </Card>
+        {/* Probability Bar */}
+        {isLoading ? (
+          <Skeleton className="h-12 w-full" data-testid="probability-skeleton" />
+        ) : (
+          <ProbabilityBar probabilities={poolState.probabilities} />
+        )}
+
+        {/* Pool Depth */}
+        {!compact && <PoolDepth totalLiquidity={poolState.totalLiquidity} isLoading={isLoading} />}
+
+        {/* Epoch Countdown */}
+        <div className="flex items-center justify-between">
+          <span className="text-xs uppercase tracking-wide text-muted-foreground">Epoch</span>
+          {isLoading ? (
+            <Skeleton className="h-5 w-16" data-testid="countdown-skeleton" />
+          ) : epochState.epoch && !noEpochStatus ? (
+            <span className="text-sm font-mono font-medium" data-testid="epoch-countdown">
+              {formatCountdown(epochState.timeRemaining)}
+            </span>
+          ) : (
+            <span className="text-sm text-muted-foreground">--:--</span>
+          )}
+        </div>
+      </CardContent>
+
+      <CardFooter>
+        <Button className="w-full" variant="outline" size={compact ? 'sm' : 'default'} disabled={maintenanceMode} asChild>
+          <span data-testid="trade-link">{maintenanceMode ? 'Under Maintenance' : `Trade ${asset}`}</span>
+        </Button>
+      </CardFooter>
+    </Card>
+  )
+
+  if (maintenanceMode) {
+    return (
+      <div className="block opacity-60 cursor-not-allowed" data-testid={`market-card-${asset}`}>
+        {cardContent}
+      </div>
+    )
+  }
+
+  return (
+    <Link href={tradePath} className="block group" data-testid={`market-card-${asset}`}>
+      {cardContent}
     </Link>
   )
 }

@@ -132,6 +132,15 @@ jest.mock('@/hooks/use-user-position', () => ({
   },
 }))
 
+// Mock useAdminSettings
+const mockAdminSettings = {
+  data: { allowEpochCreation: true, maintenanceMode: false },
+}
+
+jest.mock('@/hooks/use-admin-settings', () => ({
+  useAdminSettings: () => mockAdminSettings,
+}))
+
 // Mock CapWarningBanner
 jest.mock('./cap-warning-banner', () => ({
   CapWarningBanner: () => <div data-testid="cap-warning-banner">Cap Warning</div>,
@@ -253,6 +262,7 @@ describe('TradeTicket', () => {
     }
     mockUpPosition.position = null
     mockDownPosition.position = null
+    mockAdminSettings.data = { allowEpochCreation: true, maintenanceMode: false }
   })
 
   describe('rendering', () => {
@@ -499,6 +509,19 @@ describe('TradeTicket', () => {
 
       render(<TradeTicket asset="BTC" />)
       expect(screen.getByText('Trading Unavailable')).toBeInTheDocument()
+    })
+  })
+
+  describe('maintenance mode', () => {
+    it('should show Under Maintenance and disable trade button when maintenance mode is active', () => {
+      mockAdminSettings.data = { allowEpochCreation: true, maintenanceMode: true }
+      mockTradeStore.direction = 'up'
+      mockTradeStore.amount = '10'
+      mockTradeStore.isValid = true
+
+      render(<TradeTicket asset="BTC" />)
+      expect(screen.getByText('Under Maintenance')).toBeInTheDocument()
+      expect(screen.getByText('Under Maintenance').closest('button')).toBeDisabled()
     })
   })
 

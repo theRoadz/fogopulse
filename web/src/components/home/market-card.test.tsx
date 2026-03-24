@@ -21,6 +21,12 @@ jest.mock('@/hooks/use-pyth-price', () => ({
   usePythPrice: (asset: Asset) => mockUsePythPrice(asset),
 }))
 
+// Mock useAdminSettings
+const mockAdminSettings = { data: { allowEpochCreation: true, maintenanceMode: false } }
+jest.mock('@/hooks/use-admin-settings', () => ({
+  useAdminSettings: () => mockAdminSettings,
+}))
+
 // Mock constants
 jest.mock('@/lib/constants', () => ({
   ASSET_METADATA: {
@@ -131,6 +137,7 @@ describe('MarketCard', () => {
     mockUsePool.mockReturnValue(defaultPoolReturn)
     mockUseEpoch.mockReturnValue(defaultEpochReturn)
     mockUsePythPrice.mockReturnValue(defaultPriceReturn)
+    mockAdminSettings.data = { allowEpochCreation: true, maintenanceMode: false }
   })
 
   it('displays the asset name', () => {
@@ -241,6 +248,45 @@ describe('MarketCard', () => {
     it('shows price section when compact is false', () => {
       render(<MarketCard asset="BTC" />)
       expect(screen.getByTestId('live-price')).toBeInTheDocument()
+    })
+  })
+
+  describe('maintenance mode', () => {
+    beforeEach(() => {
+      mockAdminSettings.data = { allowEpochCreation: true, maintenanceMode: true }
+    })
+
+    it('renders a div instead of a link when maintenance is active', () => {
+      render(<MarketCard asset="BTC" />)
+      const wrapper = screen.getByTestId('market-card-BTC')
+      expect(wrapper.tagName).toBe('DIV')
+      expect(wrapper).not.toHaveAttribute('href')
+    })
+
+    it('applies muted styling when maintenance is active', () => {
+      render(<MarketCard asset="BTC" />)
+      const wrapper = screen.getByTestId('market-card-BTC')
+      expect(wrapper.className).toContain('opacity-60')
+      expect(wrapper.className).toContain('cursor-not-allowed')
+    })
+
+    it('shows "Under Maintenance" button text', () => {
+      render(<MarketCard asset="BTC" />)
+      expect(screen.getByTestId('trade-link')).toHaveTextContent('Under Maintenance')
+    })
+
+    it('disables the trade button', () => {
+      render(<MarketCard asset="BTC" />)
+      const button = screen.getByTestId('trade-link').closest('button')
+      expect(button).toBeDisabled()
+    })
+
+    it('renders a link when maintenance is off', () => {
+      mockAdminSettings.data = { allowEpochCreation: true, maintenanceMode: false }
+      render(<MarketCard asset="ETH" />)
+      const wrapper = screen.getByTestId('market-card-ETH')
+      expect(wrapper.tagName).toBe('A')
+      expect(wrapper).toHaveAttribute('href', '/trade/eth')
     })
   })
 })

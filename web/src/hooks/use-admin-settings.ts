@@ -7,9 +7,11 @@ import { QUERY_KEYS } from '@/lib/constants'
 
 export interface AdminSettings {
   allowEpochCreation: boolean
+  maintenanceMode: boolean
+  maintenanceMessage?: string
 }
 
-const DEFAULTS: AdminSettings = { allowEpochCreation: true }
+const DEFAULTS: AdminSettings = { allowEpochCreation: true, maintenanceMode: false }
 
 export function useAdminSettings() {
   return useQuery({

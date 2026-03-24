@@ -12,6 +12,7 @@ import { useGlobalConfig } from '@/hooks/use-global-config'
 import { usePool } from '@/hooks/use-pool'
 import { useUserPosition } from '@/hooks/use-user-position'
 import { USDC_DECIMALS } from '@/lib/constants'
+import { useAdminSettings } from '@/hooks/use-admin-settings'
 import { useTradeStore } from '@/stores/trade-store'
 import { EpochState } from '@/types/epoch'
 import type { Asset } from '@/types/assets'
@@ -50,11 +51,16 @@ function getTradeButtonState(params: {
   connected: boolean
   capExceeded: boolean
   hedgingBlocked: boolean
+  maintenanceMode: boolean
 }): TradeButtonState {
-  const { isPending, isEpochOpen, direction, amount, error, isValid, connected, capExceeded, hedgingBlocked } = params
+  const { isPending, isEpochOpen, direction, amount, error, isValid, connected, capExceeded, hedgingBlocked, maintenanceMode } = params
 
   if (isPending) {
     return { disabled: true, text: 'Confirming...' }
+  }
+
+  if (maintenanceMode) {
+    return { disabled: true, text: 'Under Maintenance' }
   }
 
   if (!connected || !isEpochOpen) {
@@ -128,6 +134,10 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
     return oppositePosition !== null && oppositePosition.shares > 0n
   })()
 
+  // Admin settings for maintenance mode
+  const { data: adminSettings } = useAdminSettings()
+  const maintenanceMode = adminSettings?.maintenanceMode ?? false
+
   // Buy position mutation hook
   const { mutate: buyPosition, isPending } = useBuyPosition()
 
@@ -154,6 +164,7 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
     connected,
     capExceeded,
     hedgingBlocked,
+    maintenanceMode,
   })
 
   // Re-validate when balance or max trade amount changes
@@ -196,7 +207,7 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
 
   // Handle trade execution
   const handleTrade = () => {
-    if (!direction || !amount || epochState.epoch?.epochId == null || !publicKey || hedgingBlocked) {
+    if (!direction || !amount || epochState.epoch?.epochId == null || !publicKey || hedgingBlocked || maintenanceMode) {
       return
     }
 

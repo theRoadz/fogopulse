@@ -74,7 +74,7 @@ describe('useAdminSettings', () => {
     const latestCall = (useQuery as jest.Mock).mock.calls.at(-1)[0]
     const result = await latestCall.queryFn()
 
-    expect(result).toEqual({ allowEpochCreation: true })
+    expect(result).toEqual({ allowEpochCreation: true, maintenanceMode: false })
   })
 
   it('queryFn should return data on success', async () => {
