@@ -52,6 +52,7 @@ interface FormState {
   epochDurationSeconds: string
   freezeWindowSeconds: string
   maxTradeAmount: string
+  settlementTimeoutSeconds: string
   treasury: string
   insurance: string
   allowHedging: boolean
@@ -71,6 +72,7 @@ interface ValidationErrors {
   epochDurationSeconds?: string
   freezeWindowSeconds?: string
   maxTradeAmount?: string
+  settlementTimeoutSeconds?: string
   treasury?: string
   insurance?: string
   feeShareSum?: string
@@ -162,6 +164,8 @@ function validateForm(form: FormState): ValidationErrors {
     if (mta < 100_000) errors.maxTradeAmount = 'Minimum is 100000 (0.10 USDC)'
   }
 
+  errors.settlementTimeoutSeconds = validatePositiveInt(form.settlementTimeoutSeconds)
+
   errors.treasury = validatePubkey(form.treasury)
   errors.insurance = validatePubkey(form.insurance)
 
@@ -198,6 +202,7 @@ function configKey(config: GlobalConfigData): string {
     config.insurance.toString(),
     String(config.allowHedging),
     config.maxTradeAmount.toString(),
+    config.settlementTimeoutSeconds.toString(),
   ].join('-')
 }
 
@@ -235,6 +240,7 @@ function ConfigurationPanelInner({ config }: { config: GlobalConfigData }) {
     epochDurationSeconds: String(config.epochDurationSeconds.toNumber()),
     freezeWindowSeconds: String(config.freezeWindowSeconds.toNumber()),
     maxTradeAmount: String(config.maxTradeAmount.toNumber()),
+    settlementTimeoutSeconds: String(config.settlementTimeoutSeconds.toNumber()),
     treasury: config.treasury.toString(),
     insurance: config.insurance.toString(),
     allowHedging: config.allowHedging,
@@ -271,6 +277,7 @@ function ConfigurationPanelInner({ config }: { config: GlobalConfigData }) {
     check('Epoch Duration', form.epochDurationSeconds, config.epochDurationSeconds.toNumber(), 'seconds')
     check('Freeze Window', form.freezeWindowSeconds, config.freezeWindowSeconds.toNumber(), 'seconds')
     check('Max Trade Amount', form.maxTradeAmount, config.maxTradeAmount.toNumber(), 'lamports')
+    check('Settlement Timeout', form.settlementTimeoutSeconds, config.settlementTimeoutSeconds.toNumber(), 'seconds')
 
     if (form.treasury.trim() && form.treasury.trim() !== config.treasury.toString()) {
       result.push({
@@ -325,6 +332,7 @@ function ConfigurationPanelInner({ config }: { config: GlobalConfigData }) {
       paused: null,
       frozen: null,
       maxTradeAmount: numOrNull(form.maxTradeAmount, config.maxTradeAmount.toNumber()),
+      settlementTimeoutSeconds: numOrNull(form.settlementTimeoutSeconds, config.settlementTimeoutSeconds.toNumber()),
     }
   }
 
@@ -589,7 +597,7 @@ function ConfigurationPanelInner({ config }: { config: GlobalConfigData }) {
         {/* ── Epoch Timing ────────────────────────────────────────── */}
         <div className="border-t pt-4">
           <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Epoch Timing</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label htmlFor="epochDurationSeconds">Epoch Duration (seconds)</Label>
               <Input
@@ -625,6 +633,24 @@ function ConfigurationPanelInner({ config }: { config: GlobalConfigData }) {
                 {form.freezeWindowSeconds !== '' ? formatSeconds(Number(form.freezeWindowSeconds)) : '—'}
               </p>
               {errors.freezeWindowSeconds && <p id="freezeWindowSeconds-error" className="text-destructive text-sm">{errors.freezeWindowSeconds}</p>}
+            </div>
+            <div>
+              <Label htmlFor="settlementTimeoutSeconds">Settlement Timeout (seconds)</Label>
+              <Input
+                id="settlementTimeoutSeconds"
+                type="number"
+                step="1"
+                value={form.settlementTimeoutSeconds}
+                onChange={(e) => setField('settlementTimeoutSeconds', e.target.value)}
+                disabled={isPending}
+                aria-invalid={!!errors.settlementTimeoutSeconds}
+                aria-describedby={errors.settlementTimeoutSeconds ? 'settlementTimeoutSeconds-error' : undefined}
+                className={isChanged(form.settlementTimeoutSeconds, config.settlementTimeoutSeconds.toNumber()) ? changedBorder : ''}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {form.settlementTimeoutSeconds !== '' ? formatSeconds(Number(form.settlementTimeoutSeconds)) : '—'}
+              </p>
+              {errors.settlementTimeoutSeconds && <p id="settlementTimeoutSeconds-error" className="text-destructive text-sm">{errors.settlementTimeoutSeconds}</p>}
             </div>
           </div>
         </div>

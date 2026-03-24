@@ -58,6 +58,9 @@ const PARAMS = {
 
   // Trade limits
   maxTradeAmount: 100_000_000,  // $100 USDC max trade (in lamports, 6 decimals)
+
+  // Settlement timeout
+  settlementTimeoutSeconds: 60, // 60 seconds after end_time before permissionless force-close
 }
 
 // =============================================================================
@@ -100,6 +103,7 @@ function deriveGlobalConfigPda(): [PublicKey, number] {
  * - freeze_window_seconds: i64
  * - allow_hedging: bool
  * - max_trade_amount: u64
+ * - settlement_timeout_seconds: i64
  */
 function encodeInitializeData(
   treasury: PublicKey,
@@ -117,12 +121,13 @@ function encodeInitializeData(
   epochDurationSeconds: bigint,
   freezeWindowSeconds: bigint,
   allowHedging: boolean,
-  maxTradeAmount: bigint
+  maxTradeAmount: bigint,
+  settlementTimeoutSeconds: bigint
 ): Buffer {
   // Calculate total size:
   // 8 (discriminator) + 32 (treasury) + 32 (insurance) +
-  // 2*8 (8 u16s) + 8*4 (4 i64s) + 1 (bool) + 8 (u64) = 8 + 32 + 32 + 16 + 32 + 1 + 8 = 129
-  const buffer = Buffer.alloc(129)
+  // 2*8 (8 u16s) + 8*4 (4 i64s) + 1 (bool) + 8 (u64) + 8 (i64) = 137
+  const buffer = Buffer.alloc(137)
   let offset = 0
 
   // Discriminator
@@ -157,7 +162,10 @@ function encodeInitializeData(
   buffer.writeUInt8(allowHedging ? 1 : 0, offset); offset += 1
 
   // u64 (max_trade_amount)
-  buffer.writeBigUInt64LE(maxTradeAmount, offset)
+  buffer.writeBigUInt64LE(maxTradeAmount, offset); offset += 8
+
+  // i64 (settlement_timeout_seconds)
+  buffer.writeBigInt64LE(settlementTimeoutSeconds, offset)
 
   return buffer
 }
@@ -232,6 +240,7 @@ async function main() {
   console.log('Oracle Staleness Settle:', PARAMS.oracleStalenessThresholdSettle, 'seconds')
   console.log('Allow Hedging:', PARAMS.allowHedging)
   console.log('Max Trade Amount:', PARAMS.maxTradeAmount, 'lamports ($' + (PARAMS.maxTradeAmount / 1_000_000) + ' USDC)')
+  console.log('Settlement Timeout:', PARAMS.settlementTimeoutSeconds, 'seconds')
   console.log('-'.repeat(40))
   console.log()
 
@@ -261,7 +270,8 @@ async function main() {
     BigInt(PARAMS.epochDurationSeconds),
     BigInt(PARAMS.freezeWindowSeconds),
     PARAMS.allowHedging,
-    BigInt(PARAMS.maxTradeAmount)
+    BigInt(PARAMS.maxTradeAmount),
+    BigInt(PARAMS.settlementTimeoutSeconds)
   )
 
   // Build instruction

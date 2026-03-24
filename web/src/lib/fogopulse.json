@@ -2474,6 +2474,10 @@
         {
           "name": "max_trade_amount",
           "type": "u64"
+        },
+        {
+          "name": "settlement_timeout_seconds",
+          "type": "i64"
         }
       ]
     },
@@ -3660,6 +3664,128 @@
       ]
     },
     {
+      "name": "timeout_force_close_epoch",
+      "docs": [
+        "Permissionless timeout force-close for stuck Frozen epochs",
+        "",
+        "When a Frozen epoch has been stuck past `end_time + settlement_timeout_seconds`,",
+        "anyone can call this to force-close it as Refunded. No oracle data needed."
+      ],
+      "discriminator": [
+        85,
+        200,
+        141,
+        167,
+        94,
+        190,
+        248,
+        60
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "docs": [
+            "Permissionless caller - pays for transaction fees"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global_config",
+          "docs": [
+            "GlobalConfig - provides settlement_timeout_seconds"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "Pool - must have this epoch as active"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.asset_mint",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "epoch",
+          "docs": [
+            "Epoch - the stuck epoch to force-close"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  112,
+                  111,
+                  99,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "epoch.epoch_id",
+                "account": "Epoch"
+              }
+            ]
+          }
+        },
+        {
+          "name": "clock",
+          "docs": [
+            "Clock sysvar for timestamp check",
+            "Note: Could use Clock::get()? instead to save an account slot,",
+            "but kept as explicit account for consistency with deployed program."
+          ],
+          "address": "SysvarC1ock11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "update_config",
       "docs": [
         "Update protocol configuration (admin only)",
@@ -3874,6 +4000,19 @@
         115,
         190,
         255
+      ]
+    },
+    {
+      "name": "EpochTimeoutForceClosed",
+      "discriminator": [
+        226,
+        5,
+        188,
+        54,
+        145,
+        213,
+        218,
+        58
       ]
     },
     {
@@ -4294,6 +4433,11 @@
       "code": 6046,
       "name": "WithdrawalBlockedDuringEpoch",
       "msg": "Withdrawal cannot be processed during an active epoch - will be processed after settlement"
+    },
+    {
+      "code": 6047,
+      "name": "SettlementTimeoutNotReached",
+      "msg": "Settlement timeout not yet reached"
     }
   ],
   "types": [
@@ -4324,7 +4468,8 @@
               "4=treasury_fee, 5=insurance_fee, 6=wallet_cap, 7=side_cap,",
               "8=confidence_start, 9=confidence_settle, 10=staleness_start,",
               "11=staleness_settle, 12=epoch_duration, 13=freeze_window,",
-              "14=allow_hedging, 15=paused, 16=frozen, 17=max_trade_amount"
+              "14=allow_hedging, 15=paused, 16=frozen, 17=max_trade_amount,",
+              "18=settlement_timeout_seconds"
             ],
             "type": "u32"
           }
@@ -4797,6 +4942,42 @@
       }
     },
     {
+      "name": "EpochTimeoutForceClosed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "epoch",
+            "docs": [
+              "Epoch account pubkey"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "pool",
+            "docs": [
+              "Parent pool"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch_id",
+            "docs": [
+              "Sequential epoch identifier within pool"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "caller",
+            "docs": [
+              "Permissionless caller who triggered the timeout force-close"
+            ],
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
       "name": "FeesCollected",
       "type": {
         "kind": "struct",
@@ -5000,6 +5181,14 @@
             "type": "u64"
           },
           {
+            "name": "settlement_timeout_seconds",
+            "docs": [
+              "Seconds after end_time before permissionless timeout force-close is allowed",
+              "Default: 60 (1 minute). Must be > 0."
+            ],
+            "type": "i64"
+          },
+          {
             "name": "bump",
             "docs": [
               "PDA bump seed"
@@ -5081,6 +5270,10 @@
           {
             "name": "max_trade_amount",
             "type": "u64"
+          },
+          {
+            "name": "settlement_timeout_seconds",
+            "type": "i64"
           }
         ]
       }
@@ -5836,6 +6029,12 @@
             "name": "max_trade_amount",
             "type": {
               "option": "u64"
+            }
+          },
+          {
+            "name": "settlement_timeout_seconds",
+            "type": {
+              "option": "i64"
             }
           }
         ]

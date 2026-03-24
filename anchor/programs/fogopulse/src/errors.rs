@@ -155,4 +155,7 @@ pub enum FogoPulseError {
 
     #[msg("Withdrawal cannot be processed during an active epoch - will be processed after settlement")]
     WithdrawalBlockedDuringEpoch,
+
+    #[msg("Settlement timeout not yet reached")]
+    SettlementTimeoutNotReached,
 }

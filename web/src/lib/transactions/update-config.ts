@@ -22,6 +22,7 @@ export interface UpdateConfigParams {
   paused: boolean | null
   frozen: boolean | null
   maxTradeAmount: number | null
+  settlementTimeoutSeconds: number | null
 }
 
 /**
@@ -64,6 +65,10 @@ function toAnchorParams(params: UpdateConfigParams) {
     maxTradeAmount:
       params.maxTradeAmount !== null
         ? new BN(params.maxTradeAmount)
+        : null,
+    settlementTimeoutSeconds:
+      params.settlementTimeoutSeconds !== null
+        ? new BN(params.settlementTimeoutSeconds)
         : null,
   }
 }

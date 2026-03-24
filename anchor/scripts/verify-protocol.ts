@@ -48,9 +48,10 @@ const EXPECTED_PARAMS = {
   freezeWindowSeconds: 15,
   oracleConfidenceThresholdStartBps: 25,
   oracleConfidenceThresholdSettleBps: 80,
-  oracleStalenessThresholdStart: 3,
-  oracleStalenessThresholdSettle: 10,
+  oracleStalenessThresholdStart: 10,   // Overridden from default 3 via update-staleness.ts
+  oracleStalenessThresholdSettle: 15,  // Overridden from default 10 via admin dashboard
   allowHedging: false,
+  settlementTimeoutSeconds: 30,  // Reduced from default 60 via admin dashboard
 }
 
 // Account discriminators (first 8 bytes)
@@ -110,6 +111,8 @@ function checkMark(condition: boolean): string {
  * - allow_hedging: bool (1)
  * - paused: bool (1)
  * - frozen: bool (1)
+ * - max_trade_amount: u64 (8)
+ * - settlement_timeout_seconds: i64 (8)
  * - bump: u8 (1)
  */
 function decodeGlobalConfig(data: Buffer): {
@@ -131,6 +134,8 @@ function decodeGlobalConfig(data: Buffer): {
   allowHedging: boolean
   paused: boolean
   frozen: boolean
+  maxTradeAmount: bigint
+  settlementTimeoutSeconds: bigint
   bump: number
 } {
   let offset = 8 // Skip discriminator
@@ -156,6 +161,8 @@ function decodeGlobalConfig(data: Buffer): {
   const allowHedging = data.readUInt8(offset) !== 0; offset += 1
   const paused = data.readUInt8(offset) !== 0; offset += 1
   const frozen = data.readUInt8(offset) !== 0; offset += 1
+  const maxTradeAmount = data.readBigUInt64LE(offset); offset += 8
+  const settlementTimeoutSeconds = data.readBigInt64LE(offset); offset += 8
   const bump = data.readUInt8(offset)
 
   return {
@@ -165,7 +172,7 @@ function decodeGlobalConfig(data: Buffer): {
     oracleConfidenceThresholdStartBps, oracleConfidenceThresholdSettleBps,
     oracleStalenessThresholdStart, oracleStalenessThresholdSettle,
     epochDurationSeconds, freezeWindowSeconds,
-    allowHedging, paused, frozen, bump
+    allowHedging, paused, frozen, maxTradeAmount, settlementTimeoutSeconds, bump
   }
 }
 
@@ -303,6 +310,7 @@ async function main() {
       { name: 'oracleStalenessThresholdStart', actual: Number(config.oracleStalenessThresholdStart), expected: EXPECTED_PARAMS.oracleStalenessThresholdStart },
       { name: 'oracleStalenessThresholdSettle', actual: Number(config.oracleStalenessThresholdSettle), expected: EXPECTED_PARAMS.oracleStalenessThresholdSettle },
       { name: 'allowHedging', actual: config.allowHedging, expected: EXPECTED_PARAMS.allowHedging },
+      { name: 'settlementTimeoutSeconds', actual: Number(config.settlementTimeoutSeconds), expected: EXPECTED_PARAMS.settlementTimeoutSeconds },
     ]
 
     for (const check of checks) {

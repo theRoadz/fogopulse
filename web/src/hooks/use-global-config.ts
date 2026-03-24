@@ -29,6 +29,7 @@ export interface GlobalConfigData {
   paused: boolean
   frozen: boolean
   maxTradeAmount: BN
+  settlementTimeoutSeconds: BN
   bump: number
 }
 
@@ -75,6 +76,7 @@ export function useGlobalConfig(): UseGlobalConfigResult {
       paused: account.paused,
       frozen: account.frozen,
       maxTradeAmount: account.maxTradeAmount as BN,
+      settlementTimeoutSeconds: account.settlementTimeoutSeconds as BN,
       bump: account.bump,
     }
   }, [program])

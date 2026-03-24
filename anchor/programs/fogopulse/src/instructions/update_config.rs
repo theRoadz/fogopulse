@@ -41,6 +41,7 @@ pub struct UpdateConfigParams {
     pub paused: Option<bool>,
     pub frozen: Option<bool>,
     pub max_trade_amount: Option<u64>,
+    pub settlement_timeout_seconds: Option<i64>,
 }
 
 /// Update Config accounts
@@ -131,6 +132,11 @@ pub fn handler(ctx: Context<UpdateConfig>, params: UpdateConfigParams) -> Result
         require!(v >= MIN_TRADE_AMOUNT, FogoPulseError::InvalidCap);
     }
 
+    // Validate settlement_timeout_seconds (1 second to 24 hours)
+    if let Some(v) = params.settlement_timeout_seconds {
+        require!(v > 0 && v <= 86400, FogoPulseError::InvalidTimingParams);
+    }
+
     // =======================================================================
     // APPLY CHANGES: All validations passed, now update config
     // =======================================================================
@@ -208,6 +214,10 @@ pub fn handler(ctx: Context<UpdateConfig>, params: UpdateConfigParams) -> Result
         msg!("  max_trade_amount: {} -> {}", config.max_trade_amount, v);
         config.max_trade_amount = v;
     }
+    if let Some(v) = params.settlement_timeout_seconds {
+        msg!("  settlement_timeout_seconds: {} -> {}", config.settlement_timeout_seconds, v);
+        config.settlement_timeout_seconds = v;
+    }
 
     // Build bitmask of updated fields for event
     let mut fields_updated: u32 = 0;
@@ -229,6 +239,7 @@ pub fn handler(ctx: Context<UpdateConfig>, params: UpdateConfigParams) -> Result
     if params.paused.is_some() { fields_updated |= 1 << 15; }
     if params.frozen.is_some() { fields_updated |= 1 << 16; }
     if params.max_trade_amount.is_some() { fields_updated |= 1 << 17; }
+    if params.settlement_timeout_seconds.is_some() { fields_updated |= 1 << 18; }
 
     emit!(ConfigUpdated {
         admin: ctx.accounts.admin.key(),

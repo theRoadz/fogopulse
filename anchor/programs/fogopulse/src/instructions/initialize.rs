@@ -61,6 +61,7 @@ pub fn handler(
     freeze_window_seconds: i64,
     allow_hedging: bool,
     max_trade_amount: u64,
+    settlement_timeout_seconds: i64,
 ) -> Result<()> {
     // Validate trading fee is reasonable (max 10% = 1000 bps)
     require!(
@@ -99,6 +100,12 @@ pub fn handler(
         FogoPulseError::InvalidCap
     );
 
+    // Validate settlement timeout is within reasonable bounds (1 second to 24 hours)
+    require!(
+        settlement_timeout_seconds > 0 && settlement_timeout_seconds <= 86400,
+        FogoPulseError::InvalidTimingParams
+    );
+
     let config = &mut ctx.accounts.global_config;
 
     config.admin = ctx.accounts.admin.key();
@@ -120,6 +127,7 @@ pub fn handler(
     config.paused = false;
     config.frozen = false;
     config.max_trade_amount = max_trade_amount;
+    config.settlement_timeout_seconds = settlement_timeout_seconds;
     config.bump = ctx.bumps.global_config;
 
     emit!(GlobalConfigInitialized {
@@ -140,6 +148,7 @@ pub fn handler(
         freeze_window_seconds: config.freeze_window_seconds,
         allow_hedging: config.allow_hedging,
         max_trade_amount: config.max_trade_amount,
+        settlement_timeout_seconds: config.settlement_timeout_seconds,
     });
 
     Ok(())

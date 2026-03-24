@@ -40,6 +40,7 @@ pub mod fogopulse {
         freeze_window_seconds: i64,
         allow_hedging: bool,
         max_trade_amount: u64,
+        settlement_timeout_seconds: i64,
     ) -> Result<()> {
         instructions::initialize::handler(
             ctx,
@@ -59,6 +60,7 @@ pub mod fogopulse {
             freeze_window_seconds,
             allow_hedging,
             max_trade_amount,
+            settlement_timeout_seconds,
         )
     }
 
@@ -270,6 +272,14 @@ pub mod fogopulse {
     /// clears pool.active_epoch to allow new epoch creation.
     pub fn admin_force_close_epoch(ctx: Context<AdminForceCloseEpoch>) -> Result<()> {
         instructions::admin_force_close_epoch::handler(ctx)
+    }
+
+    /// Permissionless timeout force-close for stuck Frozen epochs
+    ///
+    /// When a Frozen epoch has been stuck past `end_time + settlement_timeout_seconds`,
+    /// anyone can call this to force-close it as Refunded. No oracle data needed.
+    pub fn timeout_force_close_epoch(ctx: Context<TimeoutForceCloseEpoch>) -> Result<()> {
+        instructions::timeout_force_close_epoch::handler(ctx)
     }
 
     /// Pause a specific pool (admin only)

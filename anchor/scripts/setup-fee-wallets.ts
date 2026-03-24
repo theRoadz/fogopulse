@@ -256,6 +256,14 @@ function buildUpdateConfigInstruction(
   data.writeUInt8(0, offset)
   offset += 1
 
+  // max_trade_amount: None
+  data.writeUInt8(0, offset)
+  offset += 1
+
+  // settlement_timeout_seconds: None
+  data.writeUInt8(0, offset)
+  offset += 1
+
   // Trim buffer to actual size
   const trimmedData = data.subarray(0, offset)
 

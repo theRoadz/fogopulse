@@ -57,6 +57,10 @@ pub struct GlobalConfig {
     /// e.g., 100_000_000 = $100 USDC. Admin-configurable via update_config.
     pub max_trade_amount: u64,
 
+    /// Seconds after end_time before permissionless timeout force-close is allowed
+    /// Default: 60 (1 minute). Must be > 0.
+    pub settlement_timeout_seconds: i64,
+
     /// PDA bump seed
     pub bump: u8,
 }

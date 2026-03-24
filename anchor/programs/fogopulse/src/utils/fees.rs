@@ -181,6 +181,7 @@ mod tests {
             paused: false,
             frozen: false,
             max_trade_amount: 100_000_000,
+            settlement_timeout_seconds: 60,
             bump: 0,
         }
     }

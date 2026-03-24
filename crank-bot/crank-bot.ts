@@ -22,6 +22,7 @@
  *   RPC_URL - Optional: RPC URL (default: https://testnet.fogo.io)
  *   LOG_LEVEL - Optional: Log level (default: info)
  *   POOL_ASSETS - Optional: Comma-separated pools (default: BTC,ETH,SOL,FOGO)
+ *   SETTLEMENT_TIMEOUT_SECONDS - Optional: Seconds past end_time before timeout force-close (default: 60)
  */
 
 import * as dotenv from 'dotenv'
@@ -85,9 +86,18 @@ const ADVANCE_EPOCH_DISCRIMINATOR = Buffer.from([93, 138, 234, 218, 241, 230, 13
 const SETTLE_EPOCH_DISCRIMINATOR = Buffer.from([148, 223, 178, 38, 201, 158, 167, 13])
 const PROCESS_WITHDRAWAL_DISCRIMINATOR = Buffer.from([51, 97, 236, 17, 37, 33, 196, 64])
 const CRANK_PROCESS_WITHDRAWAL_DISCRIMINATOR = Buffer.from([27, 194, 37, 86, 75, 227, 102, 217])
+const TIMEOUT_FORCE_CLOSE_EPOCH_DISCRIMINATOR = Buffer.from([0x55, 0xc8, 0x8d, 0xa7, 0x5e, 0xbe, 0xf8, 0x3c])
 
 // Sysvars and programs
 const SYSVAR_CLOCK_PUBKEY = new PublicKey('SysvarC1ock11111111111111111111111111111111')
+
+// Settlement timeout: seconds after end_time before permissionless force-close
+// WARNING: This MUST match GlobalConfig.settlement_timeout_seconds on-chain.
+// If admin updates the on-chain value via update_config, this env var must also
+// be updated and the bot restarted. The on-chain program enforces the real
+// timeout — if this value is too low the tx will fail; if too high the bot
+// will be slow to trigger force-close but will eventually catch up.
+const SETTLEMENT_TIMEOUT_SECONDS = parseInt(process.env.SETTLEMENT_TIMEOUT_SECONDS || '60', 10)
 const ED25519_PROGRAM_ID = new PublicKey('Ed25519SigVerify111111111111111111111111111')
 
 // Pool state mapping (from Pool.active_epoch_state cache)
@@ -154,6 +164,7 @@ enum Action {
   CREATE_EPOCH = 'CREATE_EPOCH',
   ADVANCE_EPOCH = 'ADVANCE_EPOCH',
   SETTLE_EPOCH = 'SETTLE_EPOCH',
+  TIMEOUT_FORCE_CLOSE = 'TIMEOUT_FORCE_CLOSE',
 }
 
 enum LogLevel {
@@ -1036,6 +1047,54 @@ async function buildAndSendSettleEpochTx(
 }
 
 // =============================================================================
+// TIMEOUT FORCE-CLOSE EPOCH
+// =============================================================================
+
+async function buildAndSendTimeoutForceCloseTx(
+  connection: Connection,
+  wallet: Keypair,
+  globalConfigPda: PublicKey,
+  poolPda: PublicKey,
+  epochPda: PublicKey
+): Promise<string> {
+  const timeoutForceCloseIx = {
+    keys: [
+      { pubkey: wallet.publicKey, isSigner: true, isWritable: true },   // payer
+      { pubkey: globalConfigPda, isSigner: false, isWritable: false },   // global_config
+      { pubkey: poolPda, isSigner: false, isWritable: true },            // pool
+      { pubkey: epochPda, isSigner: false, isWritable: true },           // epoch
+      { pubkey: SYSVAR_CLOCK_PUBKEY, isSigner: false, isWritable: false }, // clock
+    ],
+    programId: PROGRAM_ID,
+    data: TIMEOUT_FORCE_CLOSE_EPOCH_DISCRIMINATOR,
+  }
+
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
+
+  const messageV0 = new TransactionMessage({
+    payerKey: wallet.publicKey,
+    recentBlockhash: blockhash,
+    instructions: [timeoutForceCloseIx],
+  }).compileToV0Message()
+
+  const tx = new VersionedTransaction(messageV0)
+  tx.sign([wallet])
+
+  const signature = await connection.sendTransaction(tx, {
+    skipPreflight: false,
+    maxRetries: 3,
+  })
+
+  await connection.confirmTransaction({
+    signature,
+    blockhash,
+    lastValidBlockHeight,
+  })
+
+  return signature
+}
+
+// =============================================================================
 // WITHDRAWAL PROCESSING HELPERS
 // =============================================================================
 
@@ -1305,6 +1364,10 @@ function determineAction(
   // Frozen state - check if end_time passed
   if (poolData.activeEpochState === POOL_STATE.Frozen) {
     if (epochData && currentTime >= Number(epochData.endTime)) {
+      // If past settlement timeout, use permissionless force-close instead
+      if (currentTime >= Number(epochData.endTime) + SETTLEMENT_TIMEOUT_SECONDS) {
+        return Action.TIMEOUT_FORCE_CLOSE
+      }
       return Action.SETTLE_EPOCH
     }
     return Action.NONE
@@ -1673,6 +1736,70 @@ class PoolRunner {
           }
           break
         }
+
+        case Action.TIMEOUT_FORCE_CLOSE: {
+          this.log.warn(`Epoch ${epochData!.epochId} past settlement timeout — calling timeout_force_close_epoch...`)
+
+          const sig = await withRetry(
+            () => buildAndSendTimeoutForceCloseTx(this.shared.connection, this.shared.wallet, this.shared.globalConfigPda, this.poolPda, poolData.activeEpoch!),
+            'Timeout force-close epoch'
+          )
+
+          this.log.info(`Epoch ${epochData!.epochId} timeout force-closed (refunded). TX: ${sig}`)
+          this.log.info(`Explorer: https://explorer.fogo.io/tx/${sig}`)
+
+          // Process pending withdrawals
+          try {
+            await processPendingWithdrawals(this.shared.connection, this.shared.wallet, this.shared.globalConfigPda, this.poolPda, this.poolAsset, this.log)
+          } catch (withdrawalError: any) {
+            this.log.warn(`Failed to process pending withdrawals: ${withdrawalError.message}`)
+          }
+
+          // Chain: Create next epoch if auto-create enabled
+          if (this.shared.config.autoCreateEpoch && !isShuttingDown) {
+            this.log.info('Chaining: Creating next epoch after timeout force-close...')
+
+            const updatedPoolAccount = await withRetry(
+              () => this.shared.connection.getAccountInfo(this.poolPda),
+              'Fetch pool after force-close'
+            )
+            if (updatedPoolAccount) {
+              const updatedPoolData = parsePoolAccount(updatedPoolAccount.data)
+              if (updatedPoolData.activeEpoch === null) {
+                const pythMessage = await withRetry(
+                  () => this.shared.pythManager.waitForFreshMessage(this.feedId),
+                  'Pyth fetch for create'
+                )
+                const [newEpochPda] = deriveEpochPda(this.poolPda, updatedPoolData.nextEpochId)
+                try {
+                  const createSig = await withRetry(
+                    () => buildAndSendCreateEpochTx(this.shared.connection, this.shared.wallet, this.shared.globalConfigPda, this.poolPda, newEpochPda, pythMessage),
+                    'Create epoch'
+                  )
+                  this.log.info(`Epoch ${updatedPoolData.nextEpochId} created. TX: ${createSig}`)
+                  this.log.info(`Explorer: https://explorer.fogo.io/tx/${createSig}`)
+
+                  const newEpochAccount = await withRetry(
+                    () => this.shared.connection.getAccountInfo(newEpochPda),
+                    'Fetch new epoch for chaining'
+                  )
+                  if (newEpochAccount && !isShuttingDown) {
+                    const newEpochData = parseEpochAccount(newEpochAccount.data)
+                    await this.runChainLoop(
+                      Number(newEpochData.freezeTime),
+                      Number(newEpochData.endTime),
+                      newEpochPda,
+                      newEpochData.epochId
+                    )
+                  }
+                } catch (chainError: any) {
+                  this.log.warn(`Chained epoch creation failed: ${chainError.message}`)
+                }
+              }
+            }
+          }
+          break
+        }
       }
 
       // Return current state (after actions, state may have changed - return Open for new epoch)
@@ -1693,7 +1820,12 @@ class PoolRunner {
         this.log.debug('Program logs:')
         error.logs.forEach((l: string) => this.log.debug(`  ${l}`))
       }
-      return { state: POOL_STATE.None }
+      // Return Frozen state on settlement-related failures so we poll at
+      // FROZEN_POLL_INTERVAL_MS (2s) instead of IDLE_POLL_INTERVAL_MS (180s)
+      const isSettlementError = error.message?.includes('OracleDataStale') ||
+        error.message?.includes('oracle') ||
+        error.message?.includes('Settle')
+      return { state: isSettlementError ? POOL_STATE.Frozen : POOL_STATE.None }
     }
   }
 }

@@ -151,6 +151,10 @@ function buildUpdateConfigData(newStalenessStart: bigint): Buffer {
   parts.push(Buffer.from([0]))
   // 17. frozen: Option<bool> - None
   parts.push(Buffer.from([0]))
+  // 18. max_trade_amount: Option<u64> - None
+  parts.push(Buffer.from([0]))
+  // 19. settlement_timeout_seconds: Option<i64> - None
+  parts.push(Buffer.from([0]))
 
   return Buffer.concat(parts)
 }
