@@ -6,6 +6,7 @@ import { useWallet } from '@solana/wallet-adapter-react'
 
 import { useGlobalConfig, type GlobalConfigData } from '@/hooks/use-global-config'
 import { useUpdateConfig } from '@/hooks/use-update-config'
+import { useAdminSettings, useUpdateAdminSettings } from '@/hooks/use-admin-settings'
 import type { UpdateConfigParams } from '@/lib/transactions/update-config'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -219,6 +220,8 @@ export function ConfigurationPanel() {
 function ConfigurationPanelInner({ config }: { config: GlobalConfigData }) {
   const { publicKey } = useWallet()
   const updateConfig = useUpdateConfig()
+  const { data: adminSettings } = useAdminSettings()
+  const updateAdminSettings = useUpdateAdminSettings()
 
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [copiedField, setCopiedField] = useState<string | null>(null)
@@ -386,6 +389,7 @@ function ConfigurationPanelInner({ config }: { config: GlobalConfigData }) {
   const changedBorder = 'border-amber-500'
 
   return (
+    <>
     <Card className="mt-4">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg">Configuration Panel</CardTitle>
@@ -872,5 +876,30 @@ function ConfigurationPanelInner({ config }: { config: GlobalConfigData }) {
         </Dialog>
       </CardContent>
     </Card>
+
+    <Card className="mt-4">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg">UI Settings</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <Label htmlFor="allowEpochCreation" className="text-sm font-medium">Allow Epoch Creation (UI)</Label>
+            <p className="text-xs text-muted-foreground">
+              When disabled, the Create New Epoch button is hidden for all users. Saves immediately.
+            </p>
+          </div>
+          <Switch
+            id="allowEpochCreation"
+            checked={adminSettings?.allowEpochCreation ?? true}
+            onCheckedChange={(checked) =>
+              updateAdminSettings.mutate({ allowEpochCreation: checked })
+            }
+            disabled={updateAdminSettings.isPending}
+          />
+        </div>
+      </CardContent>
+    </Card>
+    </>
   )
 }

@@ -28,6 +28,18 @@ jest.mock('@/hooks/use-global-config', () => ({
   useGlobalConfig: () => ({ config: mockConfig }),
 }))
 
+const mockUpdateAdminSettingsMutate = jest.fn()
+jest.mock('@/hooks/use-admin-settings', () => ({
+  useAdminSettings: () => ({
+    data: { allowEpochCreation: true },
+    isLoading: false,
+  }),
+  useUpdateAdminSettings: () => ({
+    mutate: mockUpdateAdminSettingsMutate,
+    isPending: false,
+  }),
+}))
+
 // Mock UI components
 jest.mock('@/components/ui/card', () => ({
   Card: ({ children, className }: { children: React.ReactNode; className?: string }) => <div data-testid="card" className={className}>{children}</div>,
@@ -104,6 +116,7 @@ function makeConfig(overrides: Partial<Record<string, unknown>> = {}) {
 beforeEach(() => {
   mockConfig = makeConfig()
   mockMutate.mockClear()
+  mockUpdateAdminSettingsMutate.mockClear()
 })
 
 describe('ConfigurationPanel - Protocol Safety', () => {
@@ -320,5 +333,19 @@ describe('ConfigurationPanel - Protocol Safety', () => {
     // The new value "Active" should NOT have red styling (it's an unfreeze)
     const activeValue = screen.getByText('Active')
     expect(activeValue.className).not.toContain('text-red-500')
+  })
+})
+
+describe('ConfigurationPanel - UI Settings', () => {
+  it('renders the Allow Epoch Creation toggle', () => {
+    render(<ConfigurationPanel />)
+    expect(screen.getByText('UI Settings')).toBeInTheDocument()
+    expect(screen.getByText('Allow Epoch Creation (UI)')).toBeInTheDocument()
+  })
+
+  it('calls updateAdminSettings.mutate when toggle is clicked', () => {
+    render(<ConfigurationPanel />)
+    fireEvent.click(screen.getByTestId('switch-allowEpochCreation'))
+    expect(mockUpdateAdminSettingsMutate).toHaveBeenCalledWith({ allowEpochCreation: false })
   })
 })

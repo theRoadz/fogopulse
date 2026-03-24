@@ -177,6 +177,7 @@ export const QUERY_KEYS = {
   feedbackAdminCheck: (wallet?: string) => ['feedback-admin', wallet] as const,
   poolApy: (asset: Asset) => ['poolApy', asset] as const,
   globalConfig: () => ['globalConfig'] as const,
+  adminSettings: () => ['admin-settings'] as const,
 } as const
 
 // =============================================================================

@@ -41,6 +41,11 @@ const mockUsePythPrice = jest.fn().mockReturnValue({
   connectionState: 'connected',
 })
 
+const mockUseAdminSettings = jest.fn().mockReturnValue({
+  data: { allowEpochCreation: true },
+  isLoading: false,
+})
+
 const mockUseWalletConnection = jest.fn().mockReturnValue({
   connected: false,
   publicKey: null,
@@ -67,6 +72,7 @@ jest.mock('@/hooks', () => ({
     error: null,
     refetch: jest.fn(),
   }),
+  useAdminSettings: (...args: unknown[]) => mockUseAdminSettings(...args),
 }))
 
 // Mock child components
@@ -274,6 +280,53 @@ describe('EpochStatusDisplay', () => {
 
       const countdown = screen.getByTestId('epoch-countdown')
       expect(countdown).toHaveTextContent('Countdown: 240s')
+    })
+  })
+
+  describe('admin epoch creation toggle', () => {
+    beforeEach(() => {
+      mockUseEpoch.mockReturnValue({
+        epochState: mockEpochState,
+        isLoading: false,
+        error: null,
+        noEpochStatus: 'no-epoch',
+        refetch: jest.fn(),
+      })
+    })
+
+    it('should hide create button when allowEpochCreation is false', () => {
+      mockUseAdminSettings.mockReturnValue({
+        data: { allowEpochCreation: false },
+        isLoading: false,
+      })
+
+      render(<EpochStatusDisplay asset={'BTC' as Asset} />)
+
+      expect(screen.queryByTestId('create-epoch-button')).not.toBeInTheDocument()
+      expect(screen.getByText('Waiting for next epoch...')).toBeInTheDocument()
+    })
+
+    it('should hide create button while admin settings are loading', () => {
+      mockUseAdminSettings.mockReturnValue({
+        data: undefined,
+        isLoading: true,
+      })
+
+      render(<EpochStatusDisplay asset={'BTC' as Asset} />)
+
+      expect(screen.queryByTestId('create-epoch-button')).not.toBeInTheDocument()
+      expect(screen.getByText('Waiting for next epoch...')).toBeInTheDocument()
+    })
+
+    it('should show create button when allowEpochCreation is true', () => {
+      mockUseAdminSettings.mockReturnValue({
+        data: { allowEpochCreation: true },
+        isLoading: false,
+      })
+
+      render(<EpochStatusDisplay asset={'BTC' as Asset} />)
+
+      expect(screen.getByTestId('create-epoch-button')).toBeInTheDocument()
     })
   })
 

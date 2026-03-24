@@ -11,7 +11,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
-import { useEpoch, usePythPrice, useEpochCreation, useWalletConnection, useLastSettledEpoch } from '@/hooks'
+import { useEpoch, usePythPrice, useEpochCreation, useWalletConnection, useLastSettledEpoch, useAdminSettings } from '@/hooks'
 import type { Asset } from '@/types/assets'
 import { EpochCountdown } from './epoch-countdown'
 import { EpochStateBadge } from './epoch-state-badge'
@@ -126,6 +126,8 @@ export function EpochStatusDisplay({ asset, className }: EpochStatusDisplayProps
   const { connected } = useWalletConnection()
   const { state: creationState, isCreating, createEpoch } = useEpochCreation(asset)
   const { lastSettledEpoch, isLoading: isLastSettledLoading } = useLastSettledEpoch(asset)
+  const { data: adminSettings, isLoading: isAdminSettingsLoading } = useAdminSettings()
+  const allowEpochCreation = adminSettings?.allowEpochCreation ?? true
   const [isLastSettlementOpen, setIsLastSettlementOpen] = useState(false)
 
   // Freeze the delta price when the countdown timer reaches 0
@@ -181,30 +183,38 @@ export function EpochStatusDisplay({ asset, className }: EpochStatusDisplayProps
       <div className={cn('flex flex-col gap-4', className)}>
         {/* Create epoch section */}
         <div className="flex flex-col items-center justify-center gap-2 py-2">
-          <span className="text-sm text-muted-foreground">
-            {noEpochStatus === 'next-epoch-soon'
-              ? 'Next epoch starting soon...'
-              : 'No active epoch'}
-          </span>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={createEpoch}
-            disabled={!connected || isCreating}
-            className="gap-2"
-          >
-            {isCreating ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {getCreationStateLabel(creationState)}
-              </>
-            ) : (
-              <>
-                <Plus className="h-4 w-4" />
-                {connected ? 'Create New Epoch' : 'Connect Wallet'}
-              </>
-            )}
-          </Button>
+          {!allowEpochCreation || isAdminSettingsLoading ? (
+            <span className="text-sm text-muted-foreground">
+              Waiting for next epoch...
+            </span>
+          ) : (
+            <>
+              <span className="text-sm text-muted-foreground">
+                {noEpochStatus === 'next-epoch-soon'
+                  ? 'Next epoch starting soon...'
+                  : 'No active epoch'}
+              </span>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={createEpoch}
+                disabled={!connected || isCreating}
+                className="gap-2"
+              >
+                {isCreating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {getCreationStateLabel(creationState)}
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4" />
+                    {connected ? 'Create New Epoch' : 'Connect Wallet'}
+                  </>
+                )}
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Last settlement section (collapsible) */}
