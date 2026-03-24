@@ -56,6 +56,8 @@ interface FormState {
   treasury: string
   insurance: string
   allowHedging: boolean
+  paused: boolean
+  frozen: boolean
 }
 
 interface ValidationErrors {
@@ -201,6 +203,8 @@ function configKey(config: GlobalConfigData): string {
     config.treasury.toString(),
     config.insurance.toString(),
     String(config.allowHedging),
+    String(config.paused),
+    String(config.frozen),
     config.maxTradeAmount.toString(),
     config.settlementTimeoutSeconds.toString(),
   ].join('-')
@@ -244,6 +248,8 @@ function ConfigurationPanelInner({ config }: { config: GlobalConfigData }) {
     treasury: config.treasury.toString(),
     insurance: config.insurance.toString(),
     allowHedging: config.allowHedging,
+    paused: config.paused,
+    frozen: config.frozen,
   }))
 
   const errors = useMemo(() => validateForm(form), [form])
@@ -300,6 +306,20 @@ function ConfigurationPanelInner({ config }: { config: GlobalConfigData }) {
         newValue: form.allowHedging ? 'Enabled' : 'Disabled',
       })
     }
+    if (form.paused !== config.paused) {
+      result.push({
+        label: 'Pause Protocol',
+        currentValue: config.paused ? 'Paused' : 'Active',
+        newValue: form.paused ? 'Paused' : 'Active',
+      })
+    }
+    if (form.frozen !== config.frozen) {
+      result.push({
+        label: 'Emergency Freeze',
+        currentValue: config.frozen ? 'Frozen' : 'Active',
+        newValue: form.frozen ? 'Frozen' : 'Active',
+      })
+    }
 
     return result
   }, [form, config])
@@ -329,8 +349,8 @@ function ConfigurationPanelInner({ config }: { config: GlobalConfigData }) {
       treasury: form.treasury.trim() !== config.treasury.toString() ? new PublicKey(form.treasury.trim()) : null,
       insurance: form.insurance.trim() !== config.insurance.toString() ? new PublicKey(form.insurance.trim()) : null,
       allowHedging: form.allowHedging !== config.allowHedging ? form.allowHedging : null,
-      paused: null,
-      frozen: null,
+      paused: form.paused !== config.paused ? form.paused : null,
+      frozen: form.frozen !== config.frozen ? form.frozen : null,
       maxTradeAmount: numOrNull(form.maxTradeAmount, config.maxTradeAmount.toNumber()),
       settlementTimeoutSeconds: numOrNull(form.settlementTimeoutSeconds, config.settlementTimeoutSeconds.toNumber()),
     }
@@ -727,6 +747,58 @@ function ConfigurationPanelInner({ config }: { config: GlobalConfigData }) {
           </div>
         </div>
 
+        {/* ── Protocol Safety ──────────────────────────────────────── */}
+        <div className="border-t pt-4">
+          <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Protocol Safety</h3>
+          <div className="space-y-4">
+            {/* Pause toggle */}
+            <div className={`rounded-lg border p-4 ${form.paused ? 'border-amber-500 bg-amber-500/10' : 'border-border'}`}>
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label htmlFor="paused" className="text-sm font-medium">Pause Protocol</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Blocks new epoch creation globally. Existing epochs continue to settle normally.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {form.paused !== config.paused && (
+                    <span className="text-xs text-amber-500">(changed)</span>
+                  )}
+                  <Switch
+                    id="paused"
+                    checked={form.paused}
+                    onCheckedChange={(checked) => setField('paused', checked)}
+                    disabled={isPending}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Freeze toggle */}
+            <div className={`rounded-lg border p-4 ${form.frozen ? 'border-red-500 bg-red-500/10' : 'border-border'}`}>
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label htmlFor="frozen" className="text-sm font-medium">Emergency Freeze</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Halts ALL protocol activity — trades, settlements, claims, and epoch creation.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {form.frozen !== config.frozen && (
+                    <span className="text-xs text-red-500">(changed)</span>
+                  )}
+                  <Switch
+                    id="frozen"
+                    checked={form.frozen}
+                    onCheckedChange={(checked) => setField('frozen', checked)}
+                    disabled={isPending}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* ── Submit ──────────────────────────────────────────────── */}
         <div className="border-t pt-4">
           <Button
@@ -749,6 +821,22 @@ function ConfigurationPanelInner({ config }: { config: GlobalConfigData }) {
                 Review the following changes before submitting the transaction.
               </DialogDescription>
             </DialogHeader>
+            {form.paused && !config.paused && (
+              <div className="rounded-lg border border-amber-500 bg-amber-500/10 p-3 mb-3">
+                <p className="text-sm font-semibold text-amber-500">WARNING: Protocol Pause</p>
+                <p className="text-xs text-amber-400 mt-1">
+                  Enabling pause will block ALL new epoch creation. Existing epochs will continue to settle normally.
+                </p>
+              </div>
+            )}
+            {form.frozen && !config.frozen && (
+              <div className="rounded-lg border border-red-500 bg-red-500/10 p-3 mb-3">
+                <p className="text-sm font-semibold text-red-500">WARNING: Emergency Freeze</p>
+                <p className="text-xs text-red-400 mt-1">
+                  Enabling freeze will halt ALL protocol activity — trades, settlements, claims, and epoch creation. Only proceed if this is an emergency.
+                </p>
+              </div>
+            )}
             <div className="max-h-80 overflow-y-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -759,13 +847,16 @@ function ConfigurationPanelInner({ config }: { config: GlobalConfigData }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {changes.map((change) => (
-                    <tr key={change.label} className="border-b">
-                      <td className="py-2 font-medium">{change.label}</td>
-                      <td className="py-2 text-muted-foreground">{change.currentValue}</td>
-                      <td className="py-2 text-amber-500">{change.newValue}</td>
-                    </tr>
-                  ))}
+                  {changes.map((change) => {
+                    const isFreezeOn = change.label === 'Emergency Freeze' && change.newValue === 'Frozen'
+                    return (
+                      <tr key={change.label} className="border-b">
+                        <td className="py-2 font-medium">{change.label}</td>
+                        <td className="py-2 text-muted-foreground">{change.currentValue}</td>
+                        <td className={`py-2 ${isFreezeOn ? 'text-red-500 font-semibold' : 'text-amber-500'}`}>{change.newValue}</td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
