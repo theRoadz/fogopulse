@@ -147,3 +147,4 @@ development_status:
   7-22-trade-simulation-bot: done
   7-23-wrong-network-guard: done
   7-26-admin-pause-freeze-controls: done
+  7-29-fix-settle-epoch-reserve-disappearance: done
