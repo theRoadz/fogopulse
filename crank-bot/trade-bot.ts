@@ -19,6 +19,13 @@
  *   TRADE_BOT_MAX_TRADES_PER_EPOCH - Max trades per bot per epoch (default: 2)
  *   TRADE_BOT_WALLETS_DIR        - Keypair dir (default: ./trade-bot-wallets)
  *   TRADE_BOT_POLL_INTERVAL_SECONDS - Poll interval (default: 10)
+ *   TRADE_BOT_STRATEGY           - Trading strategy: random|momentum|contrarian|pool_imbalance|composite (default: random)
+ *   TRADE_BOT_TIME_BIAS          - Trade timing: early|late|uniform (default: uniform)
+ *   TRADE_BOT_STRATEGY_BTC       - Per-asset strategy override (optional, same values as TRADE_BOT_STRATEGY)
+ *   TRADE_BOT_STRATEGY_ETH       - Per-asset strategy override
+ *   TRADE_BOT_STRATEGY_SOL       - Per-asset strategy override
+ *   TRADE_BOT_STRATEGY_FOGO      - Per-asset strategy override
+ *   PYTH_ACCESS_TOKEN            - Pyth Lazer API token (required for non-random strategies)
  *   WALLET_PATH                  - Master wallet for claims (shared with crank)
  *   RPC_URL                      - RPC URL (default: https://testnet.fogo.io)
  *   LOG_LEVEL                    - Log level (default: info)
@@ -42,6 +49,7 @@ import {
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
 } from '@solana/spl-token'
+import WebSocket from 'ws'
 
 // Load environment variables
 dotenv.config()
@@ -63,6 +71,15 @@ const ASSET_MINTS = {
 type Asset = keyof typeof ASSET_MINTS
 
 const USDC_MINT = new PublicKey('6jzddTQNDh2RPuav88r19gdSGmGnbH6EWa2NXgLV8cAy')
+
+// Pyth Lazer
+const PYTH_WS_URL = 'wss://pyth-lazer-0.dourolabs.app/v1/stream'
+const PYTH_FEED_IDS: Record<Asset, number> = {
+  BTC: 1,
+  ETH: 2,
+  SOL: 6,
+  FOGO: 2923,
+}
 
 // Instruction discriminators
 const BUY_POSITION_DISCRIMINATOR = Buffer.from([210, 108, 108, 28, 10, 46, 226, 137])
@@ -107,6 +124,9 @@ const GLOBAL_CONFIG_REFRESH_MS = 5 * 60 * 1000
 // TYPES
 // =============================================================================
 
+type StrategyName = 'random' | 'momentum' | 'contrarian' | 'pool_imbalance' | 'composite'
+type TimeBias = 'early' | 'late' | 'uniform'
+
 interface TradeBotConfig {
   enabled: boolean
   botCount: number
@@ -117,6 +137,19 @@ interface TradeBotConfig {
   pollIntervalSeconds: number
   rpcUrl: string
   logLevel: LogLevel
+  strategy: StrategyName
+  timeBias: TimeBias
+  assetStrategies: Partial<Record<Asset, StrategyName>>
+  strategyParams: StrategyParams
+}
+
+interface StrategyParams {
+  momentumThresholdPct: number
+  momentumMaxBias: number
+  contrarianThresholdPct: number
+  contrarianMaxBias: number
+  imbalanceThreshold: number
+  compositeWeights: { momentum: number; imbalance: number; noise: number }
 }
 
 interface BotWallet {
@@ -136,6 +169,8 @@ interface GlobalConfigData {
 
 interface PoolData {
   assetMint: PublicKey
+  yesReserves: bigint
+  noReserves: bigint
   nextEpochId: bigint
   activeEpoch: PublicKey | null
   activeEpochState: number
@@ -148,6 +183,8 @@ interface EpochData {
   startTime: bigint
   endTime: bigint
   freezeTime: bigint
+  startPrice: bigint
+  startConfidence: bigint
   outcome: number | null
 }
 
@@ -158,6 +195,33 @@ interface PositionData {
   amount: bigint
   shares: bigint
   claimed: boolean
+}
+
+interface PriceSnapshot {
+  price: number
+  confidence: number
+  timestamp: number
+}
+
+interface TradeDecision {
+  direction: number
+  amount: number
+  reason: string
+}
+
+interface StrategyContext {
+  asset: Asset
+  epoch: EpochData
+  pool: PoolData
+  currentPrice: PriceSnapshot | null
+  config: TradeBotConfig
+  globalConfig: GlobalConfigData
+  nowSeconds: number
+}
+
+interface TradingStrategy {
+  name: string
+  decide(ctx: StrategyContext): TradeDecision | null
 }
 
 // =============================================================================
@@ -218,7 +282,33 @@ function parseLogLevel(level: string): LogLevel {
 // CONFIGURATION
 // =============================================================================
 
+function parseStrategyName(value: string | undefined, fallback: StrategyName): StrategyName {
+  const valid: StrategyName[] = ['random', 'momentum', 'contrarian', 'pool_imbalance', 'composite']
+  if (value && valid.includes(value as StrategyName)) return value as StrategyName
+  return fallback
+}
+
+function parseTimeBias(value: string | undefined): TimeBias {
+  const valid: TimeBias[] = ['early', 'late', 'uniform']
+  if (value && valid.includes(value as TimeBias)) return value as TimeBias
+  return 'uniform'
+}
+
 function loadConfig(): TradeBotConfig {
+  const strategy = parseStrategyName(process.env.TRADE_BOT_STRATEGY, 'random')
+
+  const assetStrategies: Partial<Record<Asset, StrategyName>> = {}
+  for (const asset of ['BTC', 'ETH', 'SOL', 'FOGO'] as Asset[]) {
+    const envVal = process.env[`TRADE_BOT_STRATEGY_${asset}`]
+    if (envVal) assetStrategies[asset] = parseStrategyName(envVal, strategy)
+  }
+
+  const cw = {
+    momentum: parseFloat(process.env.STRATEGY_COMPOSITE_MOMENTUM_WEIGHT || '0.5'),
+    imbalance: parseFloat(process.env.STRATEGY_COMPOSITE_IMBALANCE_WEIGHT || '0.3'),
+    noise: parseFloat(process.env.STRATEGY_COMPOSITE_NOISE_WEIGHT || '0.2'),
+  }
+
   const config: TradeBotConfig = {
     enabled: process.env.TRADE_BOT_ENABLED === 'true',
     botCount: parseInt(process.env.TRADE_BOT_COUNT || '5', 10),
@@ -229,6 +319,17 @@ function loadConfig(): TradeBotConfig {
     pollIntervalSeconds: parseInt(process.env.TRADE_BOT_POLL_INTERVAL_SECONDS || '10', 10),
     rpcUrl: process.env.RPC_URL || DEFAULT_RPC_URL,
     logLevel: parseLogLevel(process.env.LOG_LEVEL || 'info'),
+    strategy,
+    timeBias: parseTimeBias(process.env.TRADE_BOT_TIME_BIAS),
+    assetStrategies,
+    strategyParams: {
+      momentumThresholdPct: parseFloat(process.env.STRATEGY_MOMENTUM_THRESHOLD_PCT || '0.0001'),
+      momentumMaxBias: parseFloat(process.env.STRATEGY_MOMENTUM_MAX_BIAS || '0.85'),
+      contrarianThresholdPct: parseFloat(process.env.STRATEGY_CONTRARIAN_THRESHOLD_PCT || '0.0005'),
+      contrarianMaxBias: parseFloat(process.env.STRATEGY_CONTRARIAN_MAX_BIAS || '0.80'),
+      imbalanceThreshold: parseFloat(process.env.STRATEGY_IMBALANCE_THRESHOLD || '0.10'),
+      compositeWeights: cw,
+    },
   }
 
   if (!config.enabled) {
@@ -364,8 +465,12 @@ function parsePoolAccount(data: Buffer): PoolData {
   const assetMint = new PublicKey(data.subarray(offset, offset + 32))
   offset += 32
 
-  // Skip yes_reserves, no_reserves, total_lp_shares, pending_withdrawal_shares
-  offset += 8 + 8 + 8 + 8
+  // Read yes_reserves, no_reserves (skip total_lp_shares, pending_withdrawal_shares)
+  const yesReserves = data.readBigUInt64LE(offset)
+  offset += 8
+  const noReserves = data.readBigUInt64LE(offset)
+  offset += 8
+  offset += 8 + 8 // skip total_lp_shares, pending_withdrawal_shares
 
   const nextEpochId = data.readBigUInt64LE(offset)
   offset += 8
@@ -381,7 +486,7 @@ function parsePoolAccount(data: Buffer): PoolData {
 
   const activeEpochState = data.readUInt8(offset)
 
-  return { assetMint, nextEpochId, activeEpoch, activeEpochState }
+  return { assetMint, yesReserves, noReserves, nextEpochId, activeEpoch, activeEpochState }
 }
 
 function parseEpochAccount(data: Buffer): EpochData {
@@ -403,8 +508,12 @@ function parseEpochAccount(data: Buffer): EpochData {
   const freezeTime = data.readBigInt64LE(offset)
   offset += 8
 
-  // Skip start_price, start_confidence, start_publish_time
-  offset += 8 + 8 + 8
+  // Read start_price, start_confidence, skip start_publish_time
+  const startPrice = data.readBigUInt64LE(offset)
+  offset += 8
+  const startConfidence = data.readBigUInt64LE(offset)
+  offset += 8
+  offset += 8 // skip start_publish_time
 
   // settlement_price (Option<u64>)
   const hasSettPrice = data.readUInt8(offset) === 1
@@ -426,7 +535,7 @@ function parseEpochAccount(data: Buffer): EpochData {
   offset += 1
   const outcome = hasOutcome ? data.readUInt8(offset) : null
 
-  return { pool, epochId, state, startTime, endTime, freezeTime, outcome }
+  return { pool, epochId, state, startTime, endTime, freezeTime, startPrice, startConfidence, outcome }
 }
 
 function parsePositionAccount(data: Buffer): PositionData {
@@ -665,6 +774,378 @@ function randomFloat(min: number, max: number): number {
 }
 
 // =============================================================================
+// PYTH PRICE MANAGER (for strategies)
+// =============================================================================
+
+class TradeBotPriceManager {
+  private ws: WebSocket | null = null
+  private prices = new Map<number, PriceSnapshot>()
+  private feedIds: number[]
+  private accessToken: string
+  private isConnected = false
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  private reconnectAttempts = 0
+  private maxReconnectAttempts = 10
+
+  constructor(feedIds: number[], accessToken: string) {
+    this.feedIds = feedIds
+    this.accessToken = accessToken
+  }
+
+  async connect(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('TradeBotPriceManager connection timeout after 30s'))
+      }, 30000)
+
+      this.ws = new WebSocket(PYTH_WS_URL, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` },
+      })
+
+      this.ws.on('open', () => {
+        log.info('PriceManager: Connected to Pyth Lazer')
+        this.isConnected = true
+        this.reconnectAttempts = 0
+
+        this.feedIds.forEach((feedId, index) => {
+          const subId = index + 1
+          this.ws!.send(JSON.stringify({
+            type: 'subscribe',
+            subscriptionId: subId,
+            priceFeedIds: [feedId],
+            properties: ['price', 'confidence', 'exponent'],
+            formats: ['solana'],
+            deliveryFormat: 'json',
+            channel: 'fixed_rate@200ms',
+            jsonBinaryEncoding: 'hex',
+          }))
+        })
+      })
+
+      let subscribedCount = 0
+      let resolved = false
+
+      this.ws.on('message', (data: WebSocket.Data) => {
+        try {
+          const msg = JSON.parse(data.toString())
+
+          if (msg.type === 'subscribed') {
+            subscribedCount++
+            if (subscribedCount >= this.feedIds.length && !resolved) {
+              resolved = true
+              clearTimeout(timeout)
+              log.info(`PriceManager: All ${this.feedIds.length} feeds subscribed`)
+              resolve()
+            }
+            return
+          }
+
+          if (msg.type === 'streamUpdated' && msg.parsed) {
+            this.handleParsedMessage(msg.parsed)
+          } else if (msg.type === 'streamUpdated' && msg.solana) {
+            // Fallback: parse price from Solana binary if no parsed field
+            this.handleSolanaMessage(msg)
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      })
+
+      this.ws.on('close', () => {
+        this.isConnected = false
+        if (!isShuttingDown) {
+          this.scheduleReconnect()
+        }
+      })
+
+      this.ws.on('error', (err: Error) => {
+        log.warn(`PriceManager: WebSocket error: ${err.message}`)
+        if (!resolved) {
+          resolved = true
+          clearTimeout(timeout)
+          // Resolve anyway — strategies will degrade to random
+          resolve()
+        }
+      })
+    })
+  }
+
+  private handleParsedMessage(parsed: any): void {
+    try {
+      const feeds = parsed.priceFeeds || parsed.price_feeds || []
+      for (const feed of feeds) {
+        const feedId = feed.priceFeedId || feed.price_feed_id
+        const price = Number(feed.price)
+        const confidence = Number(feed.confidence)
+        const exponent = Number(feed.exponent)
+        if (feedId != null && !isNaN(price)) {
+          const scale = Math.pow(10, exponent)
+          this.prices.set(feedId, {
+            price: price * scale,
+            confidence: confidence * scale,
+            timestamp: Date.now(),
+          })
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
+  private handleSolanaMessage(msg: any): void {
+    // Extract feed ID from subscriptionId mapping
+    const subId = msg.subscriptionId
+    if (subId == null || subId < 1 || subId > this.feedIds.length) return
+    const feedId = this.feedIds[subId - 1]
+
+    // Parse Solana binary format for price data
+    try {
+      const solanaData = msg.solana?.data || msg.solana
+      if (!solanaData) return
+      const buf = Buffer.from(solanaData, 'hex')
+      // Pyth Lazer Solana message layout varies; attempt to read price at known offset
+      // The message contains: magic(4) + channel(1) + feedId(4) + timestamp(8) + price(8) + conf(8) + exponent(4)
+      if (buf.length >= 37) {
+        const priceBigInt = buf.readBigInt64LE(17)
+        const confBigInt = buf.readBigUInt64LE(25)
+        const exponent = buf.readInt32LE(33)
+        const scale = Math.pow(10, exponent)
+        this.prices.set(feedId, {
+          price: Number(priceBigInt) * scale,
+          confidence: Number(confBigInt) * scale,
+          timestamp: Date.now(),
+        })
+      }
+    } catch {
+      // Ignore parse failures
+    }
+  }
+
+  private scheduleReconnect(): void {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      log.warn('PriceManager: Max reconnect attempts reached, strategies will use random fallback')
+      return
+    }
+    const delay = Math.min(30000, 1000 * Math.pow(2, this.reconnectAttempts))
+    this.reconnectAttempts++
+    log.info(`PriceManager: Reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts})`)
+    this.reconnectTimer = setTimeout(() => {
+      this.connect().catch((err) => {
+        log.warn(`PriceManager: Reconnect failed: ${err.message}`)
+      })
+    }, delay)
+  }
+
+  getPrice(feedId: number): PriceSnapshot | null {
+    const snap = this.prices.get(feedId)
+    if (!snap) return null
+    if (Date.now() - snap.timestamp > 30_000) return null
+    return snap
+  }
+
+  disconnect(): void {
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
+    if (this.ws) {
+      this.ws.removeAllListeners()
+      this.ws.close()
+      this.ws = null
+    }
+    this.isConnected = false
+  }
+}
+
+// =============================================================================
+// TRADING STRATEGIES
+// =============================================================================
+
+class RandomStrategy implements TradingStrategy {
+  name = 'random'
+  decide(ctx: StrategyContext): TradeDecision {
+    return {
+      direction: Math.random() < 0.5 ? 0 : 1,
+      amount: randomFloat(ctx.config.minAmount, ctx.config.maxAmount),
+      reason: 'random',
+    }
+  }
+}
+
+class MomentumStrategy implements TradingStrategy {
+  name = 'momentum'
+  private params: StrategyParams
+
+  constructor(params: StrategyParams) {
+    this.params = params
+  }
+
+  decide(ctx: StrategyContext): TradeDecision {
+    if (!ctx.currentPrice || ctx.epoch.startPrice === 0n) {
+      return new RandomStrategy().decide(ctx)
+    }
+
+    const startPriceUsd = Number(ctx.epoch.startPrice) / 1e8
+    const pctMove = (ctx.currentPrice.price - startPriceUsd) / startPriceUsd
+
+    if (Math.abs(pctMove) < this.params.momentumThresholdPct) {
+      return new RandomStrategy().decide(ctx)
+    }
+
+    // Scale bias: threshold → 50%, large move → maxBias
+    const moveScale = Math.abs(pctMove) / 0.001 // normalize: 0.1% = 1.0
+    const biasStrength = Math.min(this.params.momentumMaxBias, 0.5 + moveScale * 0.35)
+    const upProb = pctMove > 0 ? biasStrength : (1 - biasStrength)
+    const direction = Math.random() < upProb ? 0 : 1
+
+    // Scale amount with conviction
+    const conviction = Math.min(1, moveScale)
+    const amountRange = ctx.config.maxAmount - ctx.config.minAmount
+    const amount = ctx.config.minAmount + conviction * amountRange
+
+    return {
+      direction,
+      amount,
+      reason: `momentum ${(pctMove * 100).toFixed(4)}% → ${direction === 0 ? 'UP' : 'DOWN'} p=${upProb.toFixed(2)}`,
+    }
+  }
+}
+
+class ContrarianStrategy implements TradingStrategy {
+  name = 'contrarian'
+  private params: StrategyParams
+
+  constructor(params: StrategyParams) {
+    this.params = params
+  }
+
+  decide(ctx: StrategyContext): TradeDecision {
+    if (!ctx.currentPrice || ctx.epoch.startPrice === 0n) {
+      return new RandomStrategy().decide(ctx)
+    }
+
+    const startPriceUsd = Number(ctx.epoch.startPrice) / 1e8
+    const pctMove = (ctx.currentPrice.price - startPriceUsd) / startPriceUsd
+
+    if (Math.abs(pctMove) < this.params.contrarianThresholdPct) {
+      return new RandomStrategy().decide(ctx)
+    }
+
+    // Bet AGAINST the move
+    const direction = pctMove > 0 ? 1 : 0
+    const moveScale = Math.abs(pctMove) / 0.001
+    const conviction = Math.min(1, moveScale)
+    const amountRange = ctx.config.maxAmount - ctx.config.minAmount
+    const amount = ctx.config.minAmount + conviction * amountRange
+
+    return {
+      direction,
+      amount,
+      reason: `contrarian ${(pctMove * 100).toFixed(4)}% → bet ${direction === 0 ? 'UP' : 'DOWN'}`,
+    }
+  }
+}
+
+class PoolImbalanceStrategy implements TradingStrategy {
+  name = 'pool_imbalance'
+  private params: StrategyParams
+
+  constructor(params: StrategyParams) {
+    this.params = params
+  }
+
+  decide(ctx: StrategyContext): TradeDecision {
+    const yes = Number(ctx.pool.yesReserves)
+    const no = Number(ctx.pool.noReserves)
+    const total = yes + no
+
+    if (total === 0) {
+      return new RandomStrategy().decide(ctx)
+    }
+
+    const yesRatio = yes / total
+    const imbalance = yesRatio - 0.5 // positive = yes reserves heavy = yes shares cheap
+
+    if (Math.abs(imbalance) < this.params.imbalanceThreshold) {
+      return new RandomStrategy().decide(ctx)
+    }
+
+    // Higher yes reserves → yes shares cheaper → bet UP (0)
+    const direction = imbalance > 0 ? 0 : 1
+    const conviction = Math.min(1, Math.abs(imbalance) / 0.3)
+    const amountRange = ctx.config.maxAmount - ctx.config.minAmount
+    const amount = ctx.config.minAmount + conviction * amountRange
+
+    return {
+      direction,
+      amount,
+      reason: `imbalance yes=${(yesRatio * 100).toFixed(1)}% → ${direction === 0 ? 'UP' : 'DOWN'}`,
+    }
+  }
+}
+
+class CompositeStrategy implements TradingStrategy {
+  name = 'composite'
+  private params: StrategyParams
+
+  constructor(params: StrategyParams) {
+    this.params = params
+  }
+
+  decide(ctx: StrategyContext): TradeDecision {
+    let upScore = 0
+    let totalWeight = 0
+    const w = this.params.compositeWeights
+
+    // 1. Momentum signal
+    if (ctx.currentPrice && ctx.epoch.startPrice !== 0n) {
+      const startPriceUsd = Number(ctx.epoch.startPrice) / 1e8
+      const pctMove = (ctx.currentPrice.price - startPriceUsd) / startPriceUsd
+      const signal = Math.tanh(pctMove * 500) // -1 to 1, 0.1% move → tanh(0.5) ≈ 0.46
+      upScore += signal * w.momentum
+      totalWeight += w.momentum
+    }
+
+    // 2. Pool imbalance signal
+    const yes = Number(ctx.pool.yesReserves)
+    const no = Number(ctx.pool.noReserves)
+    if (yes + no > 0) {
+      const signal = (yes / (yes + no) - 0.5) * 2 // -1 to 1
+      upScore += signal * w.imbalance
+      totalWeight += w.imbalance
+    }
+
+    // 3. Random noise
+    upScore += (Math.random() - 0.5) * 2 * w.noise
+    totalWeight += w.noise
+
+    const normalizedScore = totalWeight > 0 ? upScore / totalWeight : 0
+    // Clamp probability to [0.1, 0.9]
+    const upProb = Math.max(0.1, Math.min(0.9, 0.5 + normalizedScore * 0.4))
+    const direction = Math.random() < upProb ? 0 : 1
+
+    // Amount: scale with absolute score (higher conviction → larger bet)
+    const conviction = Math.min(1, Math.abs(normalizedScore))
+    const amountRange = ctx.config.maxAmount - ctx.config.minAmount
+    const amount = ctx.config.minAmount + conviction * amountRange
+
+    return {
+      direction,
+      amount,
+      reason: `composite score=${normalizedScore.toFixed(3)} p(UP)=${upProb.toFixed(2)}`,
+    }
+  }
+}
+
+function createStrategy(name: StrategyName, params: StrategyParams): TradingStrategy {
+  switch (name) {
+    case 'random': return new RandomStrategy()
+    case 'momentum': return new MomentumStrategy(params)
+    case 'contrarian': return new ContrarianStrategy(params)
+    case 'pool_imbalance': return new PoolImbalanceStrategy(params)
+    case 'composite': return new CompositeStrategy(params)
+    default: return new RandomStrategy()
+  }
+}
+
+// =============================================================================
 // MARKET MONITOR
 // =============================================================================
 
@@ -680,6 +1161,8 @@ class MarketMonitor {
   private treasuryUsdcAta: PublicKey
   private insuranceUsdcAta: PublicKey
   private logger: PoolLogger
+  private strategy: TradingStrategy
+  private priceManager: TradeBotPriceManager | null
 
   // Epoch tracking
   private currentEpochId: bigint | null = null
@@ -699,6 +1182,8 @@ class MarketMonitor {
     config: TradeBotConfig,
     globalConfigPda: PublicKey,
     globalConfig: GlobalConfigData,
+    strategy: TradingStrategy,
+    priceManager: TradeBotPriceManager | null,
   ) {
     this.asset = asset
     this.connection = connection
@@ -706,6 +1191,8 @@ class MarketMonitor {
     this.config = config
     this.globalConfigPda = globalConfigPda
     this.globalConfig = globalConfig
+    this.strategy = strategy
+    this.priceManager = priceManager
     this.logger = createPoolLogger(asset)
 
     const assetMint = ASSET_MINTS[asset]
@@ -841,7 +1328,15 @@ class MarketMonitor {
       if (numTrades === 0) continue
 
       for (let t = 0; t < numTrades; t++) {
-        const delayMs = randomInt(1000, windowMs)
+        // Apply time bias to delay range
+        let delayMin = 1000
+        let delayMax = windowMs
+        if (this.config.timeBias === 'early') {
+          delayMax = Math.max(delayMin + 1, Math.floor(windowMs * 0.4))
+        } else if (this.config.timeBias === 'late') {
+          delayMin = Math.max(1000, Math.floor(windowMs * 0.6))
+        }
+        const delayMs = randomInt(delayMin, delayMax)
         const timer = setTimeout(() => {
           this.scheduledTimers.delete(timer)
           activeTimers.delete(timer)
@@ -904,12 +1399,31 @@ class MarketMonitor {
       return
     }
 
-    // Pick random direction (50/50)
-    const direction = Math.random() < 0.5 ? 0 : 1 // 0=Up, 1=Down
-    const directionName = direction === 0 ? 'UP' : 'DOWN'
+    // Fetch fresh pool data for reserves (strategy may need it)
+    const freshPoolInfo = await this.connection.getAccountInfo(this.poolPda)
+    const freshPool = freshPoolInfo ? parsePoolAccount(freshPoolInfo.data) : null
 
-    // Pick random amount
-    const amountUsdc = randomFloat(this.config.minAmount, this.config.maxAmount)
+    // Build strategy context and get trade decision
+    const currentPrice = this.priceManager?.getPrice(PYTH_FEED_IDS[this.asset]) ?? null
+    const ctx: StrategyContext = {
+      asset: this.asset,
+      epoch: freshEpoch,
+      pool: freshPool || { assetMint: ASSET_MINTS[this.asset], yesReserves: 0n, noReserves: 0n, nextEpochId: 0n, activeEpoch: null, activeEpochState: 0 },
+      currentPrice,
+      config: this.config,
+      globalConfig: this.globalConfig,
+      nowSeconds: Math.floor(Date.now() / 1000),
+    }
+
+    const decision = this.strategy.decide(ctx)
+    if (!decision) {
+      this.logger.debug(`Bot-${bot.index} strategy returned null, skipping trade`)
+      return
+    }
+
+    const direction = decision.direction
+    const directionName = direction === 0 ? 'UP' : 'DOWN'
+    const amountUsdc = Math.min(Math.max(decision.amount, this.config.minAmount), this.config.maxAmount)
     const amountLamports = BigInt(Math.floor(amountUsdc * 1_000_000))
 
     // Derive position account
@@ -948,7 +1462,7 @@ class MarketMonitor {
       this.tradedDirections.get(bot.index)!.add(direction)
 
       this.logger.info(
-        `Bot-${bot.index} traded ${directionName} ${amountUsdc.toFixed(2)} USDC in epoch #${epochData.epochId} (tx: ${sig.slice(0, 16)}...)`
+        `Bot-${bot.index} traded ${directionName} ${amountUsdc.toFixed(2)} USDC in epoch #${epochData.epochId} [${decision.reason}] (tx: ${sig.slice(0, 16)}...)`
       )
     }
   }
@@ -1098,6 +1612,7 @@ async function main() {
   currentLogLevel = config.logLevel
 
   log.info(`Config: ${config.botCount} bots, ${config.minAmount}-${config.maxAmount} USDC, max ${config.maxTradesPerEpoch} trades/epoch`)
+  log.info(`Strategy: ${config.strategy}, time bias: ${config.timeBias}`)
   log.info(`Wallets dir: ${path.resolve(config.walletsDir)}`)
   log.info(`Poll interval: ${config.pollIntervalSeconds}s`)
 
@@ -1131,11 +1646,34 @@ async function main() {
     log.warn('Protocol is currently paused/frozen. Bot will wait for it to resume.')
   }
 
+  // Initialize price manager if a non-random strategy needs it
+  const needsPriceManager = config.strategy !== 'random' ||
+    Object.values(config.assetStrategies).some((s) => s !== 'random')
+  const pythAccessToken = process.env.PYTH_ACCESS_TOKEN
+  let priceManager: TradeBotPriceManager | null = null
+
+  if (needsPriceManager && pythAccessToken) {
+    const feedIds = Object.values(PYTH_FEED_IDS)
+    priceManager = new TradeBotPriceManager(feedIds, pythAccessToken)
+    try {
+      await priceManager.connect()
+      log.info('Price manager connected — strategies will use live Pyth prices')
+    } catch (err: any) {
+      log.warn(`Price manager failed to connect: ${err.message}. Strategies will degrade to random.`)
+      priceManager = null
+    }
+  } else if (needsPriceManager && !pythAccessToken) {
+    log.warn('PYTH_ACCESS_TOKEN not set — non-random strategies will degrade to random fallback')
+  }
+
   // Start MarketMonitors for all 4 pools
   const assets: Asset[] = ['BTC', 'ETH', 'SOL', 'FOGO']
-  const monitors = assets.map(
-    (asset) => new MarketMonitor(asset, connection, botWallets, config, globalConfigPda, globalConfig)
-  )
+  const monitors = assets.map((asset) => {
+    const strategyName = config.assetStrategies[asset] || config.strategy
+    const strategy = createStrategy(strategyName, config.strategyParams)
+    log.info(`[${asset}] Strategy: ${strategy.name}`)
+    return new MarketMonitor(asset, connection, botWallets, config, globalConfigPda, globalConfig, strategy, priceManager)
+  })
 
   // Periodic GlobalConfig refresh
   const gcRefreshInterval = setInterval(async () => {
@@ -1161,6 +1699,7 @@ async function main() {
     await Promise.allSettled(monitors.map((m) => m.run()))
   } finally {
     clearInterval(gcRefreshInterval)
+    if (priceManager) priceManager.disconnect()
     log.info('All market monitors stopped. Trade bot shutdown complete.')
   }
 }
