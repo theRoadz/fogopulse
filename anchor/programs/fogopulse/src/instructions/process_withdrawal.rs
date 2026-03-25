@@ -205,12 +205,10 @@ pub fn handler(ctx: Context<ProcessWithdrawal>, user: Pubkey) -> Result<()> {
     let yes_reduction = half_out + (usdc_out % 2); // YES loses remainder (matches deposit pattern)
     let no_reduction = half_out;
 
-    pool.yes_reserves = pool.yes_reserves
-        .checked_sub(yes_reduction)
-        .ok_or(FogoPulseError::InsufficientPoolReserves)?;
-    pool.no_reserves = pool.no_reserves
-        .checked_sub(no_reduction)
-        .ok_or(FogoPulseError::InsufficientPoolReserves)?;
+    // saturating_sub prevents 1-lamport rounding underflow when remainder
+    // assignment doesn't match the side that actually holds the extra lamport
+    pool.yes_reserves = pool.yes_reserves.saturating_sub(yes_reduction);
+    pool.no_reserves = pool.no_reserves.saturating_sub(no_reduction);
 
     // 10. Proportionally reduce deposited_amount (using pre-burn shares)
     // Guard: shares_before must be > 0 to avoid division by zero

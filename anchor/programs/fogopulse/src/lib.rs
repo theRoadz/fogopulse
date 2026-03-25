@@ -251,6 +251,14 @@ pub mod fogopulse {
         instructions::admin_close_epoch::handler(ctx, epoch_id)
     }
 
+    /// Close a position account (admin only, testnet utility)
+    ///
+    /// Used to clean up orphaned position accounts after pool reinitialization.
+    /// Old positions collide with new epoch PDAs and block new trades.
+    pub fn admin_close_position(ctx: Context<AdminClosePosition>, epoch_id: u64, user: Pubkey, direction: u8) -> Result<()> {
+        instructions::admin_close_position::handler(ctx, epoch_id, user, direction)
+    }
+
     /// Close a pool account (admin only, testnet utility)
     ///
     /// Used when Pool struct size changes and accounts need to be recreated.
@@ -312,5 +320,14 @@ pub mod fogopulse {
     /// fee settings, and feature flags. Only provided fields are updated.
     pub fn update_config(ctx: Context<UpdateConfig>, params: UpdateConfigParams) -> Result<()> {
         instructions::update_config::handler(ctx, params)
+    }
+
+    /// Sync pool reserves with actual USDC token balance (admin only)
+    ///
+    /// One-time utility to fix reserve accounting drift from Story 7.32 bug
+    /// (claim_payout/claim_refund not reducing reserves). Reads actual pool
+    /// USDC balance and sets reserves to balance/2 each.
+    pub fn admin_sync_reserves(ctx: Context<AdminSyncReserves>) -> Result<()> {
+        instructions::admin_sync_reserves::handler(ctx)
     }
 }

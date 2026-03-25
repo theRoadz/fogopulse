@@ -641,7 +641,7 @@ function buildClaimPayoutInstruction(
   const keys = [
     { pubkey: signer, isSigner: true, isWritable: true },
     { pubkey: globalConfigPda, isSigner: false, isWritable: false },
-    { pubkey: poolPda, isSigner: false, isWritable: false },
+    { pubkey: poolPda, isSigner: false, isWritable: true },  // mut: reserves reduced on payout (Story 7.32)
     { pubkey: epochPda, isSigner: false, isWritable: false },
     { pubkey: positionPda, isSigner: false, isWritable: true },
     { pubkey: poolUsdcAta, isSigner: false, isWritable: true },
@@ -675,7 +675,7 @@ function buildClaimRefundInstruction(
   const keys = [
     { pubkey: signer, isSigner: true, isWritable: true },
     { pubkey: globalConfigPda, isSigner: false, isWritable: false },
-    { pubkey: poolPda, isSigner: false, isWritable: false },
+    { pubkey: poolPda, isSigner: false, isWritable: true },  // mut: reserves reduced on refund (Story 7.32)
     { pubkey: epochPda, isSigner: false, isWritable: false },
     { pubkey: positionPda, isSigner: false, isWritable: true },
     { pubkey: poolUsdcAta, isSigner: false, isWritable: true },

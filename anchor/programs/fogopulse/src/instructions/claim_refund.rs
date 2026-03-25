@@ -61,9 +61,10 @@ pub struct ClaimRefund<'info> {
     )]
     pub config: Box<Account<'info, GlobalConfig>>,
 
-    /// The pool - for freeze checks and token transfer authority
-    /// Note: Not marked `mut` as pool state is not modified by claim_refund
+    /// The pool - for freeze checks, token transfer authority, and reserve updates
+    /// Mutable: reserves are reduced when refunds leave the pool (Story 7.32)
     #[account(
+        mut,
         seeds = [b"pool", pool.asset_mint.as_ref()],
         bump = pool.bump,
         constraint = !pool.is_frozen @ FogoPulseError::PoolFrozen,
@@ -157,6 +158,15 @@ pub fn handler(ctx: Context<ClaimRefund>, user: Pubkey, direction: Direction) ->
         ),
         refund_amount,
     )?;
+
+    // 3b. Reduce pool reserves to reflect refund leaving the pool (Story 7.32)
+    // Split reduction 50/50 to match post-settlement rebalanced state.
+    // Uses saturating_sub to prevent underflow from prior accounting drift.
+    let pool = &mut ctx.accounts.pool;
+    let half_refund = refund_amount / 2;
+    let refund_remainder = refund_amount % 2;
+    pool.yes_reserves = pool.yes_reserves.saturating_sub(half_refund + refund_remainder);
+    pool.no_reserves = pool.no_reserves.saturating_sub(half_refund);
 
     // 4. Mark position as claimed
     position.claimed = true;

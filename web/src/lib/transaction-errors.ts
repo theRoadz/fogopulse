@@ -90,11 +90,18 @@ export function parseTransactionError(error: unknown): string {
     }
   }
 
-  // Check for insufficient funds (SOL for transaction fees)
+  // Check for SPL token insufficient funds (pool doesn't have enough tokens)
+  // Must be checked before the general SOL check to avoid misidentification
+  if (message.includes('insufficient funds') && message.includes('Error processing Instruction')) {
+    return 'Pool does not have enough USDC to complete this transaction.'
+  }
+
+  // Check for insufficient funds (native SOL/FOGO for transaction fees)
+  // Note: Removed overly broad '0x1' check (Story 7.32) — it matched unrelated
+  // program error codes like 0x10, 0x1789, etc., misidentifying them as SOL errors
   if (
-    message.includes('0x1') ||
     message.includes('insufficient lamports') ||
-    message.includes('Insufficient balance')
+    (message.includes('Insufficient balance') && !message.includes('InsufficientBalance'))
   ) {
     return 'Insufficient SOL for transaction fees.'
   }

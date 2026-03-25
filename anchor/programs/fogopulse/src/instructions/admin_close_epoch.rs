@@ -28,7 +28,8 @@ pub struct AdminCloseEpoch<'info> {
     pub global_config: Box<Account<'info, GlobalConfig>>,
 
     /// Pool - for PDA seed derivation
-    /// CHECK: Used only for epoch PDA seed derivation
+    /// CHECK: Validated indirectly — epoch PDA is derived from pool.key() via seeds,
+    /// and the handler verifies epoch.owner == program_id.
     pub pool: UncheckedAccount<'info>,
 
     /// Epoch account to close — using UncheckedAccount to handle size mismatches

@@ -67,14 +67,33 @@ describe('parseTransactionError', () => {
   })
 
   describe('SOL insufficient funds errors', () => {
-    it('handles 0x1 error code', () => {
-      const error = new Error('Transaction simulation failed: Error processing Instruction 0: custom program error: 0x1')
-      expect(parseTransactionError(error)).toBe('Insufficient SOL for transaction fees.')
-    })
-
     it('handles "insufficient lamports" error', () => {
       const error = new Error('insufficient lamports')
       expect(parseTransactionError(error)).toBe('Insufficient SOL for transaction fees.')
+    })
+
+    it('handles "Insufficient balance" (not InsufficientBalance Anchor error)', () => {
+      const error = new Error('Insufficient balance for transaction')
+      expect(parseTransactionError(error)).toBe('Insufficient SOL for transaction fees.')
+    })
+  })
+
+  describe('SPL token insufficient funds errors', () => {
+    it('handles pool insufficient USDC for payout/withdrawal', () => {
+      const error = new Error('Transaction simulation failed: Error processing Instruction 0: custom program error: insufficient funds')
+      expect(parseTransactionError(error)).toBe('Pool does not have enough USDC to complete this transaction.')
+    })
+
+    it('does not misidentify hex error codes containing 0x1 as SOL error', () => {
+      const error = new Error('Transaction simulation failed: Error processing Instruction 0: custom program error: 0x1789')
+      // Should fall through to generic, not "Insufficient SOL"
+      expect(parseTransactionError(error)).toBe('Transaction failed. Please try again.')
+    })
+
+    it('does not misidentify 0x1 alone as SOL error (removed broad match)', () => {
+      const error = new Error('custom program error: 0x1')
+      // Without "Error processing Instruction" context, should be generic
+      expect(parseTransactionError(error)).toBe('Transaction failed. Please try again.')
     })
   })
 

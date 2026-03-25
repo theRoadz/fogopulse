@@ -43,6 +43,7 @@ const USDC_MINT = new PublicKey('6jzddTQNDh2RPuav88r19gdSGmGnbH6EWa2NXgLV8cAy')
 
 // Instruction discriminators (read from generated IDL)
 const ADMIN_CLOSE_POOL_DISCRIMINATOR = getDiscriminator('admin_close_pool')
+const ADMIN_CLOSE_EPOCH_DISCRIMINATOR = getDiscriminator('admin_close_epoch')
 const ADMIN_CLOSE_LP_SHARE_DISCRIMINATOR = getDiscriminator('admin_close_lp_share')
 const CREATE_POOL_DISCRIMINATOR = getDiscriminator('create_pool')
 
@@ -93,6 +94,25 @@ function derivePoolPda(assetMint: PublicKey): [PublicKey, number] {
     [Buffer.from('pool'), assetMint.toBuffer()],
     PROGRAM_ID
   )
+}
+
+function deriveEpochPda(poolPda: PublicKey, epochId: bigint): [PublicKey, number] {
+  const epochIdBuf = Buffer.alloc(8)
+  epochIdBuf.writeBigUInt64LE(epochId)
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from('epoch'), poolPda.toBuffer(), epochIdBuf],
+    PROGRAM_ID
+  )
+}
+
+/**
+ * Read next_epoch_id from a pool account's raw data.
+ * Pool layout after 8-byte discriminator:
+ *   asset_mint (32) + yes_reserves (8) + no_reserves (8) + total_lp_shares (8) + pending_withdrawal_shares (8) + next_epoch_id (8)
+ */
+function readNextEpochId(data: Buffer): bigint {
+  // offset: 8 (disc) + 32 (asset_mint) + 8 + 8 + 8 + 8 = 72
+  return data.readBigUInt64LE(72)
 }
 
 interface LpShareInfo {
@@ -157,6 +177,78 @@ async function main() {
     process.exit(1)
   }
 
+  console.log()
+
+  // Step 0: Close orphaned epoch accounts (MUST happen before pool close)
+  // After reinitialize, next_epoch_id resets to 0. If old epoch PDAs still exist,
+  // create_epoch will fail with "account already in use" for epoch IDs 0..N.
+  console.log('Step 0: Closing orphaned epoch accounts...')
+  console.log('-'.repeat(40))
+
+  let totalEpochsClosed = 0
+
+  for (const [asset, assetMint] of Object.entries(ASSET_MINTS) as [Asset, PublicKey][]) {
+    const [poolPda] = derivePoolPda(assetMint)
+    const poolAccount = await connection.getAccountInfo(poolPda)
+
+    if (!poolAccount) {
+      console.log(`  ${asset}: No pool account, skipping epoch cleanup`)
+      continue
+    }
+
+    const nextEpochId = readNextEpochId(poolAccount.data)
+    if (nextEpochId === 0n) {
+      console.log(`  ${asset}: next_epoch_id=0, no epochs to close`)
+      continue
+    }
+
+    console.log(`  ${asset}: Closing ${nextEpochId} epoch(s) (0..${nextEpochId - 1n})...`)
+
+    let closed = 0
+    let skipped = 0
+    for (let id = 0n; id < nextEpochId; id++) {
+      const [epochPda] = deriveEpochPda(poolPda, id)
+      const epochAccount = await connection.getAccountInfo(epochPda)
+
+      if (!epochAccount) {
+        skipped++
+        continue
+      }
+
+      try {
+        const data = Buffer.alloc(8 + 8)
+        ADMIN_CLOSE_EPOCH_DISCRIMINATOR.copy(data, 0)
+        data.writeBigUInt64LE(id, 8)
+
+        const ix = new TransactionInstruction({
+          keys: [
+            { pubkey: wallet.publicKey, isSigner: true, isWritable: true },  // admin
+            { pubkey: globalConfigPda, isSigner: false, isWritable: false }, // global_config
+            { pubkey: poolPda, isSigner: false, isWritable: false },         // pool
+            { pubkey: epochPda, isSigner: false, isWritable: true },         // epoch
+          ],
+          programId: PROGRAM_ID,
+          data,
+        })
+
+        const tx = new Transaction().add(ix)
+        const sig = await sendAndConfirmTransaction(connection, tx, [wallet])
+        closed++
+        totalEpochsClosed++
+
+        // Log progress every 50 epochs
+        if (closed % 50 === 0) {
+          console.log(`    ${asset}: Closed ${closed} epochs so far... (last TX: ${sig.slice(0, 20)}...)`)
+        }
+      } catch (error: any) {
+        console.error(`    ${asset}: Failed to close epoch ${id}: ${error.message}`)
+      }
+    }
+
+    console.log(`  ${asset}: Closed ${closed} epochs, ${skipped} already gone`)
+  }
+
+  console.log(`  Total epoch accounts closed: ${totalEpochsClosed}`)
   console.log()
 
   // Step 1: Close existing pool accounts
