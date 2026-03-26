@@ -326,6 +326,7 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
           balance={balance}
           maxTradeAmount={maxTradeAmount}
           walletCapMax={walletCapMax}
+          currentAmount={amount}
           onSelect={handleQuickAmountSelect}
           disabled={isInputDisabled}
         />
