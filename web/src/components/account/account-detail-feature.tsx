@@ -4,8 +4,7 @@ import { PublicKey } from '@solana/web3.js'
 import { useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { ExplorerLink } from '../cluster/cluster-ui'
-import { AccountBalance, AccountButtons, AccountTokens, AccountTransactions } from './account-ui'
-import { AppHero } from '../app-hero'
+import { AccountBalanceCards, AccountButtons, AccountTokens, AccountTransactions } from './account-ui'
 import { ellipsify } from '@/lib/utils'
 
 export default function AccountDetailFeature() {
@@ -25,23 +24,22 @@ export default function AccountDetailFeature() {
   }
 
   return (
-    <div>
-      <AppHero
-        title={<AccountBalance address={address} />}
-        subtitle={
-          <div className="my-4">
-            <ExplorerLink path={`account/${address}`} label={ellipsify(address.toString())} />
-          </div>
-        }
-      >
-        <div className="my-4">
-          <AccountButtons address={address} />
+    <div className="space-y-8 max-w-5xl mx-auto">
+      <div className="text-center py-8">
+        <h1 className="text-2xl font-bold">Wallet</h1>
+        <div className="mt-2">
+          <ExplorerLink path={`account/${address}`} label={ellipsify(address.toString())} />
         </div>
-      </AppHero>
-      <div className="space-y-8">
-        <AccountTokens address={address} />
-        <AccountTransactions address={address} />
       </div>
+
+      <AccountBalanceCards address={address} />
+
+      <div className="flex justify-center">
+        <AccountButtons address={address} />
+      </div>
+
+      <AccountTokens address={address} />
+      <AccountTransactions address={address} />
     </div>
   )
 }

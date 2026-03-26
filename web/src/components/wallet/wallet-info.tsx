@@ -31,7 +31,7 @@ export function WalletInfo({ showBalance = false, addressLength = 4 }: WalletInf
       <span className="font-mono text-sm">{truncatedAddress}</span>
       {showBalance && balance !== null && (
         <span className="text-sm text-muted-foreground">
-          ({balance.toFixed(2)} SOL)
+          ({balance.toFixed(2)} FOGO)
         </span>
       )}
     </div>

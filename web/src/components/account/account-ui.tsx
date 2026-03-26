@@ -12,7 +12,6 @@ import {
   useGetBalance,
   useGetSignatures,
   useGetTokenAccounts,
-  useRequestAirdrop,
   useTransferSol,
 } from './account-data-access'
 import { ellipsify } from '@/lib/utils'
@@ -22,14 +21,69 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AppModal } from '@/components/app-modal'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useTokenPrices } from '@/hooks/use-token-prices'
+import { useTokenMetadata } from '@/hooks/use-token-metadata'
+import { USDC_MINT } from '@/lib/constants'
 
-export function AccountBalance({ address }: { address: PublicKey }) {
-  const query = useGetBalance({ address })
+export function AccountBalanceCards({ address }: { address: PublicKey }) {
+  const fogoQuery = useGetBalance({ address })
+  const tokenQuery = useGetTokenAccounts({ address })
+
+  const fogoBalance =
+    fogoQuery.data != null
+      ? (Math.round((fogoQuery.data / LAMPORTS_PER_SOL) * 10000) / 10000).toLocaleString('en-US', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 4,
+        })
+      : null
+
+  // Extract USDC balance from token accounts (works for any address, connected or not)
+  const usdcMintStr = USDC_MINT.toBase58()
+  const usdcAccount = tokenQuery.data?.find(
+    ({ account }) => account.data.parsed.info.mint.toString() === usdcMintStr
+  )
+  const usdcBalance = usdcAccount?.account.data.parsed.info.tokenAmount.uiAmount ?? 0
+  const usdcFormatted = usdcBalance.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
 
   return (
-    <h1 className="text-5xl font-bold cursor-pointer" onClick={() => query.refetch()}>
-      {query.data ? <BalanceSol balance={query.data} /> : '...'} SOL
-    </h1>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+      {/* FOGO Balance Card */}
+      <Card className="cursor-pointer" onClick={() => fogoQuery.refetch()}>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">FOGO Balance</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {fogoQuery.isLoading ? (
+            <Skeleton className="h-9 w-32" />
+          ) : (
+            <div className="text-3xl font-bold font-mono text-primary">
+              {fogoBalance ?? '0'} <span className="text-lg">FOGO</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* USDC Balance Card */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">USDC Balance</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {tokenQuery.isLoading ? (
+            <Skeleton className="h-9 w-32" />
+          ) : (
+            <div className="text-2xl font-bold font-mono">
+              ${usdcFormatted} <span className="text-lg text-muted-foreground">USDC</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   )
 }
 
@@ -43,7 +97,6 @@ export function AccountChecker() {
 
 export function AccountBalanceCheck({ address }: { address: PublicKey }) {
   const { cluster } = useCluster()
-  const mutation = useRequestAirdrop({ address })
   const query = useGetBalance({ address })
 
   if (query.isLoading) {
@@ -51,13 +104,7 @@ export function AccountBalanceCheck({ address }: { address: PublicKey }) {
   }
   if (query.isError || !query.data) {
     return (
-      <AppAlert
-        action={
-          <Button variant="outline" onClick={() => mutation.mutateAsync(1).catch((err) => console.log(err))}>
-            Request Airdrop
-          </Button>
-        }
-      >
+      <AppAlert action={null}>
         You are connected to <strong>{cluster.name}</strong> but your account is not found on this cluster.
       </AppAlert>
     )
@@ -66,11 +113,9 @@ export function AccountBalanceCheck({ address }: { address: PublicKey }) {
 }
 
 export function AccountButtons({ address }: { address: PublicKey }) {
-  const { cluster } = useCluster()
   return (
     <div>
       <div className="space-x-2">
-        {cluster.network?.includes('mainnet') ? null : <ModalAirdrop address={address} />}
         <ModalSend address={address} />
         <ModalReceive address={address} />
       </div>
@@ -82,10 +127,50 @@ export function AccountTokens({ address }: { address: PublicKey }) {
   const [showAll, setShowAll] = useState(false)
   const query = useGetTokenAccounts({ address })
   const client = useQueryClient()
+  const prices = useTokenPrices()
+
+  // Extract all mint addresses for metadata lookup
+  const mints = useMemo(
+    () => query.data?.map(({ account }) => account.data.parsed.info.mint.toString()) ?? [],
+    [query.data]
+  )
+  const metadata = useTokenMetadata(mints)
+
   const items = useMemo(() => {
-    if (showAll) return query.data
-    return query.data?.slice(0, 5)
-  }, [query.data, showAll])
+    if (!query.data) return []
+
+    // Filter out NFTs (decimals === 0)
+    const fungible = query.data.filter(
+      ({ account }) => account.data.parsed.info.tokenAmount.decimals > 0
+    )
+
+    // Sort: USD value desc → named tokens by balance desc → unnamed by balance desc
+    const sorted = [...fungible].sort((a, b) => {
+      const mintA = a.account.data.parsed.info.mint.toString()
+      const mintB = b.account.data.parsed.info.mint.toString()
+      const amountA = a.account.data.parsed.info.tokenAmount.uiAmount ?? 0
+      const amountB = b.account.data.parsed.info.tokenAmount.uiAmount ?? 0
+      const usdA = prices[mintA] != null ? amountA * prices[mintA] : null
+      const usdB = prices[mintB] != null ? amountB * prices[mintB] : null
+
+      if (usdA != null && usdB != null) return usdB - usdA
+      if (usdA != null) return -1
+      if (usdB != null) return 1
+      const hasNameA = !!metadata[mintA]
+      const hasNameB = !!metadata[mintB]
+      if (hasNameA !== hasNameB) return hasNameA ? -1 : 1
+      return amountB - amountA
+    })
+
+    return showAll ? sorted : sorted.slice(0, 5)
+  }, [query.data, showAll, prices, metadata])
+
+  const totalFungible = useMemo(() => {
+    if (!query.data) return 0
+    return query.data.filter(
+      ({ account }) => account.data.parsed.info.tokenAmount.decimals > 0
+    ).length
+  }, [query.data])
 
   return (
     <div className="space-y-2">
@@ -114,46 +199,74 @@ export function AccountTokens({ address }: { address: PublicKey }) {
       {query.isError && <pre className="alert alert-error">Error: {query.error?.message.toString()}</pre>}
       {query.isSuccess && (
         <div>
-          {query.data.length === 0 ? (
+          {totalFungible === 0 ? (
             <div>No token accounts found.</div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Public Key</TableHead>
-                  <TableHead>Mint</TableHead>
+                  <TableHead>Token</TableHead>
                   <TableHead className="text-right">Balance</TableHead>
+                  <TableHead className="text-right">Value (USD)</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {items?.map(({ account, pubkey }) => (
-                  <TableRow key={pubkey.toString()}>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <span className="font-mono">
-                          <ExplorerLink label={ellipsify(pubkey.toString())} path={`account/${pubkey.toString()}`} />
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <span className="font-mono">
-                          <ExplorerLink
-                            label={ellipsify(account.data.parsed.info.mint)}
-                            path={`account/${account.data.parsed.info.mint.toString()}`}
-                          />
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span className="font-mono">{account.data.parsed.info.tokenAmount.uiAmount}</span>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {items?.map(({ account, pubkey }) => {
+                  const mint = account.data.parsed.info.mint.toString()
+                  const meta = metadata[mint]
+                  const uiAmount = account.data.parsed.info.tokenAmount.uiAmount ?? 0
+                  const price = prices[mint]
+                  const usdValue = price != null ? uiAmount * price : null
 
-                {(query.data?.length ?? 0) > 5 && (
+                  return (
+                    <TableRow key={pubkey.toString()}>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          {meta ? (
+                            <ExplorerLink
+                              label={meta.symbol || meta.name}
+                              path={`account/${mint}`}
+                            />
+                          ) : (
+                            <span className="font-mono text-muted-foreground">
+                              <ExplorerLink
+                                label={ellipsify(mint)}
+                                path={`account/${mint}`}
+                              />
+                            </span>
+                          )}
+                          {meta?.name && meta.symbol && meta.name !== meta.symbol && (
+                            <span className="text-xs text-muted-foreground">{meta.name}</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className="font-mono">
+                          {uiAmount.toLocaleString('en-US', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 6,
+                          })}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {usdValue != null ? (
+                          <span className="font-mono">
+                            ${usdValue.toLocaleString('en-US', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">&mdash;</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+
+                {totalFungible > 5 && (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center">
+                    <TableCell colSpan={3} className="text-center">
                       <Button variant="outline" onClick={() => setShowAll(!showAll)}>
                         {showAll ? 'Show Less' : 'Show All'}
                       </Button>
@@ -246,41 +359,11 @@ export function AccountTransactions({ address }: { address: PublicKey }) {
   )
 }
 
-function BalanceSol({ balance }: { balance: number }) {
-  return <span>{Math.round((balance / LAMPORTS_PER_SOL) * 100000) / 100000}</span>
-}
-
 function ModalReceive({ address }: { address: PublicKey }) {
   return (
     <AppModal title="Receive">
       <p>Receive assets by sending them to your public key:</p>
       <code>{address.toString()}</code>
-    </AppModal>
-  )
-}
-
-function ModalAirdrop({ address }: { address: PublicKey }) {
-  const mutation = useRequestAirdrop({ address })
-  const [amount, setAmount] = useState('2')
-
-  return (
-    <AppModal
-      title="Airdrop"
-      submitDisabled={!amount || mutation.isPending}
-      submitLabel="Request Airdrop"
-      submit={() => mutation.mutateAsync(parseFloat(amount))}
-    >
-      <Label htmlFor="amount">Amount</Label>
-      <Input
-        disabled={mutation.isPending}
-        id="amount"
-        min="1"
-        onChange={(e) => setAmount(e.target.value)}
-        placeholder="Amount"
-        step="any"
-        type="number"
-        value={amount}
-      />
     </AppModal>
   )
 }

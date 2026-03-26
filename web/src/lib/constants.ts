@@ -125,6 +125,17 @@ export const ASSET_METADATA: Record<
   },
 } as const
 
+// =============================================================================
+// MINT → PYTH FEED ID LOOKUP (for token price display)
+// =============================================================================
+
+export const MINT_FEED_IDS: Record<string, string> = {
+  [ASSET_MINTS.BTC.toBase58()]: ASSET_METADATA.BTC.feedId,
+  [ASSET_MINTS.ETH.toBase58()]: ASSET_METADATA.ETH.feedId,
+  [ASSET_MINTS.SOL.toBase58()]: ASSET_METADATA.SOL.feedId,
+  [ASSET_MINTS.FOGO.toBase58()]: ASSET_METADATA.FOGO.feedId,
+}
+
 export const PYTH_FEED_IDS = {
   BTC_USD: ASSET_METADATA.BTC.feedId,
   ETH_USD: ASSET_METADATA.ETH.feedId,

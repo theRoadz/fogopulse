@@ -107,7 +107,7 @@ export function WalletButton() {
           {/* Balance display */}
           {balance !== null && (
             <div className="px-2 py-1.5 text-sm text-muted-foreground">
-              Balance: {balance.toFixed(4)} SOL
+              Balance: {balance.toFixed(4)} FOGO
             </div>
           )}
 
