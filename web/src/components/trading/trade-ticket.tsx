@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { useWalletModal } from '@solana/wallet-adapter-react-ui'
 
@@ -12,6 +12,7 @@ import { useGlobalConfig } from '@/hooks/use-global-config'
 import { usePool } from '@/hooks/use-pool'
 import { useUserPosition } from '@/hooks/use-user-position'
 import { USDC_DECIMALS } from '@/lib/constants'
+import { calculateWalletCapMaxGross } from '@/lib/cap-utils'
 import { useAdminSettings } from '@/hooks/use-admin-settings'
 import { useTradeStore } from '@/stores/trade-store'
 import { EpochState } from '@/types/epoch'
@@ -133,6 +134,28 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
     const oppositePosition = direction === 'up' ? downPosition : upPosition
     return oppositePosition !== null && oppositePosition.shares > 0n
   })()
+
+  // Compute max allowed by wallet cap (gross amount, USDC display units)
+  const walletCapMax = useMemo(() => {
+    if (!pool) return undefined
+    const poolTotal = pool.yesReserves + pool.noReserves
+    if (poolTotal === 0n) return undefined
+
+    // Subtract existing position if user has one in the selected direction
+    const existingLamports = direction
+      ? (direction === 'up' ? upPosition : downPosition)?.amount ?? 0n
+      : 0n
+
+    const grossLamports = calculateWalletCapMaxGross(
+      poolTotal,
+      existingLamports,
+      pool.walletCapBps,
+      config?.tradingFeeBps,
+    )
+    if (grossLamports === 0n) return 0
+
+    return Number(grossLamports) / 10 ** USDC_DECIMALS
+  }, [pool, direction, upPosition, downPosition, config])
 
   // Admin settings for maintenance mode
   const { data: adminSettings } = useAdminSettings()
@@ -302,6 +325,7 @@ export function TradeTicket({ asset, className }: TradeTicketProps) {
         <QuickAmountButtons
           balance={balance}
           maxTradeAmount={maxTradeAmount}
+          walletCapMax={walletCapMax}
           onSelect={handleQuickAmountSelect}
           disabled={isInputDisabled}
         />

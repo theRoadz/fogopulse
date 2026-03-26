@@ -66,6 +66,45 @@ export function calculateNetAmountLamports(grossLamports: bigint, tradingFeeBps:
   return grossLamports - fee
 }
 
+/**
+ * Calculate gross amount from a net (after-fee) amount using floor division.
+ * Inverse of calculateNetAmountLamports. Floor division ensures the resulting
+ * gross amount, when fees are deducted, yields at most the given net amount
+ * (safe for Max button — never overshoots the cap).
+ *
+ * @param netLamports - Net amount in USDC lamports
+ * @returns Gross amount in USDC lamports
+ */
+export function calculateGrossFromNetLamports(netLamports: bigint, tradingFeeBps: number = TRADING_FEE_BPS): bigint {
+  return (netLamports * 10000n) / (10000n - BigInt(tradingFeeBps))
+}
+
+/**
+ * Calculate maximum gross trade amount allowed by wallet cap.
+ * Returns the largest gross USDC amount the user can trade in the given
+ * direction without exceeding the per-wallet cap.
+ *
+ * @param poolTotalLamports - Pool total (yesReserves + noReserves) in USDC lamports
+ * @param existingPositionLamports - User's existing net position in this direction (USDC lamports)
+ * @param capBps - Wallet cap in basis points (default: PER_WALLET_CAP_BPS)
+ * @param tradingFeeBps - Trading fee in basis points (default: TRADING_FEE_BPS)
+ * @returns Max gross USDC amount in lamports, or 0n if cap is already exhausted
+ */
+export function calculateWalletCapMaxGross(
+  poolTotalLamports: bigint,
+  existingPositionLamports: bigint,
+  capBps: number = PER_WALLET_CAP_BPS,
+  tradingFeeBps: number = TRADING_FEE_BPS,
+): bigint {
+  if (poolTotalLamports === 0n) return BigInt(Number.MAX_SAFE_INTEGER)
+
+  const maxAllowed = (poolTotalLamports * BigInt(capBps)) / 10000n
+  const remaining = maxAllowed - existingPositionLamports
+  if (remaining <= 0n) return 0n
+
+  return calculateGrossFromNetLamports(remaining, tradingFeeBps)
+}
+
 // =============================================================================
 // PER-WALLET CAP
 // =============================================================================

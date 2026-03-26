@@ -20,6 +20,8 @@
  *   TRADE_BOT_WALLETS_DIR        - Keypair dir (default: ./trade-bot-wallets)
  *   TRADE_BOT_POLL_INTERVAL_SECONDS - Poll interval (default: 10)
  *   TRADE_BOT_STRATEGY           - Trading strategy: random|momentum|contrarian|pool_imbalance|composite (default: random)
+ *   TRADE_BOT_MAX_POOL_PERCENT   - Max trade as % of pool reserves (optional, overrides MAX_AMOUNT)
+ *   TRADE_BOT_MIN_POOL_PERCENT   - Min trade as % of pool reserves (optional, defaults to 10% of max)
  *   TRADE_BOT_TIME_BIAS          - Trade timing: early|late|uniform (default: uniform)
  *   TRADE_BOT_STRATEGY_BTC       - Per-asset strategy override (optional, same values as TRADE_BOT_STRATEGY)
  *   TRADE_BOT_STRATEGY_ETH       - Per-asset strategy override
@@ -141,6 +143,8 @@ interface TradeBotConfig {
   timeBias: TimeBias
   assetStrategies: Partial<Record<Asset, StrategyName>>
   strategyParams: StrategyParams
+  maxPoolPercent: number | null
+  minPoolPercent: number | null
 }
 
 interface StrategyParams {
@@ -330,6 +334,12 @@ function loadConfig(): TradeBotConfig {
       imbalanceThreshold: parseFloat(process.env.STRATEGY_IMBALANCE_THRESHOLD || '0.10'),
       compositeWeights: cw,
     },
+    maxPoolPercent: process.env.TRADE_BOT_MAX_POOL_PERCENT
+      ? parseFloat(process.env.TRADE_BOT_MAX_POOL_PERCENT)
+      : null,
+    minPoolPercent: process.env.TRADE_BOT_MIN_POOL_PERCENT
+      ? parseFloat(process.env.TRADE_BOT_MIN_POOL_PERCENT)
+      : null,
   }
 
   if (!config.enabled) {
@@ -347,6 +357,16 @@ function loadConfig(): TradeBotConfig {
 
   if (config.pollIntervalSeconds < 1) {
     throw new Error('TRADE_BOT_POLL_INTERVAL_SECONDS must be at least 1')
+  }
+
+  if (config.maxPoolPercent !== null && (config.maxPoolPercent <= 0 || config.maxPoolPercent > 50)) {
+    throw new Error('TRADE_BOT_MAX_POOL_PERCENT must be between 0 (exclusive) and 50')
+  }
+  if (config.minPoolPercent !== null && (config.minPoolPercent <= 0 || config.minPoolPercent > 50)) {
+    throw new Error('TRADE_BOT_MIN_POOL_PERCENT must be between 0 (exclusive) and 50')
+  }
+  if (config.maxPoolPercent !== null && config.minPoolPercent !== null && config.minPoolPercent > config.maxPoolPercent) {
+    throw new Error('TRADE_BOT_MIN_POOL_PERCENT must be <= TRADE_BOT_MAX_POOL_PERCENT')
   }
 
   return config
@@ -1164,6 +1184,10 @@ class MarketMonitor {
   private strategy: TradingStrategy
   private priceManager: TradeBotPriceManager | null
 
+  // Dynamic trade amounts (recomputed per epoch when pool percent is set)
+  private effectiveMinAmount: number
+  private effectiveMaxAmount: number
+
   // Epoch tracking
   private currentEpochId: bigint | null = null
   private epochTradeCount = new Map<number, number>() // botIndex → trades this epoch
@@ -1201,6 +1225,8 @@ class MarketMonitor {
     this.poolUsdcAta = getAssociatedTokenAddressSync(USDC_MINT, poolPda, true)
     this.treasuryUsdcAta = getAssociatedTokenAddressSync(USDC_MINT, globalConfig.treasury, true)
     this.insuranceUsdcAta = getAssociatedTokenAddressSync(USDC_MINT, globalConfig.insurance, true)
+    this.effectiveMinAmount = config.minAmount
+    this.effectiveMaxAmount = config.maxAmount
   }
 
   updateGlobalConfig(config: GlobalConfigData): void {
@@ -1274,6 +1300,37 @@ class MarketMonitor {
         this.epochTradeCount.clear()
         this.tradedDirections.clear()
         this.cancelScheduledTrades()
+
+        // Recompute effective trade amounts from pool reserves
+        if (this.config.maxPoolPercent !== null) {
+          const totalPoolUsdc = Number(poolData.yesReserves + poolData.noReserves) / 1e6
+          let computedMax = totalPoolUsdc * (this.config.maxPoolPercent / 100)
+          let computedMin = this.config.minPoolPercent !== null
+            ? totalPoolUsdc * (this.config.minPoolPercent / 100)
+            : computedMax * 0.1
+
+          // Respect on-chain max_trade_amount as hard cap
+          const onChainMaxUsdc = Number(this.globalConfig.maxTradeAmount) / 1e6
+          if (onChainMaxUsdc > 0) {
+            computedMax = Math.min(computedMax, onChainMaxUsdc)
+          }
+
+          // Floor to prevent zero/dust trades
+          computedMax = Math.max(0.10, computedMax)
+          computedMin = Math.max(0.10, Math.min(computedMin, computedMax))
+
+          this.effectiveMinAmount = computedMin
+          this.effectiveMaxAmount = computedMax
+          this.logger.info(
+            `Pool-percent: pool=${totalPoolUsdc.toFixed(2)} USDC, ` +
+            `${this.config.minPoolPercent ?? 'auto'}%-${this.config.maxPoolPercent}% => ` +
+            `range=${computedMin.toFixed(2)}-${computedMax.toFixed(2)} USDC`
+          )
+        } else {
+          this.effectiveMinAmount = this.config.minAmount
+          this.effectiveMaxAmount = this.config.maxAmount
+        }
+
         this.scheduleTrades(epochData)
       }
     }
@@ -1389,9 +1446,9 @@ class MarketMonitor {
       }
       // Parse token account balance (offset 64 for amount in SPL token account)
       const usdcBalance = usdcInfo.data.readBigUInt64LE(64)
-      const minAmountLamports = BigInt(Math.floor(this.config.minAmount * 1_000_000))
+      const minAmountLamports = BigInt(Math.floor(this.effectiveMinAmount * 1_000_000))
       if (usdcBalance < minAmountLamports) {
-        this.logger.warn(`Bot-${bot.index} insufficient USDC: ${Number(usdcBalance) / 1e6} < ${this.config.minAmount}`)
+        this.logger.warn(`Bot-${bot.index} insufficient USDC: ${Number(usdcBalance) / 1e6} < ${this.effectiveMinAmount}`)
         return
       }
     } catch {
@@ -1410,7 +1467,7 @@ class MarketMonitor {
       epoch: freshEpoch,
       pool: freshPool || { assetMint: ASSET_MINTS[this.asset], yesReserves: 0n, noReserves: 0n, nextEpochId: 0n, activeEpoch: null, activeEpochState: 0 },
       currentPrice,
-      config: this.config,
+      config: { ...this.config, minAmount: this.effectiveMinAmount, maxAmount: this.effectiveMaxAmount },
       globalConfig: this.globalConfig,
       nowSeconds: Math.floor(Date.now() / 1000),
     }
@@ -1423,7 +1480,7 @@ class MarketMonitor {
 
     const direction = decision.direction
     const directionName = direction === 0 ? 'UP' : 'DOWN'
-    const amountUsdc = Math.min(Math.max(decision.amount, this.config.minAmount), this.config.maxAmount)
+    const amountUsdc = Math.min(Math.max(decision.amount, this.effectiveMinAmount), this.effectiveMaxAmount)
     const amountLamports = BigInt(Math.floor(amountUsdc * 1_000_000))
 
     // Derive position account
@@ -1612,6 +1669,9 @@ async function main() {
   currentLogLevel = config.logLevel
 
   log.info(`Config: ${config.botCount} bots, ${config.minAmount}-${config.maxAmount} USDC, max ${config.maxTradesPerEpoch} trades/epoch`)
+  if (config.maxPoolPercent !== null) {
+    log.info(`Pool-percent mode: max=${config.maxPoolPercent}%, min=${config.minPoolPercent ?? 'auto (10% of max)'}% — overrides static min/max at each epoch`)
+  }
   log.info(`Strategy: ${config.strategy}, time bias: ${config.timeBias}`)
   log.info(`Wallets dir: ${path.resolve(config.walletsDir)}`)
   log.info(`Poll interval: ${config.pollIntervalSeconds}s`)

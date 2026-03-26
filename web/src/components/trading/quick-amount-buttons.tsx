@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 interface QuickAmountButtonsProps {
   balance: number | null
   maxTradeAmount?: number
+  walletCapMax?: number
   onSelect: (amount: string) => void
   disabled?: boolean
 }
@@ -24,6 +25,7 @@ const QUICK_AMOUNTS = [
 export function QuickAmountButtons({
   balance,
   maxTradeAmount,
+  walletCapMax,
   onSelect,
   disabled = false,
 }: QuickAmountButtonsProps) {
@@ -37,7 +39,17 @@ export function QuickAmountButtons({
         const isButtonDisabled =
           isDisabled ||
           (value !== null && (balance === null || balance < value)) ||
-          (value !== null && maxTradeAmount !== undefined && value > maxTradeAmount)
+          (value !== null && maxTradeAmount !== undefined && value > maxTradeAmount) ||
+          (value !== null && walletCapMax !== undefined && value > walletCapMax)
+
+        // Compute effective max for Max button (lesser of balance, max trade amount, wallet cap)
+        const effectiveMax = balance !== null && balance > 0
+          ? Math.floor(Math.min(
+              balance,
+              ...(maxTradeAmount !== undefined ? [maxTradeAmount] : []),
+              ...(walletCapMax !== undefined ? [walletCapMax] : []),
+            ) * 100) / 100
+          : 0
 
         return (
           <Button
@@ -48,19 +60,14 @@ export function QuickAmountButtons({
             onClick={() => {
               if (value !== null) {
                 onSelect(value.toFixed(2))
-              } else if (balance !== null && balance > 0) {
-                // Max: use lesser of balance and max trade amount, rounded down to 2 decimals
-                const effectiveMax = maxTradeAmount !== undefined
-                  ? Math.min(balance, maxTradeAmount)
-                  : balance
-                const maxAmount = Math.floor(effectiveMax * 100) / 100
-                onSelect(maxAmount.toFixed(2))
+              } else if (effectiveMax > 0) {
+                onSelect(effectiveMax.toFixed(2))
               }
             }}
             aria-label={
               value !== null
                 ? `Set amount to ${label}`
-                : `Set amount to max balance${balance !== null && balance > 0 ? ` ($${(Math.floor((maxTradeAmount !== undefined ? Math.min(balance, maxTradeAmount) : balance) * 100) / 100).toFixed(2)})` : ''}`
+                : `Set amount to max balance${effectiveMax > 0 ? ` ($${effectiveMax.toFixed(2)})` : ''}`
             }
             className="text-xs"
           >
