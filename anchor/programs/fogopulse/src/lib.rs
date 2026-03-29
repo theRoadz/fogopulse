@@ -330,4 +330,13 @@ pub mod fogopulse {
     pub fn admin_sync_reserves(ctx: Context<AdminSyncReserves>) -> Result<()> {
         instructions::admin_sync_reserves::handler(ctx)
     }
+
+    /// Normalize inflated LP shares by dividing by a divisor (admin only)
+    ///
+    /// One-time utility to fix LP share inflation from Story 7.32 reserve drift.
+    /// Call once per LpShare account per pool with the same divisor.
+    /// Preserves proportional ownership while bringing shares back to sane values.
+    pub fn admin_normalize_lp_shares(ctx: Context<AdminNormalizeLpShares>, divisor: u64) -> Result<()> {
+        instructions::admin_normalize_lp_shares::handler(ctx, divisor)
+    }
 }

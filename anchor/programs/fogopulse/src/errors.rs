@@ -158,4 +158,10 @@ pub enum FogoPulseError {
 
     #[msg("Settlement timeout not yet reached")]
     SettlementTimeoutNotReached,
+
+    #[msg("Invalid divisor - must be greater than 1")]
+    InvalidDivisor,
+
+    #[msg("Divisor too large - would zero out LP shares")]
+    DivisorTooLarge,
 }

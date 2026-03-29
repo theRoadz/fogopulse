@@ -570,6 +570,105 @@
       "args": []
     },
     {
+      "name": "admin_normalize_lp_shares",
+      "docs": [
+        "Normalize inflated LP shares by dividing by a divisor (admin only)",
+        "",
+        "One-time utility to fix LP share inflation from Story 7.32 reserve drift.",
+        "Call once per LpShare account per pool with the same divisor.",
+        "Preserves proportional ownership while bringing shares back to sane values."
+      ],
+      "discriminator": [
+        84,
+        143,
+        95,
+        145,
+        225,
+        242,
+        60,
+        64
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "docs": [
+            "Protocol admin - must match GlobalConfig.admin"
+          ],
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "global_config"
+          ]
+        },
+        {
+          "name": "global_config",
+          "docs": [
+            "GlobalConfig - validates admin authority and freeze check"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "docs": [
+            "Pool to normalize shares for — must not be frozen or have an active epoch"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.asset_mint",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "lp_share",
+          "docs": [
+            "LP share account to normalize — must belong to this pool"
+          ],
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "divisor",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "admin_sync_reserves",
       "docs": [
         "Sync pool reserves with actual USDC token balance (admin only)",
@@ -4745,6 +4844,16 @@
       "code": 6047,
       "name": "SettlementTimeoutNotReached",
       "msg": "Settlement timeout not yet reached"
+    },
+    {
+      "code": 6048,
+      "name": "InvalidDivisor",
+      "msg": "Invalid divisor - must be greater than 1"
+    },
+    {
+      "code": 6049,
+      "name": "DivisorTooLarge",
+      "msg": "Divisor too large - would zero out LP shares"
     }
   ],
   "types": [
