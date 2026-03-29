@@ -67,7 +67,7 @@ export function AmountInput({
       </label>
       <div
         className={cn(
-          'flex items-center gap-2 rounded-md border bg-background px-3 py-2',
+          'flex items-center gap-2 rounded-md border bg-background px-3 py-2 overflow-hidden',
           'transition-colors duration-200',
           hasError
             ? 'border-red-500 focus-within:border-red-500'
@@ -89,7 +89,7 @@ export function AmountInput({
           aria-invalid={hasError}
           aria-describedby={hasError ? errorId : undefined}
           className={cn(
-            'flex-1 bg-transparent text-right text-lg font-mono outline-none',
+            'flex-1 min-w-0 bg-transparent text-right text-base sm:text-lg font-mono outline-none',
             'disabled:cursor-not-allowed disabled:opacity-50',
             'placeholder:text-muted-foreground/50'
           )}

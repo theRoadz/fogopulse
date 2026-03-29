@@ -49,7 +49,7 @@ export function PriceToBeat({ startPrice, currentPrice, className }: PriceToBeat
         <span className="text-xs uppercase tracking-wide text-muted-foreground">
           Target Price
         </span>
-        <span className="font-mono text-xl font-bold text-muted-foreground">
+        <span className="font-mono text-base sm:text-xl font-bold text-muted-foreground">
           --
         </span>
       </div>
@@ -64,9 +64,9 @@ export function PriceToBeat({ startPrice, currentPrice, className }: PriceToBeat
       </span>
 
       {/* Price row */}
-      <div className="flex items-baseline gap-2">
+      <div className="flex items-baseline gap-2 flex-wrap">
         {/* Start price */}
-        <span className="font-mono text-xl font-bold">
+        <span className="font-mono text-base sm:text-xl font-bold">
           {formatUsdPrice(startPrice)}
         </span>
 

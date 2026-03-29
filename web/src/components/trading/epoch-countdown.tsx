@@ -56,11 +56,11 @@ export function EpochCountdown({ epochState, className }: EpochCountdownProps) {
   }
 
   return (
-    <div className={cn('flex flex-col items-end', className)}>
+    <div className={cn('flex flex-col items-end shrink-0', className)}>
       {/* Main countdown */}
       <div
         className={cn(
-          'font-mono text-2xl font-bold tabular-nums transition-colors',
+          'font-mono text-xl sm:text-2xl font-bold tabular-nums transition-colors',
           isFrozen && 'text-red-500',
           showFreezeWarning && !isFrozen && 'text-amber-500',
           !isFrozen && !showFreezeWarning && 'text-foreground'

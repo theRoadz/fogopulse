@@ -31,12 +31,12 @@ export function ChartArea({ asset, className }: ChartAreaProps) {
   return (
     <Card className={cn('flex flex-col', className)}>
       <CardHeader className="border-b flex-shrink-0">
-        <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className={metadata.color}>{metadata.label}/USD</span>
+        <CardTitle className="flex items-center justify-between min-w-0">
+          <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+            <span className={cn(metadata.color, 'truncate')}>{metadata.label}/USD</span>
             <ConnectionStatus state={hasFeed ? connectionState : 'disconnected'} />
           </div>
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-2 text-xs sm:text-sm shrink-0">
             <span className="text-muted-foreground">Live:</span>
             {isConnecting ? (
               <Skeleton className="h-5 w-24" />

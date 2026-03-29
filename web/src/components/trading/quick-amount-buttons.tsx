@@ -48,7 +48,7 @@ export function QuickAmountButtons({
   return (
     <div className="space-y-2">
       {/* Preset amounts with +/- */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-1 sm:gap-2">
         {PRESET_AMOUNTS.map(({ label, value }) => {
           const isPresetDisabled =
             isDisabled ||
@@ -60,7 +60,7 @@ export function QuickAmountButtons({
           const incrementDisabled = isDisabled || currentValue + value > effectiveMax
 
           return (
-            <ButtonGroup key={label}>
+            <ButtonGroup key={label} className="w-full">
               <Button
                 variant="outline"
                 size="icon"
@@ -70,7 +70,7 @@ export function QuickAmountButtons({
                   onSelect(result.toFixed(2))
                 }}
                 aria-label={`Subtract ${label}`}
-                className="h-8 w-8 shrink-0 text-xs"
+                className="h-8 w-6 sm:w-8 shrink-0 text-xs"
               >
                 −
               </Button>
@@ -94,7 +94,7 @@ export function QuickAmountButtons({
                   onSelect(clamped.toFixed(2))
                 }}
                 aria-label={`Add ${label}`}
-                className="h-8 w-8 shrink-0 text-xs"
+                className="h-8 w-6 sm:w-8 shrink-0 text-xs"
               >
                 +
               </Button>

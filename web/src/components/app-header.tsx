@@ -119,43 +119,10 @@ export function AppHeader() {
         </div>
 
         {showMenu && (
-          <div className="md:hidden fixed inset-x-0 top-[52px] bottom-0 bg-neutral-100/95 dark:bg-neutral-900/95 backdrop-blur-sm">
+          <div className="md:hidden fixed inset-x-0 top-[52px] bottom-0 bg-neutral-100/95 dark:bg-neutral-900/95 backdrop-blur-sm overflow-y-auto">
             <div className="flex flex-col p-4 gap-4 border-t dark:border-neutral-800">
-              {/* Markets section */}
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">
-                  Markets
-                </p>
-                <ul className="flex flex-col gap-2">
-                  {ASSETS.map((asset) => (
-                    <li key={asset}>
-                      <Link
-                        className={`hover:text-neutral-500 dark:hover:text-white block text-lg py-1 ${
-                          isActive(`/trade/${asset.toLowerCase()}`) ? 'text-neutral-500 dark:text-white' : ''
-                        }`}
-                        href={`/trade/${asset.toLowerCase()}`}
-                        onClick={() => setShowMenu(false)}
-                      >
-                        <span className={ASSET_METADATA[asset].color}>{ASSET_METADATA[asset].label}</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Pools link */}
-              <div className="border-t dark:border-neutral-800 pt-4">
-                <Link
-                  className={`hover:text-neutral-500 dark:hover:text-white block text-lg py-2 ${isActive('/lp') ? 'text-neutral-500 dark:text-white' : ''}`}
-                  href="/lp"
-                  onClick={() => setShowMenu(false)}
-                >
-                  Pools
-                </Link>
-              </div>
-
               {/* Utility links */}
-              <div className="border-t dark:border-neutral-800 pt-4">
+              <div>
                 <ul className="flex flex-col gap-4">
                   {utilityLinks.map(({ label, href }) => (
                     <li key={href}>
@@ -201,7 +168,7 @@ export function AppHeader() {
                 </ul>
               </div>
 
-              <div className="flex flex-col gap-4">
+              <div className="border-t dark:border-neutral-800 pt-4 flex flex-wrap items-center gap-4">
                 <ModeToggle />
                 <ClusterUiSelect />
                 <WalletButton />

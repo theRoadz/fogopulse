@@ -254,19 +254,19 @@ export function EpochStatusDisplay({ asset, className }: EpochStatusDisplayProps
   // Active epoch - show full status
   return (
     <div className={cn('flex flex-col gap-3', className)}>
-      {/* Active epoch info row */}
-      <div className="flex items-center justify-between gap-4">
-        {/* Left side: State badge + Price to Beat */}
-        <div className="flex items-center gap-3">
+      {/* Active epoch info — on mobile: countdown on top, badge+price below; on desktop: single row */}
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-2 sm:gap-x-4">
+        {/* Countdown — first in DOM (matches mobile visual order), pushed right on desktop via order */}
+        <EpochCountdown epochState={epochState} className="self-end sm:self-auto sm:order-last" />
+
+        {/* State badge + Price to Beat */}
+        <div className="flex items-center gap-3 min-w-0">
           <EpochStateBadge state={epochState.epoch.state} />
           <PriceToBeat
             startPrice={epochState.startPriceDisplay}
             currentPrice={displayPrice}
           />
         </div>
-
-        {/* Right side: Countdown */}
-        <EpochCountdown epochState={epochState} />
       </div>
 
       {/* Last settlement section (collapsible) */}
