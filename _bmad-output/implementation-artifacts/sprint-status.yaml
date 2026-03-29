@@ -153,3 +153,5 @@ development_status:
   7-34-trade-preset-increment-decrement-buttons: done
   7-35-balance-page-revamp: done
   7-37-admin-normalize-lp-shares: done
+  7-38-fix-claim-reserve-drift: done
+  7-39-fix-trades-footer-overlap-load-more: done
