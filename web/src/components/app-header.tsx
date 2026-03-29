@@ -1,6 +1,6 @@
 'use client'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Menu, X, MoreVertical, ChevronDown } from 'lucide-react'
@@ -34,6 +34,11 @@ export function AppHeader() {
   const [showMenu, setShowMenu] = useState(false)
   const { publicKey } = useWallet()
   const { isAdmin } = useIsAdmin()
+
+  // Close mobile menu on route change (e.g. tapping Markets dropdown or Pools link while menu is open)
+  useEffect(() => {
+    setShowMenu(false)
+  }, [pathname])
 
   function isActive(path: string) {
     return path === '/' ? pathname === '/' : pathname.startsWith(path)

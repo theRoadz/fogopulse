@@ -1,6 +1,6 @@
 # Story 7.40: Fix Mobile Responsiveness Issues
 
-Status: in-progress
+Status: done
 Created: 2026-03-29
 Epic: 7 - Platform Polish & UX
 Sprint: Current
@@ -52,7 +52,20 @@ The quick amount buttons (`quick-amount-buttons.tsx`) use a fixed `grid-cols-3` 
 - Override ButtonGroup `w-fit` with `className="w-full"`
 - Reduce +/- button width `w-8` -> `w-6 sm:w-8`
 
-**Desktop impact: None.** All changes use `sm:`/`md:` breakpoint prefixes preserving existing desktop styles. Structural additions (`min-w-0`, `shrink-0`, `flex-wrap`) are no-ops when sufficient space exists.
+### Fix 4: Epoch Countdown Above Target Price on Mobile
+
+- `epoch-status-display.tsx`: Use `flex-col-reverse sm:flex-row` (later corrected to DOM reorder + `sm:order-last`) so countdown appears above badge+price on mobile, right-aligned on desktop
+
+### Fix 5: Amount Input Value Overflow
+
+- `amount-input.tsx`: Add `overflow-hidden` to input container, `min-w-0` to input element, reduce font to `text-base sm:text-lg`
+
+### Fix 6: Mobile Layout Reorder — Trade Above Positions
+
+- `trading-layout.tsx`: Use `display: contents` on the chart column wrapper on mobile, which dissolves it so Chart, Positions, and Trade Ticket become direct flex children. CSS `order` (1, 2, 3) reorders them as Chart → Trade → Positions on mobile. On desktop (`lg:`), the wrapper restores to `lg:flex lg:flex-col lg:gap-4 lg:w-[70%]`, keeping positions tight under the chart with no gap.
+- Previous attempts with CSS grid (`col-span-2`, `row-span-2`) and flex-wrap all failed because both grid rows and flex-wrap lines have uniform height based on the tallest item, creating a gap when the trade ticket column is taller than the chart.
+
+**Desktop impact: None.** All changes use `sm:`/`md:`/`lg:` breakpoint prefixes preserving existing desktop styles. The `display: contents` trick only applies on mobile; desktop restores the original nested flex layout.
 
 ## Acceptance Criteria
 
@@ -63,6 +76,9 @@ The quick amount buttons (`quick-amount-buttons.tsx`) use a fixed `grid-cols-3` 
 5. **AC5:** Epoch status (target price + countdown) does not clip on 375px viewport
 6. **AC6:** Quick amount buttons fit within card boundary on 320px viewport
 7. **AC7:** No visual regressions on desktop (1024px+) viewports
+8. **AC8:** Amount input value stays within the textbox border on mobile
+9. **AC9:** On mobile, Trade Ticket (Your Position + Trade) appears before Positions/Trades panel
+10. **AC10:** My Trades tab rows fit within screen width on mobile without horizontal overflow
 
 ## Tasks / Subtasks
 
@@ -91,31 +107,33 @@ The quick amount buttons (`quick-amount-buttons.tsx`) use a fixed `grid-cols-3` 
   - [x] 5.1: Add `overflow-hidden` to input container div
   - [x] 5.2: Add `min-w-0` and reduce font `text-base sm:text-lg` on input element
 
-- [ ] Task 6: Reorder mobile layout — Trade above Positions (AC: #9)
-  - [ ] 6.1: Move PositionsAndTradesPanel out of chart column into its own div
-  - [ ] 6.2: Use CSS grid layout so positions spans full width below chart+trade on desktop
+- [x] Task 6: Reorder mobile layout — Trade above Positions (AC: #9, #7)
+  - [x] 6.1: Use `display: contents` on chart column wrapper on mobile to dissolve it, allowing CSS `order` to interleave children with trade ticket
+  - [x] 6.2: On desktop (`lg:`), wrapper becomes `lg:flex lg:flex-col lg:gap-4 lg:w-[70%]` restoring original nested layout — positions sits tight under chart with no gap
+  - [x] 6.3: Trade ticket div uses `order-2 lg:order-none` to appear between chart and positions on mobile only
 
-- [ ] Task 7: Verify (AC: #1-#9)
-  - [ ] 7.1: Test at 320px, 375px, 414px viewport widths
-  - [ ] 7.2: Test desktop 1024px+ for regressions
+- [x] Task 7: Fix My Trades tab row overflow on mobile (AC: #10)
+  - [x] 7.1: Add `flex-wrap` and `overflow-hidden` to row container, reduce gap to `gap-x-2 gap-y-1 sm:gap-3`
+  - [x] 7.2: Hide chevron expand icon on mobile (`hidden sm:block`) — row tap still expands
+  - [x] 7.3: Remove fixed widths on mobile for asset (`sm:w-12`), amount (`sm:w-20`), P&L (`sm:w-24`)
 
-## Acceptance Criteria (added)
-
-8. **AC8:** Amount input value stays within the textbox border on mobile
-9. **AC9:** On mobile, Trade Ticket (Your Position + Trade) appears before Positions/Trades panel
+- [x] Task 8: Verify (AC: #1-#10)
+  - [x] 8.1: Mobile verified by user — Chart → Trade → Positions order correct
+  - [x] 8.2: Desktop verified by user — no gap between chart and positions panel, matches original layout
 
 ## File List
 
 | File | Action | Description |
 |------|--------|-------------|
-| `web/src/components/app-header.tsx` | **MODIFY** | Add overflow-y-auto; remove Markets and Pools from mobile menu |
+| `web/src/components/app-header.tsx` | **MODIFY** | Add overflow-y-auto; remove Markets/Pools from mobile menu; auto-close menu on route change |
 | `web/src/components/trading/quick-amount-buttons.tsx` | **MODIFY** | Fix grid overflow with responsive gap, w-full ButtonGroup, smaller +/- buttons |
 | `web/src/components/trading/chart-area.tsx` | **MODIFY** | Add min-w-0/shrink-0 to prevent title row overflow |
 | `web/src/components/trading/epoch-status-display.tsx` | **MODIFY** | Countdown above price on mobile via flex-col-reverse; flex-wrap and min-w-0 |
 | `web/src/components/trading/price-to-beat.tsx` | **MODIFY** | Reduce font size on mobile, add flex-wrap |
 | `web/src/components/trading/epoch-countdown.tsx` | **MODIFY** | Add shrink-0, reduce countdown font on mobile |
 | `web/src/components/trading/amount-input.tsx` | **MODIFY** | Add overflow-hidden, min-w-0, responsive font size |
-| `web/src/components/trading/trading-layout.tsx` | **PENDING** | Task 6: Reorder trade ticket before positions panel on mobile (reverted, to be done later) |
+| `web/src/components/trading/trading-layout.tsx` | **MODIFY** | Reorder mobile layout using `display: contents` + CSS `order`; added `role="group"` for a11y; desktop unchanged via `lg:flex` restore |
+| `web/src/components/trading/trading-history-row.tsx` | **MODIFY** | Add flex-wrap, overflow-hidden, hide chevron on mobile, responsive fixed widths; changed trigger from div to button for a11y |
 
 ## Change Log
 
@@ -126,3 +144,22 @@ The quick amount buttons (`quick-amount-buttons.tsx`) use a fixed `grid-cols-3` 
 - **2026-03-29**: Code review fixes — Replaced flex-wrap layout with CSS grid to fix gap overflow breaking 70/30 desktop split (HIGH). Positions panel now spans full width via col-span-2. Fixed mobile menu controls layout (horizontal row with border separator). Fixed placeholder `--` font size consistency in price-to-beat. Corrected task numbering and descriptions.
 - **2026-03-29**: Task 6 reverted — trading-layout.tsx changes rolled back, to be implemented later. AC9 deferred.
 - **2026-03-29**: Code review (adversarial) — Fixed M1: added flex-wrap to mobile menu controls row to prevent overflow on narrow screens. Fixed M2: added overflow-hidden+truncate to chart-area title left side to prevent collision with live price. Fixed M3: swapped DOM order in epoch-status-display to match visual order (countdown first), eliminating flex-col-reverse accessibility issue; used sm:order-last for desktop right-alignment.
+- **2026-03-29**: Task 6 re-implemented — Used `display: contents` on chart column wrapper (mobile) to dissolve it, allowing CSS `order` to interleave Chart (order-1), Trade Ticket (order-2), Positions (order-3). On desktop, wrapper restores to `lg:flex lg:flex-col lg:gap-4 lg:w-[70%]` so positions sits tight under chart with no gap. Previous grid/flex-wrap approaches failed because both CSS grid rows and flex-wrap lines have uniform height based on tallest item. User verified desktop matches original layout.
+- **2026-03-29**: Task 7 — Fixed My Trades tab row overflow on mobile. Added `flex-wrap` + `overflow-hidden` to row container, reduced gap to `gap-x-2 gap-y-1 sm:gap-3`, hidden chevron on mobile, moved fixed widths behind `sm:` breakpoint (asset `sm:w-12`, amount `sm:w-20`, P&L `sm:w-24`). Rows now wrap to 2 lines on mobile.
+- **2026-03-29**: Code review (adversarial #2) — Fixed H2: added `role="group"` to `display: contents` wrapper in trading-layout for a11y. Fixed M1: changed `div[role="button"]` to `<button>` in trading-history-row for proper keyboard semantics. Fixed M2: added `useEffect` on pathname to auto-close mobile menu on route change in app-header. Merged split AC sections into single list. L1/L2 noted but not actioned.
+
+## Senior Developer Review (AI)
+
+**Reviewer:** theRoad | **Date:** 2026-03-29
+
+**Findings:** 2 HIGH, 3 MEDIUM, 2 LOW
+
+| # | Severity | Finding | Resolution |
+|---|----------|---------|------------|
+| H1 | HIGH | `trading-layout.tsx` and `trading-history-row.tsx` uncommitted — story marked done but changes not in commit `40e7ebc` | Pending commit by user |
+| H2 | HIGH | `display: contents` breaks a11y tree in older browsers | Fixed: added `role="group"` |
+| M1 | MEDIUM | `div[role="button"]` in trading-history-row lacks native keyboard semantics | Fixed: changed to `<button>` |
+| M2 | MEDIUM | Mobile menu stays open when navigating via header Markets/Pools links | Fixed: `useEffect` on pathname closes menu |
+| M3 | MEDIUM | `flex-wrap` + `sm:` breakpoint timing may cause single-item wrap at 640px | Noted — visual only, no functional impact |
+| L1 | LOW | ACs 8-10 in separate section from ACs 1-7 | Fixed: merged into single list |
+| L2 | LOW | Change log overly verbose | Noted — no action taken |

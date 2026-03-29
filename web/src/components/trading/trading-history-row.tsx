@@ -100,25 +100,24 @@ export function TradingHistoryRow({ entry, className }: TradingHistoryRowProps) 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} data-testid="trading-history-row">
       <CollapsibleTrigger asChild>
-        <div
-          role="button"
-          tabIndex={0}
+        <button
+          type="button"
           className={cn(
-            'flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm transition-colors hover:bg-muted/50 cursor-pointer',
+            'flex w-full flex-wrap items-center gap-x-2 gap-y-1 sm:gap-3 overflow-hidden rounded-lg px-3 py-3 text-left text-sm transition-colors hover:bg-muted/50 cursor-pointer',
             isOpen && 'bg-muted/30',
             className
           )}
         >
           {/* Expand icon */}
           {isOpen ? (
-            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground hidden sm:block" />
           ) : (
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground hidden sm:block" />
           )}
 
           {/* Asset */}
           <span
-            className={cn('w-12 shrink-0 text-sm font-semibold', ASSET_METADATA[entry.asset].color)}
+            className={cn('shrink-0 text-sm font-semibold sm:w-12', ASSET_METADATA[entry.asset].color)}
             data-testid="trade-asset"
           >
             {ASSET_METADATA[entry.asset].label}
@@ -130,7 +129,7 @@ export function TradingHistoryRow({ entry, className }: TradingHistoryRowProps) 
           </span>
 
           {/* Amount invested */}
-          <span className="w-20 shrink-0 text-sm text-foreground" data-testid="trade-amount">
+          <span className="shrink-0 text-sm text-foreground sm:w-20" data-testid="trade-amount">
             ${formatUsdcAmount(entry.amountInvested)}
           </span>
 
@@ -150,7 +149,7 @@ export function TradingHistoryRow({ entry, className }: TradingHistoryRowProps) 
 
           {/* Realized PnL */}
           <span
-            className={cn('w-24 shrink-0 text-sm font-medium', pnlColor)}
+            className={cn('shrink-0 text-sm font-medium sm:w-24', pnlColor)}
             data-testid="trade-pnl"
           >
             {pnlDisplay}
@@ -192,7 +191,7 @@ export function TradingHistoryRow({ entry, className }: TradingHistoryRowProps) 
           <span className="ml-auto shrink-0 text-xs text-muted-foreground" data-testid="trade-time">
             {formatTimeAgo(entry.settlementTime)}
           </span>
-        </div>
+        </button>
       </CollapsibleTrigger>
 
       <CollapsibleContent className="px-3 pb-3 pt-1">
