@@ -53,8 +53,9 @@ This story completes the shadcn/ui configuration and theme system setup. The pro
 
 3. **AC3: Theme Toggle Functional**
    - Mode toggle component exists in `components/shared/mode-toggle.tsx`
-   - Toggle switches between dark and light themes
-   - Uses shadcn dropdown-menu pattern with Sun/Moon icons
+   - Toggle switches between dark and light themes with single click (no dropdown, no System option)
+   - Uses View Transition API for circular reveal animation (light/dark spreading from click position)
+   - Graceful fallback to instant switch on unsupported browsers (Firefox)
    - Theme preference persists across sessions
 
 4. **AC4: Additional Components Installed**
@@ -101,9 +102,9 @@ This story completes the shadcn/ui configuration and theme system setup. The pro
   - [x] 3.3: Verify all components installed in components/ui/
 
 - [x] Task 4: Create mode-toggle component (AC: 3)
-  - [x] 4.1: Create components/shared/mode-toggle.tsx with dropdown menu
-  - [x] 4.2: Add Sun/Moon/Monitor icons from lucide-react
-  - [x] 4.3: Implement theme switching with useTheme hook
+  - [x] 4.1: Create components/shared/mode-toggle.tsx with single-click toggle button
+  - [x] 4.2: Add Sun/Moon icons from lucide-react (removed Monitor/System option)
+  - [x] 4.3: Implement theme switching with useTheme hook + View Transition API circular reveal animation
   - [x] 4.4: Add toggle to app header/layout
 
 - [x] Task 5: Configure typography with custom fonts (AC: 5)
@@ -282,7 +283,7 @@ const jetbrainsMono = JetBrains_Mono({
 | Metric | Target |
 |--------|--------|
 | Dark theme on first visit | Yes |
-| Theme toggle functional | Light/Dark/System all work |
+| Theme toggle functional | Single-click Light/Dark toggle with circular reveal animation |
 | New components installed | 11 additional components |
 | Build succeeds | `pnpm build` exits 0 |
 | Fonts loaded | Inter + JetBrains Mono |
@@ -319,7 +320,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 
 - **Task 3 (shadcn components)**: Installed 11 additional components via shadcn CLI: tabs, badge, tooltip, progress, skeleton, sheet, switch, collapsible, separator, avatar, scroll-area. Added TooltipProvider wrapper in app-providers.tsx as required by tooltip component.
 
-- **Task 4 (mode-toggle)**: Created ModeToggle component in components/shared/mode-toggle.tsx with Sun/Moon/Monitor icons from lucide-react. Uses dropdown menu pattern for Light/Dark/System selection. Replaced old ThemeSelect with ModeToggle in app-header.tsx.
+- **Task 4 (mode-toggle)**: Created ModeToggle component in components/shared/mode-toggle.tsx with Sun/Moon icons from lucide-react. Originally used dropdown menu with Light/Dark/System; later simplified to single-click toggle with View Transition API circular reveal animation (dark/light spreads from click position). Removed System option and dropdown. Replaced old ThemeSelect with ModeToggle in app-header.tsx.
 
 - **Task 5 (Typography)**: Added Inter and JetBrains Mono fonts via next/font/google in layout.tsx. Applied font CSS variables (--font-sans, --font-mono) to body className. Registered font variables in @theme inline block in globals.css.
 
@@ -388,6 +389,7 @@ All 6 Acceptance Criteria verified as implemented. All tasks marked complete wer
 | 2026-03-11 | SM Agent | Initial story creation |
 | 2026-03-11 | Dev Agent (Claude Opus 4.5) | Implemented all tasks: FOGO brand colors, dark theme default, 11 shadcn components, mode-toggle, typography. Build verified. |
 | 2026-03-11 | Code Review Agent (Claude Opus 4.5) | Review completed: Fixed 3 MEDIUM issues (dead code, missing imports), updated File List, all ACs verified. Status → done. |
+| 2026-03-29 | Dev Agent (Claude Opus 4.6) | Simplified theme toggle: removed dropdown & System option, added single-click toggle with View Transition API circular reveal animation. Updated app-providers.tsx (removed enableSystem, disableTransitionOnChange), globals.css (view transition CSS), mode-toggle.tsx (rewritten). |
 
 ---
 

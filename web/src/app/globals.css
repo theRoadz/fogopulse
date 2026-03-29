@@ -184,3 +184,29 @@
   @apply !border !bg-background !shadow-xs hover:!bg-accent !text-accent-foreground hover:!text-accent-foreground dark:!bg-input/30 !border-input/10 dark:!border-input dark:hover:!bg-input/50;
   @apply !px-2 !py-[6px] !rounded-md !text-sm !font-semibold !shadow-sm !transition-all;
 }
+
+/* Theme toggle circular reveal animation */
+::view-transition-group(root) {
+  animation-duration: 0.5s;
+}
+
+::view-transition-old(root) {
+  animation: none;
+  z-index: -1;
+  mix-blend-mode: normal;
+}
+
+::view-transition-new(root) {
+  animation: circle-clip-in 0.5s ease-in;
+  z-index: 1;
+  mix-blend-mode: normal;
+}
+
+@keyframes circle-clip-in {
+  from {
+    clip-path: circle(0px at var(--toggle-x) var(--toggle-y));
+  }
+  to {
+    clip-path: circle(var(--toggle-end-radius) at var(--toggle-x) var(--toggle-y));
+  }
+}
