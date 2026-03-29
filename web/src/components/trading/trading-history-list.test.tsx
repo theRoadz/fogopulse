@@ -25,12 +25,6 @@ jest.mock('@/components/ui/button', () => ({
   ),
 }))
 
-jest.mock('@/components/ui/scroll-area', () => ({
-  ScrollArea: ({ children, className }: React.ComponentProps<'div'>) => (
-    <div className={className}>{children}</div>
-  ),
-}))
-
 jest.mock('@/components/ui/skeleton', () => ({
   Skeleton: ({ className }: { className?: string }) => (
     <div data-testid="skeleton" className={className} />
@@ -255,5 +249,26 @@ describe('TradingHistoryList', () => {
     expect(loadMoreBtn).toHaveTextContent('Load more')
     fireEvent.click(loadMoreBtn)
     expect(fetchMore).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders unique keys for same asset+epoch with different directions', () => {
+    mockUseWalletConnection.mockReturnValue({ connected: true })
+    mockUseTradingHistory.mockReturnValue({
+      history: [
+        makeEntry({ asset: 'BTC', epochId: 5n, direction: 'up' }),
+        makeEntry({ asset: 'BTC', epochId: 5n, direction: 'down', outcome: 'lost', realizedPnl: -10_000_000n, payoutAmount: null }),
+      ],
+      stats: { ...defaultStats, winCount: 1, lossCount: 1 },
+      isLoading: false,
+      hasMore: false,
+      fetchMore: jest.fn(),
+      isFetchingMore: false,
+    })
+
+    // Should render without duplicate key warnings — 2 distinct rows
+    render(<TradingHistoryList assetFilter="BTC" />)
+
+    const rows = screen.getAllByTestId('trading-history-row')
+    expect(rows).toHaveLength(2)
   })
 })

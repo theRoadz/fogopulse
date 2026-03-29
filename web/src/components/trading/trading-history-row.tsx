@@ -100,9 +100,11 @@ export function TradingHistoryRow({ entry, className }: TradingHistoryRowProps) 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} data-testid="trading-history-row">
       <CollapsibleTrigger asChild>
-        <button
+        <div
+          role="button"
+          tabIndex={0}
           className={cn(
-            'flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm transition-colors hover:bg-muted/50',
+            'flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm transition-colors hover:bg-muted/50 cursor-pointer',
             isOpen && 'bg-muted/30',
             className
           )}
@@ -190,7 +192,7 @@ export function TradingHistoryRow({ entry, className }: TradingHistoryRowProps) 
           <span className="ml-auto shrink-0 text-xs text-muted-foreground" data-testid="trade-time">
             {formatTimeAgo(entry.settlementTime)}
           </span>
-        </button>
+        </div>
       </CollapsibleTrigger>
 
       <CollapsibleContent className="px-3 pb-3 pt-1">

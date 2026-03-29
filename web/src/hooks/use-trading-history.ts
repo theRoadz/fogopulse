@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useCallback, useState, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { PublicKey } from '@solana/web3.js'
 import { useWallet } from '@solana/wallet-adapter-react'
 
@@ -292,6 +292,7 @@ export function useTradingHistory(
     queryKey,
     queryFn: fetchHistory,
     enabled: publicKey !== null && pool !== null,
+    placeholderData: keepPreviousData,
     staleTime: 30000,
     refetchOnWindowFocus: false,
   })

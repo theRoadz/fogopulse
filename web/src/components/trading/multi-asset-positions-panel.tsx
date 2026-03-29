@@ -60,7 +60,7 @@ export function MultiAssetPositionsPanel() {
       />
       {activePositions.map((ap) => (
         <AssetPositionRow
-          key={ap.asset}
+          key={`${ap.asset}-${ap.position?.direction ?? 'none'}`}
           assetPosition={ap}
           onNavigateToAsset={handleNavigateToAsset}
           onSellPosition={handleSellPosition}

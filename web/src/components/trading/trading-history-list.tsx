@@ -3,7 +3,6 @@
 import { History, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { useWalletConnection } from '@/hooks'
@@ -76,42 +75,45 @@ export function TradingHistoryList({ assetFilter, className }: TradingHistoryLis
   }
 
   // Populated
+  const listContent = (
+    <>
+      <div className="space-y-1">
+        {history.map((entry) => (
+          <TradingHistoryRow
+            key={`${entry.asset}-${entry.epochId.toString()}-${entry.direction}`}
+            entry={entry}
+          />
+        ))}
+      </div>
+
+      {hasMore && (
+        <div className="flex justify-center py-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={fetchMore}
+            disabled={isFetchingMore}
+            className="text-xs text-muted-foreground"
+            data-testid="load-more-button"
+          >
+            {isFetchingMore ? (
+              <>
+                <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                Loading...
+              </>
+            ) : (
+              'Load more'
+            )}
+          </Button>
+        </div>
+      )}
+    </>
+  )
+
   return (
     <div className={cn('w-full space-y-3', className)} data-testid="trading-history-list">
       <TradingStatsBar stats={stats} />
-
-      <ScrollArea className="max-h-[600px]">
-        <div className="space-y-1">
-          {history.map((entry) => (
-            <TradingHistoryRow
-              key={`${entry.asset}-${entry.epochId.toString()}`}
-              entry={entry}
-            />
-          ))}
-        </div>
-
-        {hasMore && (
-          <div className="flex justify-center py-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={fetchMore}
-              disabled={isFetchingMore}
-              className="text-xs text-muted-foreground"
-              data-testid="load-more-button"
-            >
-              {isFetchingMore ? (
-                <>
-                  <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                'Load more'
-              )}
-            </Button>
-          </div>
-        )}
-      </ScrollArea>
+      {listContent}
     </div>
   )
 }
