@@ -4803,7 +4803,7 @@
     {
       "code": 6039,
       "name": "InsufficientPoolReserves",
-      "msg": "Pool does not have sufficient reserves for this sell"
+      "msg": "Pool does not have sufficient reserves"
     },
     {
       "code": 6040,
@@ -5870,6 +5870,20 @@
                 "name": "Direction"
               }
             }
+          },
+          {
+            "name": "yes_reserves_after",
+            "docs": [
+              "YES reserves after claim"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "no_reserves_after",
+            "docs": [
+              "NO reserves after claim"
+            ],
+            "type": "u64"
           }
         ]
       }
@@ -6307,6 +6321,20 @@
             "name": "amount",
             "docs": [
               "Refund amount in USDC lamports"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "yes_reserves_after",
+            "docs": [
+              "YES reserves after claim"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "no_reserves_after",
+            "docs": [
+              "NO reserves after claim"
             ],
             "type": "u64"
           }

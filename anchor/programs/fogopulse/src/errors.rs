@@ -131,7 +131,7 @@ pub enum FogoPulseError {
     #[msg("Shares amount must be greater than zero")]
     ZeroShares,
 
-    #[msg("Pool does not have sufficient reserves for this sell")]
+    #[msg("Pool does not have sufficient reserves")]
     InsufficientPoolReserves,
 
     // LP errors

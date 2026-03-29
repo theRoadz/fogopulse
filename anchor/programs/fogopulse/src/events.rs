@@ -191,6 +191,10 @@ pub struct RefundClaimed {
     pub user: Pubkey,
     /// Refund amount in USDC lamports
     pub amount: u64,
+    /// YES reserves after claim
+    pub yes_reserves_after: u64,
+    /// NO reserves after claim
+    pub no_reserves_after: u64,
 }
 
 #[event]
@@ -203,6 +207,10 @@ pub struct PayoutClaimed {
     pub amount: u64,
     /// Direction of the winning position
     pub direction: Direction,
+    /// YES reserves after claim
+    pub yes_reserves_after: u64,
+    /// NO reserves after claim
+    pub no_reserves_after: u64,
 }
 
 #[event]

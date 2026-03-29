@@ -143,8 +143,11 @@ pub fn handler(ctx: Context<ClaimRefund>, user: Pubkey, direction: Direction) ->
     let refund_amount = position.amount;
 
     // 3. Transfer USDC from pool to user
-    let pool = &ctx.accounts.pool;
-    let pool_seeds = &[b"pool".as_ref(), pool.asset_mint.as_ref(), &[pool.bump]];
+    let pool_seeds = &[
+        b"pool".as_ref(),
+        ctx.accounts.pool.asset_mint.as_ref(),
+        &[ctx.accounts.pool.bump],
+    ];
 
     token::transfer(
         CpiContext::new_with_signer(
@@ -159,14 +162,20 @@ pub fn handler(ctx: Context<ClaimRefund>, user: Pubkey, direction: Direction) ->
         refund_amount,
     )?;
 
-    // 3b. Reduce pool reserves to reflect refund leaving the pool (Story 7.32)
-    // Split reduction 50/50 to match post-settlement rebalanced state.
-    // Uses saturating_sub to prevent underflow from prior accounting drift.
+    // 3b. Reduce pool reserves to reflect refund leaving the pool (Story 7.32, fixed in 7.38)
+    // Subtract from total reserves first (exact deduction), then re-split 50/50.
+    // This avoids the saturating_sub drift where one side clamps to 0 and under-deducts.
     let pool = &mut ctx.accounts.pool;
-    let half_refund = refund_amount / 2;
-    let refund_remainder = refund_amount % 2;
-    pool.yes_reserves = pool.yes_reserves.saturating_sub(half_refund + refund_remainder);
-    pool.no_reserves = pool.no_reserves.saturating_sub(half_refund);
+    let total_reserves = pool.yes_reserves
+        .checked_add(pool.no_reserves)
+        .ok_or(FogoPulseError::Overflow)?;
+    let new_total = total_reserves
+        .checked_sub(refund_amount)
+        .ok_or(FogoPulseError::InsufficientPoolReserves)?;
+    let half = new_total / 2;
+    let remainder = new_total % 2;
+    pool.yes_reserves = half + remainder;
+    pool.no_reserves = half;
 
     // 4. Mark position as claimed
     position.claimed = true;
@@ -176,6 +185,8 @@ pub fn handler(ctx: Context<ClaimRefund>, user: Pubkey, direction: Direction) ->
         epoch: ctx.accounts.epoch.key(),
         user,
         amount: refund_amount,
+        yes_reserves_after: pool.yes_reserves,
+        no_reserves_after: pool.no_reserves,
     });
 
     msg!("RefundClaimed: user={}, amount={}", user, refund_amount);

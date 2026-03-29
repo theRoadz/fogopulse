@@ -203,8 +203,11 @@ pub fn handler(ctx: Context<ClaimPayout>, user: Pubkey, direction: Direction) ->
     };
 
     // 5. Transfer USDC from pool to user
-    let pool = &ctx.accounts.pool;
-    let pool_seeds = &[b"pool".as_ref(), pool.asset_mint.as_ref(), &[pool.bump]];
+    let pool_seeds = &[
+        b"pool".as_ref(),
+        ctx.accounts.pool.asset_mint.as_ref(),
+        &[ctx.accounts.pool.bump],
+    ];
 
     token::transfer(
         CpiContext::new_with_signer(
@@ -219,14 +222,20 @@ pub fn handler(ctx: Context<ClaimPayout>, user: Pubkey, direction: Direction) ->
         payout_amount,
     )?;
 
-    // 5b. Reduce pool reserves to reflect payout leaving the pool (Story 7.32)
-    // Split reduction 50/50 to match post-settlement rebalanced state.
-    // Uses saturating_sub to prevent underflow from prior accounting drift.
+    // 5b. Reduce pool reserves to reflect payout leaving the pool (Story 7.32, fixed in 7.38)
+    // Subtract from total reserves first (exact deduction), then re-split 50/50.
+    // This avoids the saturating_sub drift where one side clamps to 0 and under-deducts.
     let pool = &mut ctx.accounts.pool;
-    let half_payout = payout_amount / 2;
-    let payout_remainder = payout_amount % 2;
-    pool.yes_reserves = pool.yes_reserves.saturating_sub(half_payout + payout_remainder);
-    pool.no_reserves = pool.no_reserves.saturating_sub(half_payout);
+    let total_reserves = pool.yes_reserves
+        .checked_add(pool.no_reserves)
+        .ok_or(FogoPulseError::Overflow)?;
+    let new_total = total_reserves
+        .checked_sub(payout_amount)
+        .ok_or(FogoPulseError::InsufficientPoolReserves)?;
+    let half = new_total / 2;
+    let remainder = new_total % 2;
+    pool.yes_reserves = half + remainder;
+    pool.no_reserves = half;
 
     // 6. Mark position as claimed (idempotent - constraint prevents double-claim)
     position.claimed = true;
@@ -237,6 +246,8 @@ pub fn handler(ctx: Context<ClaimPayout>, user: Pubkey, direction: Direction) ->
         user,
         amount: payout_amount,
         direction: position.direction,
+        yes_reserves_after: pool.yes_reserves,
+        no_reserves_after: pool.no_reserves,
     });
 
     msg!(
