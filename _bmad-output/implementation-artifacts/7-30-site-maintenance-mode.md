@@ -160,3 +160,5 @@ Claude Opus 4.6 (1M context)
 
 - **2026-03-24**: Story created and fully implemented — all 6 tasks complete, 60 tests passing
 - **2026-03-24**: Code review — 8 findings (3H/3M/2L), all HIGH and MEDIUM fixed, 71 tests passing
+- **2026-03-29**: Bug fix — Admin toggles required multiple clicks. Root cause: no optimistic update + stale HTTP cache on refetch. Added `onMutate` optimistic update with `onError` rollback, and `cache: 'no-store'` on GET fetch in `use-admin-settings.ts`.
+- **2026-03-29**: Code review — 4 findings (1H/2M/1L). H1 fixed: added 3 tests for onMutate/onError rollback. L1 fixed: updated Change Log. M1 (cache: no-store for all users) acknowledged as acceptable. M2 (unused _variables param) is style-only. 9 hook tests passing.

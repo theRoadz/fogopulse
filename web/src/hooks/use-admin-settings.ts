@@ -17,7 +17,7 @@ export function useAdminSettings() {
   return useQuery({
     queryKey: QUERY_KEYS.adminSettings(),
     queryFn: async (): Promise<AdminSettings> => {
-      const res = await fetch('/api/admin-settings')
+      const res = await fetch('/api/admin-settings', { cache: 'no-store' })
       if (!res.ok) return DEFAULTS
       return res.json()
     },
@@ -52,11 +52,24 @@ export function useUpdateAdminSettings() {
 
       return await res.json()
     },
+    onMutate: async (newSettings) => {
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.adminSettings() })
+      const previous = queryClient.getQueryData<AdminSettings>(QUERY_KEYS.adminSettings())
+      queryClient.setQueryData<AdminSettings>(QUERY_KEYS.adminSettings(), (old) => ({
+        ...DEFAULTS,
+        ...old,
+        ...newSettings,
+      }))
+      return { previous }
+    },
     onSuccess: () => {
       toast.success('Admin setting updated')
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.adminSettings() })
     },
-    onError: (err: Error) => {
+    onError: (err: Error, _variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(QUERY_KEYS.adminSettings(), context.previous)
+      }
       toast.error(err.message)
     },
   })

@@ -16,11 +16,17 @@ const mockMutationResult = {
 
 const mockInvalidateQueries = jest.fn()
 
-let capturedMutationOpts: { onSuccess?: () => void; onError?: (err: Error) => void } = {}
+const mockCancelQueries = jest.fn()
+const mockGetQueryData = jest.fn()
+const mockSetQueryData = jest.fn()
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let capturedMutationOpts: Record<string, any> = {}
 
 jest.mock('@tanstack/react-query', () => ({
   useQuery: jest.fn().mockImplementation(() => mockQueryResult),
-  useMutation: jest.fn().mockImplementation((opts: { mutationFn: unknown; onSuccess?: () => void; onError?: (err: Error) => void }) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  useMutation: jest.fn().mockImplementation((opts: Record<string, any>) => {
     capturedMutationOpts = opts
     mockMutationResult.mutate = jest.fn().mockImplementation(async (input: unknown) => {
       await (opts.mutationFn as (input: unknown) => Promise<unknown>)(input)
@@ -29,6 +35,9 @@ jest.mock('@tanstack/react-query', () => ({
   }),
   useQueryClient: () => ({
     invalidateQueries: mockInvalidateQueries,
+    cancelQueries: mockCancelQueries,
+    getQueryData: mockGetQueryData,
+    setQueryData: mockSetQueryData,
   }),
 }))
 
@@ -134,5 +143,53 @@ describe('useUpdateAdminSettings', () => {
     capturedMutationOpts.onError?.(new Error('Forbidden'))
 
     expect(toast.error).toHaveBeenCalledWith('Forbidden')
+  })
+
+  it('onMutate should cancel queries, snapshot previous, and set optimistic data', async () => {
+    const previousData = { allowEpochCreation: true, maintenanceMode: false }
+    mockGetQueryData.mockReturnValue(previousData)
+
+    renderHook(() => useUpdateAdminSettings())
+    const context = await capturedMutationOpts.onMutate({ maintenanceMode: true })
+
+    expect(mockCancelQueries).toHaveBeenCalledWith({ queryKey: ['admin-settings'] })
+    expect(mockGetQueryData).toHaveBeenCalledWith(['admin-settings'])
+    expect(mockSetQueryData).toHaveBeenCalledWith(
+      ['admin-settings'],
+      expect.any(Function),
+    )
+
+    // Verify the updater function merges correctly
+    const updaterFn = mockSetQueryData.mock.calls[0][1]
+    const result = updaterFn(previousData)
+    expect(result).toEqual({ allowEpochCreation: true, maintenanceMode: true })
+
+    // Verify snapshot returned for rollback
+    expect(context).toEqual({ previous: previousData })
+  })
+
+  it('onError should rollback to previous data when context exists', () => {
+    const { toast } = jest.requireMock('sonner')
+    const previousData = { allowEpochCreation: true, maintenanceMode: false }
+
+    renderHook(() => useUpdateAdminSettings())
+    capturedMutationOpts.onError(
+      new Error('Server error'),
+      { maintenanceMode: true },
+      { previous: previousData },
+    )
+
+    expect(mockSetQueryData).toHaveBeenCalledWith(['admin-settings'], previousData)
+    expect(toast.error).toHaveBeenCalledWith('Server error')
+  })
+
+  it('onError should not rollback when context has no previous data', () => {
+    const { toast } = jest.requireMock('sonner')
+
+    renderHook(() => useUpdateAdminSettings())
+    capturedMutationOpts.onError(new Error('Failed'), {}, undefined)
+
+    expect(mockSetQueryData).not.toHaveBeenCalled()
+    expect(toast.error).toHaveBeenCalledWith('Failed')
   })
 })
